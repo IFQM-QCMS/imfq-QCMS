@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
     <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
-    <link rel="preload" href="/assets/dist/auth-guard.72947852.min.js" as="script">
-    <script src="/assets/dist/auth-guard.72947852.min.js"></script>
+    <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
+    <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -257,7 +257,7 @@
         </div>
     </div>
 
-    <script src="/assets/dist/core-bundle.2f888e93.min.js"></script>
+    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
     <script src="/assets/dist/enterprise-validator.min.js"></script>
     <script src="/assets/dist/auth.min.js"></script>
     <script>
@@ -279,21 +279,12 @@
             const urlParams    = new URLSearchParams(window.location.search);
             const successMsgEl = document.getElementById('successMsg');
 
-            // Always clear stale auth tokens on login load so previous expired sessions never interfere
+            // Clear current tab session only on login page load, preserving active sessions in other tabs
             sessionStorage.removeItem('token');
             sessionStorage.removeItem('access_token');
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('role_permissions');
             sessionStorage.removeItem('octaqube_authenticated');
-            localStorage.removeItem('token');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('role_permissions');
-            localStorage.removeItem('octaqube_authenticated');
-
-            // Clear remembered credentials
-            localStorage.removeItem('octaqube_remember_me');
-            localStorage.removeItem('octaqube_remembered_username');
             if (urlParams.get('logout') === 'true' || urlParams.get('reason') === 'session_terminated') {
                 sessionStorage.clear();
             }

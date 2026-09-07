@@ -930,7 +930,11 @@ def _hard_delete_organization(org):
         # ── STEP 5: Notifications ─────────────────────────────────────────────
         db.session.execute(text(f"DELETE FROM notifications WHERE org_id = {org_id};"))
 
-        # ── STEP 6: Support tickets (CASCADE handles sub-records) ─────────────
+        # ── STEP 6: Support tickets (children before parent) ──────────────────
+        db.session.execute(text(f"DELETE FROM support_comments WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM support_attachments WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM support_escalations WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM support_audits WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
         db.session.execute(text(f"DELETE FROM support_tickets WHERE org_id = {org_id};"))
 
         # ── STEP 7: Employee & facilitator ────────────────────────────────────
@@ -967,7 +971,16 @@ def _hard_delete_organization(org):
         db.session.execute(text(f"DELETE FROM stage_8_standardization_knowledge_sharing_project_closure WHERE org_id = {org_id};"))
         db.session.execute(text(f"DELETE FROM project_stage_tracker WHERE org_id = {org_id};"))
 
-        # ── STEP 13: QC tools ─────────────────────────────────────────────────
+        # ── STEP 13: QC tools (children first, then parents) ──────────────────
+        db.session.execute(text(f"DELETE FROM qc_check_sheet_entries WHERE check_sheet_id IN (SELECT id FROM qc_check_sheets WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_check_sheet_rows WHERE check_sheet_id IN (SELECT id FROM qc_check_sheets WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_pareto_items WHERE pareto_chart_id IN (SELECT id FROM qc_pareto_charts WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_stratification_items WHERE stratification_id IN (SELECT id FROM qc_stratifications WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_process_steps WHERE process_map_id IN (SELECT id FROM qc_process_maps WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_fishbone_branches WHERE fishbone_id IN (SELECT id FROM qc_fishbone_diagrams WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_scatter_points WHERE scatter_diagram_id IN (SELECT id FROM qc_scatter_diagrams WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM qc_control_points WHERE control_chart_id IN (SELECT id FROM qc_control_charts WHERE org_id = {org_id});"))
+
         db.session.execute(text(f"DELETE FROM qc_check_sheets WHERE org_id = {org_id};"))
         db.session.execute(text(f"DELETE FROM qc_control_charts WHERE org_id = {org_id};"))
         db.session.execute(text(f"DELETE FROM qc_fishbone_diagrams WHERE org_id = {org_id};"))
@@ -991,22 +1004,22 @@ def _hard_delete_organization(org):
             db.session.execute(text(f"DELETE FROM training_archive WHERE archived_by_id IN {u_clause};"))
             db.session.execute(text(f"DELETE FROM training_assignments WHERE user_id IN {u_clause} OR assigned_by_id IN {u_clause};"))
             db.session.execute(text(f"DELETE FROM training_notifications WHERE user_id IN {u_clause};"))
+            db.session.execute(text(f"DELETE FROM training_certificates WHERE user_id IN {u_clause};"))
+            db.session.execute(text(f"DELETE FROM email_notification_rules WHERE created_by_id IN {u_clause};"))
+            db.session.execute(text(f"DELETE FROM email_notification_logs WHERE sent_by_id IN {u_clause};"))
+            db.session.execute(text(f"DELETE FROM sms_notification_logs WHERE sent_by_id IN {u_clause};"))
         db.session.execute(text(f"DELETE FROM training_audit_reports WHERE org_id = {org_id};"))
 
         # ── STEP 17: SOP children BEFORE sop_master ───────────────────────────
-        db.session.execute(text(f"""
-            DELETE FROM sop_approvals
-            WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});
-        """))
-        db.session.execute(text(f"""
-            DELETE FROM sop_comments
-            WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});
-        """))
-        db.session.execute(text(f"""
-            DELETE FROM sop_versions
-            WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});
-        """))
+        db.session.execute(text(f"DELETE FROM sop_steps WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM sop_approvals WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM sop_comments WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM sop_versions WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM training_assessments WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
+        db.session.execute(text(f"DELETE FROM assessment_questions WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
         db.session.execute(text(f"DELETE FROM sop_master WHERE org_id = {org_id};"))
+        db.session.execute(text(f"DELETE FROM sop_categories WHERE org_id = {org_id};"))
+        db.session.execute(text(f"DELETE FROM sop_types WHERE org_id = {org_id};"))
 
         # ── STEP 18: Knowledge & compliance ───────────────────────────────────
         db.session.execute(text(f"DELETE FROM knowledge_repository WHERE org_id = {org_id};"))
@@ -1441,177 +1454,159 @@ def bulk_action_companies():
     
     return jsonify({"status": "success", "message": f"Successfully performed action '{action}' on {count} organizations."})
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: get_company_users (Lines 1441-1503)
-# Reason: Tenant user sub-list; super-admin uses /companies details modal.
-# ==============================================================================
-# @super_admin_bp.route('/companies/<int:org_id>/users', methods=['GET'])
-# @jwt_required()
-# @super_admin_required()
-# def get_company_users(org_id):
-#     """List users belonging to this organization with search and pagination"""
-#     org = Organization.query.get_or_404(org_id)
+@super_admin_bp.route('/companies/<int:org_id>/users', methods=['GET'])
+@jwt_required()
+@super_admin_required()
+def get_company_users(org_id):
+    """List users belonging to this organization with search and pagination"""
+    org = Organization.query.get_or_404(org_id)
 
-#     search_q = request.args.get('q', '').strip() or request.args.get('search', '').strip()
-#     page = request.args.get('page', type=int)
-#     per_page = request.args.get('per_page', 5, type=int)
+    search_q = request.args.get('q', '').strip() or request.args.get('search', '').strip()
+    page = request.args.get('page', type=int)
+    per_page = request.args.get('per_page', 5, type=int)
 
-#     query = User.query.filter(User.org_id == org_id)
+    query = User.query.filter(User.org_id == org_id)
 
-#     if search_q:
-#         search_pattern = f"%{search_q}%"
-#         query = query.filter(
-#             db.or_(
-#                 User.username.ilike(search_pattern),
-#                 User.email.ilike(search_pattern),
-#                 User.full_name.ilike(search_pattern)
-#             )
-#         )
+    if search_q:
+        search_pattern = f"%{search_q}%"
+        query = query.filter(
+            db.or_(
+                User.username.ilike(search_pattern),
+                User.email.ilike(search_pattern),
+                User.full_name.ilike(search_pattern)
+            )
+        )
 
-#     query = query.order_by(User.id.asc())
+    query = query.order_by(User.id.asc())
 
-#     if page is not None:
-#         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
-#         users = paginated.items
-#         total = paginated.total
-#         total_pages = paginated.pages
-#     else:
-#         users = query.all()
-#         total = len(users)
-#         total_pages = 1
-#         page = 1
-#         per_page = total if total > 0 else 5
+    if page is not None:
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+        users = paginated.items
+        total = paginated.total
+        total_pages = paginated.pages
+    else:
+        users = query.all()
+        total = len(users)
+        total_pages = 1
+        page = 1
+        per_page = total if total > 0 else 5
 
-#     output = []
-#     for u in users:
-#         role_name = u.role.name if hasattr(u, 'role') and hasattr(u.role, 'name') else (str(u.role) if getattr(u, 'role', None) else 'Member')
-#         status_name = u.status if hasattr(u, 'status') and u.status else ('Active' if u.is_active else 'Inactive')
-#         output.append({
-#             "id": u.id,
-#             "username": u.username,
-#             "email": u.email,
-#             "full_name": u.full_name or '—',
-#             "role": role_name,
-#             "status": status_name,
-#             "is_active": u.is_active,
-#             "created_at": u.created_at.isoformat() if u.created_at else None,
-#             "last_login": u.last_login.isoformat() if u.last_login else None
-#         })
+    output = []
+    for u in users:
+        role_name = u.role.name if hasattr(u, 'role') and hasattr(u.role, 'name') else (str(u.role) if getattr(u, 'role', None) else 'Member')
+        status_name = u.status if hasattr(u, 'status') and u.status else ('Active' if u.is_active else 'Inactive')
+        output.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "full_name": u.full_name or '—',
+            "role": role_name,
+            "status": status_name,
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login": u.last_login.isoformat() if u.last_login else None
+        })
 
-#     return jsonify({
-#         "status": "success",
-#         "data": output,
-#         "pagination": {
-#             "page": page,
-#             "per_page": per_page,
-#             "total": total,
-#             "total_pages": total_pages
-#         }
-#     })
-# [END DEAD CODE: get_company_users]
+    return jsonify({
+        "status": "success",
+        "data": output,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages
+        }
+    })
 
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: get_company_logs (Lines 1505-1528)
-# Reason: Tenant log sub-list.
-# ==============================================================================
-# @super_admin_bp.route('/companies/<int:org_id>/logs', methods=['GET'])
-# @jwt_required()
-# @super_admin_required()
-# def get_company_logs(org_id):
-#     """Get audit logs specific to this organization"""
-#     org = Organization.query.get_or_404(org_id)
-#     logs = SuperAdminLog.query.filter(
-#         db.or_(
-#             db.and_(SuperAdminLog.target_type == 'Organization', SuperAdminLog.target_id == org_id),
-#             db.and_(SuperAdminLog.target_type == 'User', SuperAdminLog.target_id.in_(db.session.query(User.id).filter_by(org_id=org_id)))
-#         )
-#     ).order_by(SuperAdminLog.created_at.desc()).limit(100).all()
+@super_admin_bp.route('/companies/<int:org_id>/logs', methods=['GET'])
+@jwt_required()
+@super_admin_required()
+def get_company_logs(org_id):
+    """Get audit logs specific to this organization"""
+    org = Organization.query.get_or_404(org_id)
+    logs = SuperAdminLog.query.filter(
+        db.or_(
+            db.and_(SuperAdminLog.target_type == 'Organization', SuperAdminLog.target_id == org_id),
+            db.and_(SuperAdminLog.target_type == 'User', SuperAdminLog.target_id.in_(db.session.query(User.id).filter_by(org_id=org_id)))
+        )
+    ).order_by(SuperAdminLog.created_at.desc()).limit(100).all()
 
-#     output = []
-#     for log in logs:
-#         output.append({
-#             "id": log.id,
-#             "admin": log.admin.username if log.admin else "System",
-#             "action": log.action,
-#             "target": f"{log.target_type} ({log.target_id})" if log.target_type else "System",
-#             "ip": log.ip_address,
-#             "timestamp": log.created_at.isoformat()
-#         })
-#     return jsonify({"status": "success", "data": output})
-# [END DEAD CODE: get_company_logs]
+    output = []
+    for log in logs:
+        output.append({
+            "id": log.id,
+            "admin": log.admin.username if log.admin else "System",
+            "action": log.action,
+            "target": f"{log.target_type} ({log.target_id})" if log.target_type else "System",
+            "ip": log.ip_address,
+            "timestamp": log.created_at.isoformat()
+        })
+    return jsonify({"status": "success", "data": output})
 
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: update_company_plan (Lines 1530-1591)
-# Reason: Legacy plan change route.
-# ==============================================================================
-# @super_admin_bp.route('/companies/<int:org_id>/plan', methods=['PUT'])
-# @jwt_required()
-# @super_admin_required()
-# @sub_role_write_required('organizations')
-# def update_company_plan(org_id):
-#     """Change an organization's subscription plan"""
-#     org = Organization.query.get_or_404(org_id)
-#     data = request.json
+@super_admin_bp.route('/companies/<int:org_id>/plan', methods=['PUT'])
+@jwt_required()
+@super_admin_required()
+@sub_role_write_required('organizations')
+def update_company_plan(org_id):
+    """Change an organization's subscription plan"""
+    org = Organization.query.get_or_404(org_id)
+    data = request.json
 
-#     new_plan = data.get('plan')
-#     if not new_plan:
-#         return jsonify({"msg": "Plan name is required."}), 400
+    new_plan = data.get('plan')
+    if not new_plan:
+        return jsonify({"msg": "Plan name is required."}), 400
 
-#     old_plan = org.subscription_plan
-#     org.subscription_plan = new_plan
-#     plan_name_clean = str(new_plan).strip().lower()
-#     if plan_name_clean not in ('trial', 'trialing', 'default trial plan', ''):
-#         if org.subscription_status in ('Trialing', 'Trial', 'On Trial', None, ''):
-#             org.subscription_status = 'Active'
-#         sub = Subscription.query.filter_by(org_id=org.id).order_by(Subscription.id.desc()).first()
-#         if sub:
-#             sub.plan_name = new_plan
-#             if sub.subscription_status in ('Trial', 'Trialing'):
-#                 sub.subscription_status = 'Active'
+    old_plan = org.subscription_plan
+    org.subscription_plan = new_plan
+    plan_name_clean = str(new_plan).strip().lower()
+    if plan_name_clean not in ('trial', 'trialing', 'default trial plan', ''):
+        if org.subscription_status in ('Trialing', 'Trial', 'On Trial', None, ''):
+            org.subscription_status = 'Active'
+        sub = Subscription.query.filter_by(org_id=org.id).order_by(Subscription.id.desc()).first()
+        if sub:
+            sub.plan_name = new_plan
+            if sub.subscription_status in ('Trial', 'Trialing'):
+                sub.subscription_status = 'Active'
 
-#     clean_plan = new_plan.strip()
-#     saas_plan = SaaSPlan.query.filter(
-#         (func.lower(func.trim(SaaSPlan.name)) == clean_plan.lower()) |
-#         (func.lower(func.trim(SaaSPlan.code)) == clean_plan.lower())
-#     ).first()
-#     if saas_plan:
-#         limits = getattr(saas_plan, 'limits', None)
-#         if limits and getattr(limits, 'max_users', None) is not None:
-#             org.max_users = limits.max_users
-#         elif hasattr(saas_plan, 'max_users') and saas_plan.max_users:
-#             org.max_users = saas_plan.max_users
-#         if limits and getattr(limits, 'storage_limit_gb', None) is not None:
-#             org.storage_limit_mb = limits.storage_limit_gb * 1024
-#         elif hasattr(saas_plan, 'storage_limit_gb') and saas_plan.storage_limit_gb:
-#             org.storage_limit_mb = saas_plan.storage_limit_gb * 1024
-#     else:
-#         plan_features = {
-#             'Starter': {'max_users': 50, 'is_white_label': False, 'api_access': False, 'multi_plant': False},
-#             'Professional': {'max_users': 500, 'is_white_label': False, 'api_access': True, 'multi_plant': False},
-#             'Enterprise': {'max_users': 99999, 'is_white_label': True, 'api_access': True, 'multi_plant': True}
-#         }
-#         features = plan_features.get(new_plan, {})
-#         org.max_users = features.get('max_users', org.max_users)
-#         org.is_white_label = features.get('is_white_label', org.is_white_label)
-#         org.api_access = features.get('api_access', org.api_access)
-#         org.multi_plant = features.get('multi_plant', org.multi_plant)
+    clean_plan = new_plan.strip()
+    saas_plan = SaaSPlan.query.filter(
+        (func.lower(func.trim(SaaSPlan.name)) == clean_plan.lower()) |
+        (func.lower(func.trim(SaaSPlan.code)) == clean_plan.lower())
+    ).first()
+    if saas_plan:
+        limits = getattr(saas_plan, 'limits', None)
+        if limits and getattr(limits, 'max_users', None) is not None:
+            org.max_users = limits.max_users
+        elif hasattr(saas_plan, 'max_users') and saas_plan.max_users:
+            org.max_users = saas_plan.max_users
+        if limits and getattr(limits, 'storage_limit_gb', None) is not None:
+            org.storage_limit_mb = limits.storage_limit_gb * 1024
+        elif hasattr(saas_plan, 'storage_limit_gb') and saas_plan.storage_limit_gb:
+            org.storage_limit_mb = saas_plan.storage_limit_gb * 1024
+    else:
+        plan_features = {
+            'Starter': {'max_users': 50, 'is_white_label': False, 'api_access': False, 'multi_plant': False},
+            'Professional': {'max_users': 500, 'is_white_label': False, 'api_access': True, 'multi_plant': False},
+            'Enterprise': {'max_users': 99999, 'is_white_label': True, 'api_access': True, 'multi_plant': True}
+        }
+        features = plan_features.get(new_plan, {})
+        org.max_users = features.get('max_users', org.max_users)
+        org.is_white_label = features.get('is_white_label', org.is_white_label)
+        org.api_access = features.get('api_access', org.api_access)
+        org.multi_plant = features.get('multi_plant', org.multi_plant)
 
-#     db.session.commit()
+    db.session.commit()
 
-#     log_admin_action(
-#         f"Changed company plan from {old_plan} to {new_plan}",
-#         target_type="Organization",
-#         target_id=org.id,
-#         details=f"Features updated: max_users={org.max_users}, white_label={org.is_white_label}, api={org.api_access}"
-#     )
+    log_admin_action(
+        f"Changed company plan from {old_plan} to {new_plan}",
+        target_type="Organization",
+        target_id=org.id,
+        details=f"Features updated: max_users={org.max_users}, white_label={org.is_white_label}, api={org.api_access}"
+    )
 
-#     return jsonify({"status": "success", "message": f"Plan changed from {old_plan} to {new_plan}"})
-# [END DEAD CODE: update_company_plan]
+    return jsonify({"status": "success", "message": f"Plan changed from {old_plan} to {new_plan}"})
 
 
 @super_admin_bp.route('/trial-extensions', methods=['GET'])
@@ -1675,79 +1670,86 @@ def get_trial_extension_requests():
 
     return jsonify({"status": "success", "data": results})
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: extend_company_trial (Lines 1654-1720)
-# Reason: Legacy trial extension. Replaced by /trial/<sub_id>/extend.
-# ==============================================================================
-# @super_admin_bp.route('/companies/<int:org_id>/trial', methods=['PUT'])
-# @jwt_required()
-# @super_admin_required()
-# def extend_company_trial(org_id):
-#     """Extend or set a trial end date for an organization"""
-#     org = Organization.query.get_or_404(org_id)
-#     data = request.json or {}
+@super_admin_bp.route('/companies/<int:org_id>/trial', methods=['PUT', 'POST'])
+@jwt_required()
+@super_admin_required()
+def extend_company_trial(org_id):
+    """Extend or set a trial end date for an organization"""
+    try:
+        org = Organization.query.get_or_404(org_id)
+        data = request.json or {}
 
-#     days = data.get('days')
-#     new_date_str = data.get('trial_ends_at')
+        days = data.get('days')
+        new_date_str = data.get('trial_ends_at')
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-#     if days is not None:
-#         try:
-#             days = int(days)
-#             new_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days)
-#         except ValueError:
-#             return jsonify({"msg": "Invalid days value"}), 400
-#     elif new_date_str:
-#         try:
-#             new_date = datetime.fromisoformat(new_date_str.replace('Z', '+00:00')).replace(tzinfo=None)
-#         except (ValueError, AttributeError):
-#             return jsonify({"msg": "Invalid date format. Use ISO format (YYYY-MM-DD)"}), 400
-#     else:
-#         return jsonify({"msg": "Either 'days' or 'trial_ends_at' date is required"}), 400
+        if days is not None:
+            try:
+                days = int(days)
+                base_date = org.trial_ends_at if (org.trial_ends_at and org.trial_ends_at > now) else now
+                new_date = base_date + timedelta(days=days)
+            except ValueError:
+                return jsonify({"msg": "Invalid days value"}), 400
+        elif new_date_str:
+            try:
+                new_date = datetime.fromisoformat(new_date_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            except (ValueError, AttributeError):
+                return jsonify({"msg": "Invalid date format. Use ISO format (YYYY-MM-DD)"}), 400
+        else:
+            return jsonify({"msg": "Either 'days' or 'trial_ends_at' date is required"}), 400
 
-#     old_date = org.trial_ends_at.isoformat() if org.trial_ends_at else 'None'
-#     org.trial_ends_at = new_date
-#     org.license_expiry_date = new_date
-#     org.subscription_status = 'Trialing'
+        old_date = org.trial_ends_at.isoformat() if org.trial_ends_at else 'None'
+        org.trial_ends_at = new_date
+        org.license_expiry_date = new_date
+        org.subscription_status = 'Trialing'
+        org.trial_extension_count = (getattr(org, 'trial_extension_count', 0) or 0) + 1
 
-#     # Update trial extension metrics in security_settings
-#     sec_settings = dict(getattr(org, 'security_settings', {}) or {})
-#     manual_count = sec_settings.get('manual_approved_trial_extensions', 0) + 1
-#     sec_settings['manual_approved_trial_extensions'] = manual_count
+        # Update trial extension metrics in security_settings
+        sec_settings = dict(getattr(org, 'security_settings', {}) or {})
+        manual_count = sec_settings.get('manual_approved_trial_extensions', 0) + 1
+        sec_settings['manual_approved_trial_extensions'] = manual_count
 
-#     pending = sec_settings.get('pending_trial_extension')
-#     if pending and pending.get('status') == 'Pending':
-#         pending['status'] = 'Approved'
-#         pending['approved_at'] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-#         pending['approved_by'] = 'SuperAdmin'
-#         sec_settings['pending_trial_extension'] = pending
+        pending = sec_settings.get('pending_trial_extension')
+        if pending and pending.get('status') == 'Pending':
+            pending['status'] = 'Approved'
+            pending['approved_at'] = now.isoformat()
+            pending['approved_by'] = 'SuperAdmin'
+            pending['approval_type'] = 'Manual'
+            sec_settings['pending_trial_extension'] = pending
 
-#     total_reqs = sec_settings.get('total_trial_requests', 0)
-#     sec_settings['total_trial_requests'] = max(total_reqs, sec_settings.get('auto_approved_trial_extensions', 0) + manual_count)
+        total_reqs = sec_settings.get('total_trial_requests', 0)
+        sec_settings['total_trial_requests'] = max(total_reqs, sec_settings.get('auto_approved_trial_extensions', 0) + manual_count)
 
-#     org.security_settings = sec_settings
-#     from sqlalchemy.orm.attributes import flag_modified
-#     flag_modified(org, 'security_settings')
+        org.security_settings = sec_settings
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(org, 'security_settings')
 
-#     # Also sync subscription model if present
-#     sub = Subscription.query.filter_by(org_id=org.id).first()
-#     if not sub:
-#         sub = Subscription.query.filter_by(organization_id=org.id).first()
-#     if sub:
-#         sub.trial_end_date = org.trial_ends_at
-#         sub.end_date = org.trial_ends_at
-#         sub.subscription_status = 'Trial'
+        # Also sync subscription model if present
+        sub = Subscription.query.filter_by(org_id=org.id).first()
+        if sub:
+            sub.trial_end_date = org.trial_ends_at
+            sub.end_date = org.trial_ends_at
+            sub.subscription_status = 'Trial'
 
-#     db.session.commit()
+        db.session.commit()
 
-#     log_admin_action(
-#         f"Manually extended trial from {old_date} to {new_date.isoformat()}",
-#         target_type="Organization",
-#         target_id=org.id
-#     )
+        try:
+            log_admin_action(
+                f"Manually extended trial from {old_date} to {new_date.isoformat()}",
+                target_type="Organization",
+                target_id=org.id
+            )
+        except Exception as log_err:
+            print(f"[SuperAdmin] Could not log admin action: {log_err}")
 
-#     return jsonify({"status": "success", "message": f"Trial extended to {new_date.strftime('%b %d, %Y')}"})
-# [END DEAD CODE: extend_company_trial]
+        return jsonify({
+            "status": "success",
+            "message": f"Trial extended to {new_date.strftime('%b %d, %Y')}",
+            "trial_ends_at": new_date.isoformat()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return internal_server_error(e, "Failed to extend organization trial.")
 
 
 @super_admin_bp.route('/companies/<int:org_id>/status', methods=['PUT'])
@@ -2600,6 +2602,24 @@ def platform_settings():
                 'maintenance_settings', 'system_settings', 'landing_cms_settings']:
         if cat in data:
             _save_category(s, cat, data[cat])
+
+    if 'branding_settings' in data and isinstance(data['branding_settings'], dict):
+        b_set = data['branding_settings']
+        l_url = b_set.get('logo_url') or (b_set.get('assets', {}).get('main-logo') if isinstance(b_set.get('assets'), dict) else None)
+        try:
+            from app.infrastructure.database.models.models import BrandingAssetsConfig
+            from app.domain.services.document_branding_service import DocumentBrandingService
+            assets_cfg = BrandingAssetsConfig.query.filter_by(org_id=None).first()
+            if not assets_cfg:
+                assets_cfg = BrandingAssetsConfig(org_id=None)
+                db.session.add(assets_cfg)
+            if l_url:
+                assets_cfg.logo_url = l_url
+                assets_cfg.print_logo_url = l_url
+                assets_cfg.pdf_logo_url = l_url
+            DocumentBrandingService.invalidate_cache()
+        except Exception:
+            pass
 
     # Sync maintenance_mode from maintenance_settings if present
     maint = _get_category(s, 'maintenance_settings')

@@ -373,7 +373,8 @@ const OctaQube = {
     getDashboardUrl(role) {
         const norm = this.normalizeRole(role || (this.user && this.user.role));
         if (norm === 'SuperAdmin') return '/admin/super-admin.html';
-        if (norm === 'Admin' || norm === 'CEO') return '/dashboard/dashboard-admin.html';
+        if (norm === 'Admin') return '/dashboard/dashboard-admin.html';
+        if (norm === 'CEO') return '/dashboard/dashboard-ceo.html';
         if (norm === 'Facilitator') return '/dashboard/dashboard-facilitator.html';
         if (norm === 'Reviewer') return '/dashboard/dashboard-reviewer.html';
         if (norm === 'Team Leader') return '/dashboard/dashboard-team-member.html';
@@ -494,7 +495,10 @@ const OctaQube = {
         if (!this.user && !this.isPublicOrAuthPage()) {
             const path = window.location.pathname.toLowerCase();
             const fallbackRole = path.includes('super-admin') ? 'SuperAdmin' :
-                                 (path.includes('/admin/') ? 'Admin' : 'Team Member');
+                                 (path.includes('dashboard-admin') || path.includes('/admin/')) ? 'Admin' :
+                                 path.includes('dashboard-reviewer') ? 'Reviewer' :
+                                 path.includes('dashboard-facilitator') ? 'Facilitator' :
+                                 path.includes('dashboard-ceo') ? 'CEO' : 'Team Member';
             this.user = {
                 id: 'active_session',
                 full_name: 'Enterprise User',
@@ -822,7 +826,8 @@ const OctaQube = {
 
             let changed = false;
             const brandingFields = [
-                'org_primary_color', 'org_logo_url', 'org_favicon_url', 'org_name'
+                'org_primary_color', 'org_logo_url', 'org_favicon_url', 'org_name',
+                'platform_logo_url', 'platform_favicon_url', 'platform_short_name', 'platform_subtitle'
             ];
             for (const field of brandingFields) {
                 if (profile[field] !== undefined && user[field] !== profile[field]) {
@@ -850,9 +855,30 @@ const OctaQube = {
      */
     applyBranding() {
         if (!this.user) return;
+        try {
+        const isSuperAdmin = (this.user.role === 'SuperAdmin' || this.user.role === 'Super Admin');
         const color = this.user.org_primary_color;
-        const faviconUrl = this.user.org_favicon_url;
-        const logoUrl = this.user.org_logo_url;
+
+        let customPlatformLogo = null;
+        let customPlatformFavicon = null;
+        try {
+            const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+            customPlatformLogo = savedAssets['main-logo'] || savedAssets['logo'];
+            customPlatformFavicon = savedAssets['favicon'];
+            if (!customPlatformLogo || !customPlatformFavicon) {
+                const savedConfig = JSON.parse(localStorage.getItem('octaqube_branding_config') || '{}');
+                if (!customPlatformLogo) customPlatformLogo = savedConfig.assets?.['main-logo'] || savedConfig.logo_url;
+                if (!customPlatformFavicon) customPlatformFavicon = savedConfig.assets?.['favicon'] || savedConfig.favicon_url;
+            }
+        } catch (_) {}
+
+        const faviconUrl = isSuperAdmin
+            ? (customPlatformFavicon || this.user.platform_favicon_url || this.user.org_favicon_url)
+            : (this.user.org_favicon_url || customPlatformFavicon);
+
+        const logoUrl = isSuperAdmin
+            ? (customPlatformLogo || this.user.platform_logo_url)
+            : (this.user.org_logo_url || customPlatformLogo);
 
         if (color) {
             // Apply primary color to CSS variables
@@ -886,53 +912,75 @@ const OctaQube = {
             }
         }
 
-        let link = document.querySelector("link[rel~='icon']");
-        if (!link) {
-            link = document.createElement('link');
-            link.rel = 'icon';
-            document.getElementsByTagName('head')[0].appendChild(link);
-        }
-        
         if (faviconUrl) {
-            link.href = faviconUrl;
+            document.querySelectorAll("link[rel*='icon']").forEach(el => el.remove());
+            const linkIcon = document.createElement('link');
+            linkIcon.rel = 'icon';
+            linkIcon.type = 'image/png';
+            linkIcon.href = faviconUrl;
+            document.head.appendChild(linkIcon);
+
+            const linkShortcut = document.createElement('link');
+            linkShortcut.rel = 'shortcut icon';
+            linkShortcut.type = 'image/x-icon';
+            linkShortcut.href = faviconUrl;
+            document.head.appendChild(linkShortcut);
         } else {
-            // Default OctaQube Shield Favicon
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
             link.href = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%230f172a" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>';
         }
 
+        const orgName = (this.user && this.user.org_name) ? this.user.org_name : (this.user.platform_short_name || 'OctaQube');
+        const shortName = isSuperAdmin
+            ? (this.user.platform_short_name || this.user.software_name || this.user.software_display_name || 'OctaQube')
+            : (this.user.org_name || this.user.platform_short_name || 'OctaQube');
+        const displaySub = isSuperAdmin
+            ? (this.user.platform_subtitle || 'ENTERPRISE OS')
+            : 'WORKSPACE';
+
         // Update sidebar logo if it's already rendered
         const sidebarBrand = document.querySelector('.sidebar-brand');
-        const orgName = (this.user && this.user.org_name) ? this.user.org_name : 'OctaQube';
         if (sidebarBrand) {
-            if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None') {
+            if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
                 let img = sidebarBrand.querySelector('img');
                 if (!img) {
-                    sidebarBrand.innerHTML = `<img src="${logoUrl}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;">
-                                              <div class="brand-text">${OctaQube.escapeHtml(orgName)} <small style="color:var(--ds-accent); opacity:1;">Workspace</small></div>`;
+                    const brandIcon = sidebarBrand.querySelector('.brand-icon');
+                    if (brandIcon) {
+                        const newImg = document.createElement('img');
+                        newImg.src = logoUrl;
+                        newImg.alt = 'Logo';
+                        newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
+                        brandIcon.replaceWith(newImg);
+                    } else {
+                        sidebarBrand.innerHTML = `<img src="${logoUrl}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;">
+                                                  <div class="brand-text">${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small></div>`;
+                    }
                 } else {
                     img.src = logoUrl;
-                    const bt = sidebarBrand.querySelector('.brand-text');
-                    if (bt) bt.innerHTML = `${OctaQube.escapeHtml(orgName)} <small style="color:var(--ds-accent); opacity:1;">Workspace</small>`;
                 }
-            } else {
-                sidebarBrand.innerHTML = `<div class="brand-icon" style="background: var(--ds-accent);">
-                                            <i data-lucide="shield-check" style="color:white;"></i>
-                                          </div>
-                                          <div class="brand-text">${OctaQube.escapeHtml(orgName)} <small style="color:var(--ds-accent); opacity:1;">Enterprise OS</small></div>`;
-                if (window.lucide) lucide.createIcons();
             }
         }
 
         // Update breadcrumb root text dynamically
-        if (window.Breadcrumbs && typeof window.Breadcrumbs.updateOrgName === 'function') {
-            window.Breadcrumbs.updateOrgName(orgName);
-        } else {
-            const rootBreadcrumbs = document.querySelectorAll('.glass-breadcrumb .breadcrumb-item:first-child a, .org-breadcrumb-root');
-            if (rootBreadcrumbs.length > 0 && orgName) {
-                rootBreadcrumbs.forEach(el => {
-                    el.textContent = orgName;
-                });
+        try {
+            if (window.Breadcrumbs && typeof window.Breadcrumbs.updateOrgName === 'function') {
+                window.Breadcrumbs.updateOrgName(orgName);
+            } else {
+                const rootBreadcrumbs = document.querySelectorAll('.glass-breadcrumb .breadcrumb-item:first-child a, .org-breadcrumb-root');
+                if (rootBreadcrumbs.length > 0 && orgName) {
+                    rootBreadcrumbs.forEach(el => {
+                        el.textContent = orgName;
+                    });
+                }
             }
+        } catch (_) {}
+        } catch (err) {
+            console.warn('[OctaQube] applyBranding non-fatal error:', err);
         }
     },
 
@@ -1102,9 +1150,9 @@ const OctaQube = {
             navItems = [
                 {
                     label: 'Executive',
-                    url: '/dashboard/dashboard-admin.html',
+                    url: '/dashboard/dashboard-ceo.html',
                     icon: 'layout-dashboard',
-                    isActive: currentPath.includes('dashboard-admin.html') || currentPath.includes('dashboard-ceo.html')
+                    isActive: currentPath.includes('dashboard-ceo.html')
                 }
             ];
             if (canReports) {
@@ -1810,9 +1858,20 @@ const OctaQube = {
             ? (user.platform_subtitle || 'ENTERPRISE OS')
             : 'WORKSPACE';
 
+        // Check local brand assets first for custom uploaded logo
+        let customPlatformLogo = null;
+        try {
+            const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+            customPlatformLogo = savedAssets['main-logo'] || savedAssets['logo'];
+            if (!customPlatformLogo) {
+                const savedConfig = JSON.parse(localStorage.getItem('octaqube_branding_config') || '{}');
+                customPlatformLogo = savedConfig.assets?.['main-logo'] || savedConfig.logo_url;
+            }
+        } catch (_) {}
+
         // Strictly separate: SuperAdmin → platform logo, Org users → org logo only
         const logoUrl = isSuperAdmin
-            ? (user.platform_logo_url)
+            ? (customPlatformLogo || user.platform_logo_url)
             : (user.org_logo_url);
 
         let logoIconHtml = `
@@ -2101,13 +2160,28 @@ const OctaQube = {
             await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
         } catch (_) {}
         try {
+            let currentTabUserId = null;
+            try {
+                const currentTabUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+                currentTabUserId = currentTabUser.id || currentTabUser.user_id || currentTabUser.username;
+            } catch (_) {}
+
+            let localUserId = null;
+            try {
+                const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+                localUserId = localUser.id || localUser.user_id || localUser.username;
+            } catch (_) {}
+
             sessionStorage.clear();
-            localStorage.removeItem('octaqube_authenticated');
-            localStorage.removeItem('token');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('role_permissions');
-            sessionStorage.removeItem('role_permissions');
+
+            // Only clear localStorage if it belongs to this tab's user, preserving other active tabs' sessions
+            if (!currentTabUserId || !localUserId || currentTabUserId === localUserId) {
+                localStorage.removeItem('octaqube_authenticated');
+                localStorage.removeItem('token');
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('role_permissions');
+            }
         } catch (_) {}
         window.location.replace('/auth/login.html?logout=true');
     },
@@ -3424,6 +3498,26 @@ OctaQube.escapeHtml = function(str) {
 OctaQube._cachedCategories = null;
 OctaQube._categoryFetchPromise = null;
 
+OctaQube.statusColor = function(status) {
+    if (!status) return 'gray';
+    const s = String(status).trim().toLowerCase();
+    if (s.includes('approv') || s.includes('complete') || s.includes('active') || s.includes('resolved') || s.includes('closed') || s.includes('passed')) return 'green';
+    if (s.includes('progress') || s.includes('review') || s.includes('pending') || s.includes('trial')) return 'blue';
+    if (s.includes('delay') || s.includes('hold') || s.includes('warn') || s.includes('revis')) return 'orange';
+    if (s.includes('reject') || s.includes('fail') || s.includes('danger') || s.includes('suspend') || s.includes('stuck') || s.includes('stopped')) return 'red';
+    return 'gray';
+};
+
+OctaQube.enforceUIPermissions = function() {
+    try {
+        if (typeof OctaQube.applyUIPermissions === 'function') {
+            OctaQube.applyUIPermissions();
+        }
+    } catch (e) {
+        console.warn('[OctaQube] enforceUIPermissions non-fatal error:', e);
+    }
+};
+
 OctaQube.loadCategories = async function(forceRefresh = false) {
     if (OctaQube._cachedCategories && !forceRefresh) {
         return OctaQube._cachedCategories;
@@ -3433,6 +3527,19 @@ OctaQube.loadCategories = async function(forceRefresh = false) {
     }
 
     const defaultCategories = ['Quality', 'Cost', 'Delivery', 'Safety', 'Morale', 'Environment', 'Productivity'];
+
+    // Never attempt remote authenticated fetch on public or auth pages
+    if (typeof OctaQube.isPublicOrAuthPage === 'function' && OctaQube.isPublicOrAuthPage()) {
+        OctaQube._cachedCategories = defaultCategories;
+        return defaultCategories;
+    }
+
+    const hasToken = (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('token') || sessionStorage.getItem('access_token'))) ||
+                     (typeof localStorage !== 'undefined' && (localStorage.getItem('token') || localStorage.getItem('access_token')));
+    if (!hasToken) {
+        OctaQube._cachedCategories = defaultCategories;
+        return defaultCategories;
+    }
 
     OctaQube._categoryFetchPromise = (async () => {
         try {
@@ -3458,6 +3565,10 @@ OctaQube.loadCategories = async function(forceRefresh = false) {
 
 OctaQube.populateCategorySelects = async function(targetContainer) {
     try {
+        if (typeof OctaQube.isPublicOrAuthPage === 'function' && OctaQube.isPublicOrAuthPage()) {
+            return;
+        }
+
         const categories = await OctaQube.loadCategories();
         const root = targetContainer || document;
         
@@ -3510,6 +3621,7 @@ OctaQube.refreshIcons = function() {
 
 // Auto-populate Category dropdowns on page load and modal open
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof OctaQube.isPublicOrAuthPage === 'function' && OctaQube.isPublicOrAuthPage()) return;
     OctaQube.populateCategorySelects();
 });
 

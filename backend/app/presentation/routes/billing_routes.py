@@ -1100,6 +1100,34 @@ def approve_offline_payment(proof_id):
         billing_period_end=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=365 if cycle in ('Yearly', 'Annual') else 30)
     )
     db.session.add(payment)
+    db.session.flush()
+
+    # Record matching SubscriptionInvoice with Paid status
+    inv_date = proof.created_at or datetime.now(timezone.utc).replace(tzinfo=None)
+    inv_num = f"INV/{inv_date.strftime('%Y%m')}/{org.id:04d}-{payment.id:04d}"
+    invoice = SubscriptionInvoice(
+        org_id=org.id,
+        invoice_number=inv_num,
+        invoice_uid=f"INV-OFFLINE-{proof.id}",
+        plan_name=resolved_name,
+        billing_cycle=proof.billing_cycle or cycle,
+        base_amount=base_price,
+        discount_amount=0.0,
+        gst_percent=18.0,
+        gst_amount=gst,
+        total_amount=total_price,
+        currency=proof.currency or 'INR',
+        invoice_status='Paid',
+        invoice_type='subscription',
+        payment_id=payment.id,
+        invoice_date=inv_date,
+        due_date=inv_date,
+        billing_period_start=payment.billing_period_start,
+        billing_period_end=payment.billing_period_end
+    )
+    db.session.add(invoice)
+    db.session.flush()
+    payment.invoice_id = invoice.id
 
     # Notify Org Admin
     db.session.add(Notification(

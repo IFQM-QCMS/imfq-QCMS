@@ -4055,7 +4055,7 @@ const AnnouncementsModule = {
     },
 
     async openTestEmailModal(ruleId) {
-        const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+        const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
         const user = userStr ? JSON.parse(userStr) : {};
         const defaultEmail = user.email || 'harshithkd6@gmail.com';
 

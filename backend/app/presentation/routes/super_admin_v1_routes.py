@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, jsonify, request, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.infrastructure.database.models.models import (
-    db, User, Organization, SupportTicket, SubscriptionPayment, SuperAdminLog, 
+    db, User, Organization, SupportTicket, SubscriptionPayment, SubscriptionInvoice, SuperAdminLog, 
     Subscription, SaaSPlan, SaaSPlanPricing, Project, KnowledgeRepository, 
     ProjectWorkflow, Department, Stage8Implementation, Stage7Impact, Plant, ProjectMember
 )
@@ -153,30 +153,74 @@ def get_dashboard_stats():
         Organization.is_platform_org == False
     ).count()
     
-    # 2. Paid Organizations (orgs on a real paid subscription, not trial)
+    # 2. Paid Organizations (Strictly customer tenants that have made completed payments > 0, paid invoices > 0, or hold active non-trial paid subscriptions > 0)
+    paid_org_ids = set()
+    
+    # 2a. Orgs with completed payments > 0
+    for row in db.session.query(SubscriptionPayment.org_id).join(
+        Organization, SubscriptionPayment.org_id == Organization.id
+    ).filter(
+        Organization.is_platform_org == False,
+        Organization.is_deleted == False,
+        SubscriptionPayment.payment_status.in_(['Completed', 'Paid', 'COMPLETED', 'PAID', 'SUCCESS']),
+        func.coalesce(SubscriptionPayment.final_amount, SubscriptionPayment.amount, 0) > 0
+    ).distinct().all():
+        if row[0]:
+            paid_org_ids.add(row[0])
+
+    # 2b. Orgs with paid invoices > 0
+    for row in db.session.query(SubscriptionInvoice.org_id).join(
+        Organization, SubscriptionInvoice.org_id == Organization.id
+    ).filter(
+        Organization.is_platform_org == False,
+        Organization.is_deleted == False,
+        SubscriptionInvoice.invoice_status.in_(['Paid', 'PAID', 'Completed']),
+        func.coalesce(SubscriptionInvoice.total_amount, 0) > 0
+    ).distinct().all():
+        if row[0]:
+            paid_org_ids.add(row[0])
+
+    # 2c. Orgs with active paid subscriptions > 0
+    active_subs_init = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
+        Organization.is_deleted == False,
+        Organization.is_platform_org == False,
+        Subscription.subscription_status.in_(['Active', 'ACTIVE'])
+    ).all()
+    for s in active_subs_init:
+        if not s.org_id or s.subscription_status in ['Trialing', 'Trial', 'TRIAL']:
+            continue
+        p_price = float(s.final_amount or s.base_price or 0.0)
+        if p_price > 0:
+            paid_org_ids.add(s.org_id)
+        elif s.plan_name and s.plan_name.strip().lower() not in ('trial', 'trialing', 'default trial plan', ''):
+            sp = SaaSPlan.query.filter(
+                db.or_(
+                    func.lower(func.trim(SaaSPlan.name)) == s.plan_name.strip().lower(),
+                    func.lower(func.trim(SaaSPlan.code)) == s.plan_name.strip().lower()
+                )
+            ).first()
+            if sp:
+                pricing = SaaSPlanPricing.query.filter_by(plan_id=sp.id, is_active=True).first()
+                if pricing and pricing.price and float(pricing.price) > 0:
+                    paid_org_ids.add(s.org_id)
+
+    paid_orgs_count = len(paid_org_ids)
+    active_orgs = paid_orgs_count
+
     all_non_deleted_orgs = Organization.query.filter(
         Organization.is_deleted == False,
         Organization.is_platform_org == False
     ).all()
 
     def _is_org_paid(o):
-        plan_str = (o.subscription_plan or '').strip().lower()
-        stat_str = (o.subscription_status or '').strip().lower()
-        if stat_str in ('suspended', 'expired'):
-            return False
-        if plan_str and plan_str not in ('trial', 'trialing', 'default trial plan', ''):
-            return True
-        if stat_str in ('active', 'paid'):
-            return True
-        return False
+        return o.id in paid_org_ids
 
     paid_orgs_list = [o for o in all_non_deleted_orgs if _is_org_paid(o)]
-    active_orgs = len(paid_orgs_list)
 
     # 3. On Trial Organizations
     trial_orgs = len([
         o for o in all_non_deleted_orgs
-        if not _is_org_paid(o) and (o.subscription_status or '').strip().lower() not in ('suspended', 'expired')
+        if not _is_org_paid(o) and (o.subscription_status or '').strip().lower() not in ('suspended', 'expired', 'revoked', 'canceled')
     ])
 
     # 4. Expired Licenses / Organizations
@@ -266,43 +310,6 @@ def get_dashboard_stats():
     arr_val = engine_kpis["arr"]
     active_paid_amount = mrr_val
     
-    active_subs = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False,
-        Subscription.subscription_status.in_(['Active', 'ACTIVE', 'Trialing', 'Trial'])
-    ).all()
-    
-    # Paid orgs: aggregate unique organizations with active paid subscriptions or completed payments
-    paid_org_ids = set()
-    for s in active_subs:
-        if not s.org_id or s.subscription_status in ['Trialing', 'Trial', 'TRIAL']:
-            continue
-        p_price = float(s.final_amount or s.base_price or 0.0)
-        if p_price == 0.0:
-            sp = SaaSPlan.query.filter(
-                db.or_(SaaSPlan.name == s.plan_name, SaaSPlan.code == s.plan_name)
-            ).first()
-            if sp:
-                pricing = SaaSPlanPricing.query.filter_by(plan_id=sp.id, is_active=True).first()
-                if pricing:
-                    p_price = float(pricing.price or 0.0)
-        if p_price > 0 or s.subscription_status in ['Active', 'ACTIVE', 'Paid', 'PAID']:
-            paid_org_ids.add(s.org_id)
-
-    pmt_orgs = db.session.query(SubscriptionPayment.org_id).join(
-        Organization, SubscriptionPayment.org_id == Organization.id
-    ).filter(
-        Organization.is_platform_org == False,
-        Organization.is_deleted == False,
-        SubscriptionPayment.payment_status.in_(['Completed', 'Paid', 'COMPLETED', 'PAID', 'SUCCESS'])
-    ).distinct().all()
-    for po in pmt_orgs:
-        if po[0]:
-            paid_org_ids.add(po[0])
-
-    paid_orgs_count = max(len(paid_org_ids), active_orgs)
-    active_orgs = paid_orgs_count
-
     if revenue_in_period == 0.0 and active_paid_amount > 0.0:
         revenue_in_period = active_paid_amount
 
@@ -773,67 +780,29 @@ def get_billing_kpis():
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     month_start = datetime(now.year, now.month, 1)
 
-    # Active subscriptions (excluding platform org)
-    active_subs = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
-        Organization.is_deleted == False,
+    from app.domain.services.financial_metrics_engine import FinancialMetricsEngine
+    engine_kpis = FinancialMetricsEngine.get_consolidated_kpis()
+    mrr = engine_kpis["mrr"]
+    arr = engine_kpis["arr"]
+    revenue_this_month = engine_kpis["monthly_cash_collected"]
+
+    # Paid customer organizations count
+    paid_org_count = db.session.query(SubscriptionPayment.org_id).join(
+        Organization, SubscriptionPayment.org_id == Organization.id
+    ).filter(
         Organization.is_platform_org == False,
-        Subscription.subscription_status.in_(['Active', 'ACTIVE'])
-    ).count()
+        Organization.is_deleted == False,
+        SubscriptionPayment.payment_status.in_(['Completed', 'Paid', 'COMPLETED', 'PAID', 'SUCCESS']),
+        func.coalesce(SubscriptionPayment.final_amount, SubscriptionPayment.amount, 0) > 0
+    ).distinct().count()
+    active_subs = max(1, paid_org_count)
 
     # Trial subscriptions
-    trial_subs = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
+    trial_subs = Organization.query.filter(
         Organization.is_deleted == False,
         Organization.is_platform_org == False,
-        Subscription.subscription_status.in_(['Trial', 'Trialing', 'TRIAL'])
+        Organization.subscription_status.in_(['Trialing', 'Trial', 'TRIAL'])
     ).count()
-
-    # MRR: sum of monthly-equivalent revenue from active tenant subscriptions
-    active_sub_records = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False,
-        Subscription.subscription_status.in_(['Active', 'ACTIVE'])
-    ).with_entities(Subscription.final_amount, Subscription.billing_cycle, Subscription.base_price).all()
-
-    mrr = 0.0
-    for sub in active_sub_records:
-        amount = sub.final_amount or sub.base_price or 0.0
-        cycle = (sub.billing_cycle or 'Monthly').lower()
-        if cycle in ('yearly', 'annual', 'annually'):
-            mrr += amount / 12.0
-        elif cycle in ('quarterly',):
-            mrr += amount / 3.0
-        else:  # monthly or unknown
-            mrr += amount
-
-    arr = mrr * 12.0
-
-    # Fallback to SubscriptionPayment if Subscription table is empty
-    if mrr == 0.0:
-        mrr_raw = db.session.query(func.sum(SubscriptionPayment.amount)).join(
-            Organization, SubscriptionPayment.org_id == Organization.id
-        ).filter(
-            Organization.is_platform_org == False,
-            SubscriptionPayment.payment_status == 'Completed',
-            SubscriptionPayment.created_at >= month_start
-        ).scalar() or 0.0
-        mrr = round(float(mrr_raw), 2)
-        arr = mrr * 12.0
-
-    # Also use Organization as a fallback count if Subscription table empty
-    if active_subs == 0:
-        active_subs = Organization.query.filter(
-            Organization.subscription_status.in_(['Active', 'ACTIVE'])
-        ).count()
-    if trial_subs == 0:
-        trial_subs = Organization.query.filter(
-            Organization.subscription_status.in_(['Trialing', 'Trial', 'TRIAL'])
-        ).count()
-
-    # Revenue this month (from payments)
-    revenue_this_month = db.session.query(func.sum(SubscriptionPayment.amount)).filter(
-        SubscriptionPayment.payment_status == 'Completed',
-        SubscriptionPayment.created_at >= month_start
-    ).scalar() or 0.0
 
     return jsonify({
         "status": "success",

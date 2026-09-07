@@ -110,7 +110,7 @@ def get_stats():
     assisted_count = FacilitatorAssistanceRequest.query.filter(
         FacilitatorAssistanceRequest.org_id == org_id,
         FacilitatorAssistanceRequest.facilitator_id == user.id,
-        FacilitatorAssistanceRequest.status.in_(['Responded', 'Resolved', 'Closed', 'Completed'])
+        (FacilitatorAssistanceRequest.status != 'Pending') | (FacilitatorAssistanceRequest.response.isnot(None))
     ).count()
 
     return jsonify({
@@ -729,10 +729,16 @@ def complete_closure(project_id):
 def get_assistance_requests():
     user = db.session.get(User, get_jwt_identity())
     from app.infrastructure.database.models.models import FacilitatorAssistanceRequest
-    requests = FacilitatorAssistanceRequest.query.filter_by(
+    status_filter = request.args.get('status', 'Pending')
+
+    query = FacilitatorAssistanceRequest.query.filter_by(
         org_id=user.org_id,
         facilitator_id=user.id
-    ).order_by(FacilitatorAssistanceRequest.created_at.desc()).all()
+    )
+    if status_filter and status_filter.lower() != 'all':
+        query = query.filter(FacilitatorAssistanceRequest.status == status_filter)
+
+    requests = query.order_by(FacilitatorAssistanceRequest.created_at.desc()).all()
 
     res = []
     for r in requests:

@@ -245,55 +245,160 @@ const ProjectApp = {
     },
 
     // Show or hide the facilitator reply card based on requests for the given stage.
-    // Displays the most recent request and its reply (if any).
+    // Displays thread history of all requests and allows clicking any request to toggle its reply layout.
     updateFacReplyCard(stageId) {
         const card = document.getElementById('facilitatorReplyCard');
         if (!card) return;
 
-        // Find most recent request for this stage (sorted descending from server)
+        // Find all requests for this stage
         const forStage = (this.myAssistanceRequests || []).filter(r => Number(r.stage_id) === Number(stageId));
         if (!forStage.length) {
             card.classList.add('d-none');
             return;
         }
-        const req = forStage[0];  // most recent
 
         // Show the card
         card.classList.remove('d-none');
 
-        // Original message
-        const msgEl = document.getElementById('facReplyOriginalMsg');
-        if (msgEl) msgEl.textContent = req.message || '';
-
-        // Badge: status colour
-        const badge = document.getElementById('facReplyBadge');
-        if (badge) {
-            badge.textContent = req.status;
-            badge.className = 'ds-badge ms-auto';
-            if (req.status === 'Approved')      badge.classList.add('green');
-            else if (req.status === 'Not Approved') badge.classList.add('red');
-            else if (req.status === 'Needs Info')   badge.classList.add('blue');
-            else                                     badge.classList.add('orange');
+        const totalCountEl = document.getElementById('facReplyTotalCount');
+        if (totalCountEl) {
+            totalCountEl.textContent = `${forStage.length} ${forStage.length === 1 ? 'Request' : 'Requests'}`;
         }
 
-        // Facilitator response
-        const responseWrap = document.getElementById('facReplyResponseWrap');
-        const responseText = document.getElementById('facReplyResponseText');
-        if (req.response) {
-            if (responseWrap) responseWrap.classList.remove('d-none');
-            if (responseText) responseText.textContent = req.response;
+        const threadList = document.getElementById('facReplyThreadList');
+        if (!threadList) return;
+
+        // Render each request in history.
+        // forStage is sorted descending (index 0 is newest/latest).
+        threadList.innerHTML = forStage.map((req, idx) => {
+            const seqNumber = forStage.length - idx;
+            const isLatest = idx === 0;
+
+            let badgeClass = 'orange';
+            if (req.status === 'Approved') badgeClass = 'green';
+            else if (req.status === 'Not Approved') badgeClass = 'red';
+            else if (req.status === 'Needs Info') badgeClass = 'blue';
+
+            let replyBorderColor = '#22c55e';
+            if (req.status === 'Not Approved') replyBorderColor = '#ef4444';
+            else if (req.status === 'Needs Info') replyBorderColor = '#3b82f6';
+            else if (req.status === 'Pending') replyBorderColor = '#f59e0b';
+
+            const d = req.created_at ? new Date(req.created_at) : (req.updated_at ? new Date(req.updated_at) : null);
+            const dateStr = d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+            const timeStr = d ? d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '';
+
+            const safeMsg = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(req.message || '') : (req.message || '');
+            const safeResponse = req.response ? ((window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(req.response) : req.response) : '';
+
+            return `
+                <div class="fac-request-item rounded p-2" id="facItem_${req.id}" style="background:var(--ds-surface-1,#f8fafc); border:1px solid var(--ds-border-color); cursor:pointer; transition: all 0.2s;" onclick="ProjectApp.toggleFacReplyItem(${req.id})">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-1 overflow-hidden">
+                            <i data-lucide="message-square" style="width:13px;height:13px;color:var(--ds-primary,#3b82f6);flex-shrink:0;"></i>
+                            <span class="fw-bold text-truncate" style="font-size:12px;color:var(--ds-text-main);">Request #${seqNumber}</span>
+                            ${isLatest ? '<span class="ds-badge blue py-0 px-1" style="font-size:9px;line-height:14px;">Latest</span>' : ''}
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <span class="ds-badge ${badgeClass}" style="font-size:10px;">${req.status || 'Pending'}</span>
+                            <i data-lucide="chevron-down" id="facChevron_${req.id}" style="width:13px;height:13px;color:var(--ds-text-secondary);transition:transform 0.2s;"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-1 text-xxs text-muted">
+                        <span class="text-truncate me-2" style="max-width:160px;">${safeMsg || '(No message)'}</span>
+                        <span class="flex-shrink-0">${dateStr}</span>
+                    </div>
+
+                    <!-- Expandable Reply Layout (hidden by default: click request to view) -->
+                    <div id="facReplyDetail_${req.id}" class="d-none mt-2 pt-2 border-top" onclick="event.stopPropagation()">
+                        <div class="mb-2 p-2 rounded" style="background:var(--ds-surface-card,#fff);border:1px solid var(--ds-border-color);font-size:12px;">
+                            <div class="text-xxs text-muted mb-1 fw-semibold text-uppercase">YOUR REQUEST</div>
+                            <div style="color:var(--ds-text-secondary);white-space:pre-wrap;word-break:break-word;">${safeMsg}</div>
+                        </div>
+                        <div class="p-2 rounded" style="background:var(--ds-surface-2,#f0fdf4);border-left:3px solid ${replyBorderColor};border:1px solid var(--ds-border-color);font-size:12px;">
+                            <div class="text-xxs text-muted mb-1 fw-semibold text-uppercase">FACILITATOR RESPONSE</div>
+                            ${req.response ? `
+                                <div style="color:var(--ds-text-main);white-space:pre-wrap;word-break:break-word;">${safeResponse}</div>
+                            ` : `
+                                <div class="text-muted fst-italic" style="font-size:11px;">Waiting for facilitator guidance...</div>
+                            `}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2 text-xxs text-muted">
+                            <span>${timeStr ? `Submitted at ${timeStr}` : ''}</span>
+                            ${req.response && req.response.length > 200 ? `
+                                <button class="ds-btn ds-btn-xs ds-btn-secondary py-0 px-2" style="font-size:10px;" onclick="ProjectApp.openFacGuidanceModal(${req.id})">
+                                    <i data-lucide="maximize-2" style="width:10px;height:10px;margin-right:2px;"></i> View Full
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+    },
+
+    toggleFacReplyItem(reqId) {
+        const detailEl = document.getElementById(`facReplyDetail_${reqId}`);
+        const chevronEl = document.getElementById(`facChevron_${reqId}`);
+        if (!detailEl) return;
+        const isCurrentlyOpen = !detailEl.classList.contains('d-none');
+        if (isCurrentlyOpen) {
+            detailEl.classList.add('d-none');
+            if (chevronEl) chevronEl.style.transform = 'rotate(0deg)';
         } else {
-            if (responseWrap) responseWrap.classList.add('d-none');
+            detailEl.classList.remove('d-none');
+            if (chevronEl) chevronEl.style.transform = 'rotate(180deg)';
+            if (window.lucide) lucide.createIcons();
         }
+    },
 
-        // Date line
-        const dateEl = document.getElementById('facReplyDate');
-        if (dateEl && req.updated_at) {
-            const d = new Date(req.updated_at);
-            dateEl.textContent = `Last updated: ${d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}`;
+    openFacGuidanceModal(reqId) {
+        const req = (this.myAssistanceRequests || []).find(r => r.id === reqId);
+        if (!req) return;
+        const modalEl = document.getElementById('facGuidanceDetailModal');
+        if (!modalEl) return;
+
+        const titleEl = document.getElementById('facGuidanceDetailModalTitle');
+        const badgeEl = document.getElementById('facGuidanceBadge');
+        const dateEl = document.getElementById('facGuidanceDate');
+        const reqMsgEl = document.getElementById('facGuidanceReqMsg');
+        const respMsgEl = document.getElementById('facGuidanceRespMsg');
+        const respBox = document.getElementById('facGuidanceRespBox');
+
+        if (titleEl) titleEl.innerHTML = `<i data-lucide="message-square" class="text-primary" style="width:18px;height:18px;"></i> Facilitator Guidance — Stage ${req.stage_id}`;
+        if (badgeEl) {
+            badgeEl.textContent = req.status || 'Pending';
+            badgeEl.className = 'ds-badge';
+            if (req.status === 'Approved') badgeEl.classList.add('green');
+            else if (req.status === 'Not Approved') badgeEl.classList.add('red');
+            else if (req.status === 'Needs Info') badgeEl.classList.add('blue');
+            else badgeEl.classList.add('orange');
+        }
+        if (dateEl && req.created_at) {
+            const d = new Date(req.created_at);
+            dateEl.textContent = `Submitted: ${d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} at ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        if (reqMsgEl) reqMsgEl.textContent = req.message || '(No message)';
+        if (respMsgEl) {
+            respMsgEl.textContent = req.response || 'Waiting for facilitator guidance...';
+            if (!req.response) {
+                respMsgEl.classList.add('text-muted', 'fst-italic');
+            } else {
+                respMsgEl.classList.remove('text-muted', 'fst-italic');
+            }
+        }
+        if (respBox) {
+            if (req.status === 'Not Approved') respBox.style.borderLeft = '3px solid #ef4444';
+            else if (req.status === 'Needs Info') respBox.style.borderLeft = '3px solid #3b82f6';
+            else if (req.status === 'Pending') respBox.style.borderLeft = '3px solid #f59e0b';
+            else respBox.style.borderLeft = '3px solid #22c55e';
         }
 
         if (window.lucide) lucide.createIcons();
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
     },
 
     renderStepper(data) {
@@ -1721,6 +1826,10 @@ const ProjectApp = {
             if (this.facRequestModal) {
                 this.facRequestModal.hide();
             }
+            const msgInput = document.getElementById('assistanceMessage');
+            if (msgInput) msgInput.value = '';
+            // Refresh requests so the new request appears immediately in history
+            await this.loadMyAssistanceRequests();
         } catch (e) {
             OctaQube.toast('Failed to send request: ' + e.message, 'error');
         }

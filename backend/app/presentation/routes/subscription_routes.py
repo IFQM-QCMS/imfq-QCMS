@@ -1807,8 +1807,6 @@ def auto_approve_trial_extension_task(app_obj, org_id):
             sec_settings['auto_approved_trial_extensions'] = auto_count
 
             sub = Subscription.query.filter_by(org_id=org.id).first()
-            if not sub:
-                sub = Subscription.query.filter_by(organization_id=org.id).first()
             if sub:
                 sub.trial_end_date = org.trial_ends_at
                 sub.end_date = org.trial_ends_at
@@ -1854,8 +1852,6 @@ def check_and_apply_pending_trial_extensions(org):
             sec_settings['auto_approved_trial_extensions'] = auto_count
 
             sub = Subscription.query.filter_by(org_id=org.id).first()
-            if not sub:
-                sub = Subscription.query.filter_by(organization_id=org.id).first()
             if sub:
                 sub.trial_end_date = org.trial_ends_at
                 sub.end_date = org.trial_ends_at

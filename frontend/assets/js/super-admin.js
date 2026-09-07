@@ -1750,7 +1750,7 @@ const SuperAdmin = {
                 document.getElementById('dashMrr').textContent = `₹${SuperAdmin.formatINR(mrr)}`;
                 document.getElementById('dashArr').textContent = `₹${SuperAdmin.formatINR(arr)}`;
                 document.getElementById('dashPaidOrgs').textContent = paidOrgs;
-                document.getElementById('dashGrowth').textContent = `${growthVal >= 0 ? '+' : ''}${growthVal}%`;
+                const dashGrowthEl = document.getElementById('dashGrowth'); if (dashGrowthEl) { dashGrowthEl.textContent = `${growthVal >= 0 ? '+' : ''}${growthVal}%`; }
 
                 // Initialize tooltips on cards
                 if (window.OctaQube && OctaQube.initTooltips) {
@@ -6242,10 +6242,7 @@ const SuperAdmin = {
                     </div>
                     <div id="sbmBreakdownList" style="display:flex; flex-direction:column; gap:9px;"></div>
                 </div>
-                <div style="padding:16px 28px 20px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid var(--ds-border-color,#e2e8f0); background:var(--ds-surface-2,#f8fafc);">
-                    <button class="ds-btn ds-btn-outline ds-btn-sm" id="sbmBtnAdjustLimit" onclick="SuperAdmin._openLimitModalFromBreakdown()">
-                        <i data-lucide="sliders" style="width:13px;height:13px;" class="me-1"></i> Adjust Storage Limit
-                    </button>
+                <div style="padding:16px 28px 20px; display:flex; justify-content:flex-end; align-items:center; gap:10px; border-top:1px solid var(--ds-border-color,#e2e8f0); background:var(--ds-surface-2,#f8fafc);">
                     <button class="ds-btn ds-btn-primary ds-btn-sm px-4" onclick="SuperAdmin.closeStorageBreakdownModal()">Close</button>
                 </div>
             </div>

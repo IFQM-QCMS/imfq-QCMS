@@ -216,8 +216,16 @@ const api = {
                             return null;
                         }
                         const errData = await response.clone().json().catch(() => ({}));
-                        if (endpoint.includes('/auth/me') || endpoint.includes('/auth/profile') || errData.session_terminated || errData.message?.includes('Signature has expired') || errData.message?.includes('Invalid token')) {
-                            console.warn('[API] 401 Unauthorized session for:', endpoint, '— redirecting to login.');
+                        const errText = (errData.message || errData.msg || '').toLowerCase();
+                        const isRevokedOrTerminated = errData.session_terminated === true || 
+                            errText.includes('terminated') || 
+                            errText.includes('deactivated') || 
+                            errText.includes('signature has expired') || 
+                            errText.includes('token has expired') || 
+                            errText.includes('invalid token');
+
+                        if (isRevokedOrTerminated) {
+                            console.warn('[API] 401 Fatal session expiration for:', endpoint, '— redirecting to login.');
                             sessionStorage.removeItem('octaqube_authenticated');
                             localStorage.removeItem('octaqube_authenticated');
                             sessionStorage.removeItem('user');

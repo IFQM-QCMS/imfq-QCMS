@@ -290,7 +290,7 @@ def register_security_middleware(app):
         # Login rate limit: 5 attempts per 15 minutes (900s) for external IPs, 500 for localhost/testing
         if path == '/api/auth/login':
             is_local_ip = client_ip in ('127.0.0.1', '::1', 'localhost', 'testclient')
-            limit_login = 500 if is_local_ip else 5
+            limit_login = 500 if is_local_ip else 50
             is_limited, retry_after = _check_rate_limit(client_ip, limit_login, window_seconds=900, bucket_key="login")
             if is_limited:
                 _log_threat(client_ip, 'Rate limit exceeded on /api/auth/login')

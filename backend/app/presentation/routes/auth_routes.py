@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt, set_access_cookies, unset_jwt_cookies
-from app.infrastructure.database.models.models import User, Role, Department, Organization, EmailVerification, PhoneVerification, SupportTicket, Notification, db
+from app.infrastructure.database.models.models import User, Role, Department, Organization, EmailVerification, PhoneVerification, SupportTicket, Notification, PlatformSettings, db
 import random
 import secrets
 from app import bcrypt
@@ -1337,6 +1337,11 @@ def get_profile():
         "platform_short_name": branding_ctx.get("software_short_name"),
         "platform_title": branding_ctx.get("platform_title"),
         "platform_subtitle": branding_ctx.get("platform_subtitle"),
+        "platform_favicon_url": (
+            PlatformSettings.query.first().branding_settings.get('favicon_url')
+            if PlatformSettings.query.first() and isinstance(PlatformSettings.query.first().branding_settings, dict)
+            else None
+        ) if is_super_admin else None,
         "org_favicon_url": user.organization.favicon_url if user.organization else None,
         "org_timezone": user.organization.timezone if user.organization else "Asia/Kolkata",
         "subscription_status": 'Active' if is_super_admin else (user.organization.subscription_status if user.organization else 'Active'),

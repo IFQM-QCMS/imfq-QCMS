@@ -147,10 +147,13 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             sessionStorage.setItem('octaqube_last_activity', now);
             localStorage.setItem('octaqube_last_activity', now);
             
-            // Sync global language
+            // Sync global language without triggering async setLanguage reload
             if (data.language) {
                 localStorage.setItem('octaqube-language', data.language);
-                if (window.i18n) window.i18n.setLanguage(data.language);
+                sessionStorage.setItem('octaqube-language', data.language);
+                if (data.id || data.username) {
+                    localStorage.setItem(`octaqube-language-${data.id || data.username}`, data.language);
+                }
             }
 
             loginSuccess = true;
@@ -300,13 +303,28 @@ async function logout() {
         }
     } catch (_) {}
     try {
+        let currentTabUserId = null;
+        try {
+            const currentTabUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+            currentTabUserId = currentTabUser.id || currentTabUser.user_id || currentTabUser.username;
+        } catch (_) {}
+
+        let localUserId = null;
+        try {
+            const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+            localUserId = localUser.id || localUser.user_id || localUser.username;
+        } catch (_) {}
+
         sessionStorage.clear();
-        localStorage.removeItem('octaqube_authenticated');
-        localStorage.removeItem('token');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('role_permissions');
-        sessionStorage.removeItem('role_permissions');
+
+        // Only clear localStorage if it belongs to this tab's user, preserving other active tabs' sessions
+        if (!currentTabUserId || !localUserId || currentTabUserId === localUserId) {
+            localStorage.removeItem('octaqube_authenticated');
+            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('role_permissions');
+        }
     } catch (_) {}
     window.location.replace('/auth/login.html?logout=true');
 }

@@ -1,19 +1,36 @@
 (function () {
-    const isAuthed = (sessionStorage.getItem('octaqube_authenticated') === 'true') || (localStorage.getItem('octaqube_authenticated') === 'true') || (sessionStorage.getItem('qcms_authenticated') === 'true') || (localStorage.getItem('qcms_authenticated') === 'true');
-    const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
-    const token = sessionStorage.getItem('token') || sessionStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('access_token') || '';
+    const _currentPath = (window.location.pathname || '').toLowerCase();
+    const _isAuthPath = _currentPath.includes('login') || _currentPath.includes('register') || _currentPath.includes('reset-password') || _currentPath.includes('forgot-password');
+
+    // Seed this tab's sessionStorage from localStorage only on protected pages when this tab is uninitialized
+    if (!_isAuthPath && !sessionStorage.getItem('token') && localStorage.getItem('token')) {
+        try {
+            sessionStorage.setItem('token', localStorage.getItem('token'));
+            if (localStorage.getItem('access_token')) sessionStorage.setItem('access_token', localStorage.getItem('access_token'));
+            if (localStorage.getItem('user')) sessionStorage.setItem('user', localStorage.getItem('user'));
+            if (localStorage.getItem('role_permissions')) sessionStorage.setItem('role_permissions', localStorage.getItem('role_permissions'));
+            sessionStorage.setItem('octaqube_authenticated', 'true');
+        } catch (_) {}
+    }
+
+    const isAuthed = (sessionStorage.getItem('octaqube_authenticated') === 'true') || (!_isAuthPath && ((localStorage.getItem('octaqube_authenticated') === 'true') || (localStorage.getItem('qcms_authenticated') === 'true')));
+    const userStr = sessionStorage.getItem('user') || (!_isAuthPath ? localStorage.getItem('user') : '');
+    const token = sessionStorage.getItem('token') || sessionStorage.getItem('access_token') || (!_isAuthPath ? (localStorage.getItem('token') || localStorage.getItem('access_token') || '') : '');
 
     function safeBase64Decode(str) {
         if (!str) return null;
         try {
             let output = str.replace(/-/g, '+').replace(/_/g, '/');
-            switch (output.length % 4) {
-                case 0: break;
-                case 2: output += '=='; break;
-                case 3: output += '='; break;
-                default: break;
+            while (output.length % 4) {
+                output += '=';
             }
-            return decodeURIComponent(escape(atob(output)));
+            const binaryStr = atob(output);
+            try {
+                const bytes = Uint8Array.from(binaryStr, c => c.charCodeAt(0));
+                return new TextDecoder().decode(bytes);
+            } catch (_) {
+                return decodeURIComponent(binaryStr.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            }
         } catch (_) {
             try {
                 return atob(str);
@@ -147,8 +164,10 @@
                 });
                 if (res.status === 401) {
                     const data = await res.json().catch(() => ({}));
-                    if (data && (data.session_terminated || data.message?.includes('deactivated') || data.message?.includes('expired') || data.message?.includes('Invalid token') || data.message?.includes('User account not found'))) {
-                        console.warn('[AuthGuard] 401 received during session check:', data);
+                    const errText = (data.message || data.msg || '').toLowerCase();
+                    const isFatal401 = data.session_terminated || errText.includes('deactivated') || errText.includes('expired') || errText.includes('invalid token') || errText.includes('user account not found') || errText.includes('signature verification failed');
+                    if (isFatal401) {
+                        console.warn('[AuthGuard] Fatal 401 received during session check:', data);
                         sessionStorage.clear();
                         localStorage.removeItem('octaqube_authenticated');
                         localStorage.removeItem('user');
@@ -544,24 +563,17 @@
 
     if (isAuthPage) {
         const urlParams = new URLSearchParams(window.location.search);
-        try {
-            sessionStorage.removeItem('token');
-            sessionStorage.removeItem('access_token');
-            sessionStorage.removeItem('user');
-            sessionStorage.removeItem('role_permissions');
-            sessionStorage.removeItem('octaqube_authenticated');
-            localStorage.removeItem('token');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('role_permissions');
-            localStorage.removeItem('octaqube_authenticated');
-            // Clear remembered credentials only on explicit logout or administrative session termination
-            if (urlParams.get('logout') === 'true' || urlParams.get('reason') === 'session_terminated') {
+        const hasExplicitLogout = urlParams.get('logout') === 'true' || 
+                                  urlParams.get('reason') === 'session_terminated' || 
+                                  urlParams.get('reason') === 'expired' ||
+                                  urlParams.get('reason') === 'inactivity_timeout';
+
+        if (hasExplicitLogout) {
+            try {
                 sessionStorage.clear();
-                localStorage.removeItem('octaqube_remember_me');
-                localStorage.removeItem('octaqube_remembered_username');
-            }
-        } catch (_) {}
+            } catch (_) {}
+        }
+        // Allow auth pages to render without auto-redirecting so users can log in to other accounts in new tabs
         return;
     } else if (token) {
         let isDenied = false;
@@ -674,8 +686,10 @@
         .then(res => {
             if (res.status === 401) {
                 res.json().then(data => {
-                    if (data && (data.session_terminated || data.message?.includes('deactivated') || data.message?.includes('expired') || data.message?.includes('Invalid token') || data.message?.includes('User account not found'))) {
-                        console.warn('[Auth Check] 401 Unauthorized session. Clearing token and redirecting to login...');
+                    const errText = (data?.message || data?.msg || '').toLowerCase();
+                    const isFatal401 = data && (data.session_terminated || errText.includes('deactivated') || errText.includes('expired') || errText.includes('invalid token') || errText.includes('user account not found') || errText.includes('signature verification failed'));
+                    if (isFatal401) {
+                        console.warn('[Auth Check] Fatal 401 Unauthorized session. Clearing token and redirecting to login...', data);
                         sessionStorage.clear();
                         localStorage.removeItem('token');
                         localStorage.removeItem('access_token');
@@ -696,12 +710,10 @@
             if (profile) {
                 if (profile.role_permissions) {
                     sessionStorage.setItem('role_permissions', JSON.stringify(profile.role_permissions));
-                    localStorage.setItem('role_permissions', JSON.stringify(profile.role_permissions));
                     try {
-                        const cachedUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+                        const cachedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
                         cachedUser.role_permissions = profile.role_permissions;
                         sessionStorage.setItem('user', JSON.stringify(cachedUser));
-                        localStorage.setItem('user', JSON.stringify(cachedUser));
                     } catch (_) {}
                 }
 
@@ -1444,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPath = window.location.pathname;
         if (!currentPath.includes('login.html') && !currentPath.includes('index.html') && currentPath !== '/') {
             alert('Your session has automatically terminated due to 2 hours of inactivity.');
-            window.location.href = '/login.html?reason=inactivity_timeout';
+            window.location.href = '/auth/login.html?reason=inactivity_timeout';
         }
     }
 

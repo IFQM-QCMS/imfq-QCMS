@@ -713,7 +713,9 @@ class LanguageManager {
         } catch (e) {
             console.warn('[i18n] Failed to update user language preference on server:', e);
         } finally {
-            window.location.reload();
+            if (!this.isExcludedPage()) {
+                window.location.reload();
+            }
         }
     }
 

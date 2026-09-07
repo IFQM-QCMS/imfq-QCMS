@@ -544,27 +544,90 @@ const EnterpriseAnalytics = {
                 const drillRes = await api.get(`/analytics/drilldown?segment=revenue&${query}`);
                 
                 // Plot Charts
+                const mData = revRes.monthly_trends || revRes.trends;
                 const mCtx = document.getElementById('revMonthlyChart')?.getContext('2d');
-                if (mCtx && revRes.trends) {
+                if (mCtx && mData) {
+                    if (this.charts.revMonthly) this.charts.revMonthly.destroy();
                     this.charts.revMonthly = new Chart(mCtx, {
                         type: 'bar',
                         data: {
-                            labels: revRes.trends.labels,
-                            datasets: [{ label: 'Completed Payments', data: revRes.trends.values, backgroundColor: 'rgba(59,130,246,0.85)', borderRadius: 5 }]
+                            labels: mData.labels,
+                            datasets: [{
+                                label: 'Completed Payments',
+                                data: mData.values,
+                                backgroundColor: 'rgba(59,130,246,0.85)',
+                                borderRadius: 5
+                            }]
                         },
-                        options: { responsive: true, maintainAspectRatio: false }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => `Completed Payments: ₹${Number(ctx.raw || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: (v) => '₹' + Number(v).toLocaleString('en-IN'),
+                                        font: { size: 11 }
+                                    }
+                                },
+                                x: {
+                                    ticks: { font: { size: 11 } }
+                                }
+                            }
+                        }
                     });
                 }
                 
                 const fCtx = document.getElementById('revForecastChart')?.getContext('2d');
                 if (fCtx && revRes.forecast) {
+                    if (this.charts.revForecast) this.charts.revForecast.destroy();
                     this.charts.revForecast = new Chart(fCtx, {
                         type: 'line',
                         data: {
                             labels: revRes.forecast.labels,
-                            datasets: [{ label: 'Forecasted Revenue', data: revRes.forecast.values, borderColor: '#ef4444', borderDash: [6,6], fill: false, tension: 0.3 }]
+                            datasets: [{
+                                label: 'Forecasted Revenue',
+                                data: revRes.forecast.values,
+                                borderColor: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                borderDash: [6,6],
+                                fill: true,
+                                tension: 0.3,
+                                pointBackgroundColor: '#ef4444',
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
                         },
-                        options: { responsive: true, maintainAspectRatio: false }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => `Forecasted Revenue: ₹${Number(ctx.raw || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: (v) => '₹' + Number(v).toLocaleString('en-IN'),
+                                        font: { size: 11 }
+                                    }
+                                },
+                                x: {
+                                    ticks: { font: { size: 11 } }
+                                }
+                            }
+                        }
                     });
                 }
                 

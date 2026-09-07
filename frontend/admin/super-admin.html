@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
     <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
-    <link rel="preload" href="/assets/dist/auth-guard.72947852.min.js" as="script">
-    <script src="/assets/dist/auth-guard.72947852.min.js"></script>
+    <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
+    <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1336,10 +1336,6 @@
                                         <div class="text-xs text-muted">Paid Orgs</div>
                                         <div class="fw-bold text-lg" id="dashPaidOrgs">—</div>
                                     </div>
-                                    <div style="cursor:help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Revenue Growth: Percentage increase in recurring revenue compared to the previous period.">
-                                        <div class="text-xs text-muted">Growth</div>
-                                        <div class="fw-bold text-lg" id="dashGrowth" style="color:var(--ds-success);">—</div>
-                                    </div>
                                 </div>
                                 <div class="ds-card-body pt-2">
                                     <div style="height:240px;width:100%;">
@@ -2280,7 +2276,7 @@
                                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-3 mb-3 border-bottom" style="border-color:var(--ds-border-color)!important;">
                                     <div>
                                         <h4 class="fw-bold mb-1 text-main">Branding & White-Label Customization</h4>
-                                        <p class="text-xs text-secondary mb-0">Customize visual assets, primary theme accents, typography, and login page hero graphics.</p>
+                                        <p class="text-xs text-secondary mb-0">Customize brand logos, theme accents, and typography.</p>
                                     </div>
                                     <button class="ds-btn ds-btn-primary ds-btn-sm" onclick="PlatformSettings.saveBranding()"><i data-lucide="check" class="me-1" style="width:13px;"></i> Save Branding</button>
                                 </div>
@@ -2289,49 +2285,22 @@
                                 <div class="row g-4">
                                     <!-- Logos Section -->
                                     <div class="col-12"><span class="text-xs fw-bold text-uppercase text-secondary" style="letter-spacing: 0.05em;">Brand Logos & Assets</span></div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="p-3 border rounded-3 text-center" style="border-color:var(--ds-border-color)!important;">
-                                            <span class="text-xs fw-bold text-secondary d-block mb-2">Main Logo (Light)</span>
+                                            <span class="text-xs fw-bold text-secondary d-block mb-2">Main Logo</span>
                                             <div class="p-4 rounded mb-2 bg-light d-flex align-items-center justify-content-center" id="ps-preview-main-logo" style="height:80px;">
                                                 <i data-lucide="shield-check" class="text-primary" style="width:36px;height:36px;"></i>
                                             </div>
                                             <button class="ds-btn ds-btn-outline ds-btn-sm w-100" onclick="PlatformSettings.uploadAsset('main-logo')"><i data-lucide="upload" class="me-1" style="width:12px;"></i> Upload Logo</button>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="p-3 border rounded-3 text-center" style="border-color:var(--ds-border-color)!important;">
-                                            <span class="text-xs fw-bold text-secondary d-block mb-2">Dark Mode Logo</span>
-                                            <div class="p-4 rounded mb-2 bg-dark d-flex align-items-center justify-content-center" id="ps-preview-dark-logo" style="height:80px;">
-                                                <i data-lucide="shield-check" class="text-white" style="width:36px;height:36px;"></i>
-                                            </div>
-                                            <button class="ds-btn ds-btn-outline ds-btn-sm w-100" onclick="PlatformSettings.uploadAsset('dark-logo')"><i data-lucide="upload" class="me-1" style="width:12px;"></i> Upload Dark Logo</button>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="p-3 border rounded-3 text-center" style="border-color:var(--ds-border-color)!important;">
                                             <span class="text-xs fw-bold text-secondary d-block mb-2">Favicon Icon</span>
                                             <div class="p-4 rounded mb-2 bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" id="ps-preview-favicon" style="height:80px;">
                                                 <i data-lucide="sparkles" class="text-primary" style="width:26px;height:26px;"></i>
                                             </div>
                                             <button class="ds-btn ds-btn-outline ds-btn-sm w-100" onclick="PlatformSettings.uploadAsset('favicon')"><i data-lucide="upload" class="me-1" style="width:12px;"></i> Upload Favicon</button>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 text-center" style="border-color:var(--ds-border-color)!important;">
-                                            <span class="text-xs fw-bold text-secondary d-block mb-2">Login Page Hero Graphic</span>
-                                            <div class="p-3 rounded mb-2 bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" id="ps-preview-hero-graphic" style="height:80px;">
-                                                <span class="text-xxs text-primary fw-medium"><i data-lucide="layout" class="me-1" style="width:14px;"></i> Abstract Enterprise Hero Banner</span>
-                                            </div>
-                                            <button class="ds-btn ds-btn-outline ds-btn-sm w-100" onclick="PlatformSettings.uploadAsset('hero-graphic')"><i data-lucide="upload" class="me-1" style="width:12px;"></i> Upload Background Graphic</button>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 text-center" style="border-color:var(--ds-border-color)!important;">
-                                            <span class="text-xs fw-bold text-secondary d-block mb-2">Mobile Splash Screen</span>
-                                            <div class="p-3 rounded mb-2 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center" id="ps-preview-splash-image" style="height:80px;">
-                                                <span class="text-xxs text-white fw-medium"><i data-lucide="smartphone" class="me-1" style="width:14px;"></i> Splash Brand Cover</span>
-                                            </div>
-                                            <button class="ds-btn ds-btn-outline ds-btn-sm w-100" onclick="PlatformSettings.uploadAsset('splash-image')"><i data-lucide="upload" class="me-1" style="width:12px;"></i> Upload Splash Image</button>
                                         </div>
                                     </div>
 
@@ -6733,12 +6702,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/core-bundle.2f888e93.min.js"></script>
-    <script src="/assets/dist/enterprise-analytics.aad5104a.min.js"></script>
+    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.410817e8.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
-    <script src="/assets/dist/platform-settings.377b608b.min.js"></script>
-    <script src="/assets/dist/super-admin.3ae75f92.min.js"></script>
+    <script src="/assets/dist/platform-settings.87cc66aa.min.js"></script>
+    <script src="/assets/dist/super-admin.c20ece85.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
@@ -7165,7 +7134,14 @@
             const sidebarBrand = document.querySelector('.sidebar-brand');
             if (sidebarBrand) {
                 const displaySub = platformSub || 'ENTERPRISE OS';
-                const logoUrl = ctx.logo_url;
+                let savedLogo = null;
+                let savedFavicon = null;
+                try {
+                    const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+                    savedLogo = savedAssets['main-logo'] || savedAssets['logo'];
+                    savedFavicon = savedAssets['favicon'];
+                } catch(_) {}
+                const logoUrl = savedLogo || ctx.logo_url;
 
                 let logoHtml = `<div class="brand-icon" style="background: var(--ds-accent);"><i data-lucide="shield-check" style="color:white;"></i></div>`;
                 if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
@@ -7174,6 +7150,20 @@
 
                 sidebarBrand.innerHTML = `${logoHtml}<div class="brand-text">${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small></div>`;
                 if (window.lucide) lucide.createIcons();
+
+                if (savedFavicon) {
+                    document.querySelectorAll("link[rel*='icon']").forEach(el => el.remove());
+                    const linkIcon = document.createElement('link');
+                    linkIcon.rel = 'icon';
+                    linkIcon.type = 'image/png';
+                    linkIcon.href = savedFavicon;
+                    document.head.appendChild(linkIcon);
+                    const linkShortcut = document.createElement('link');
+                    linkShortcut.rel = 'shortcut icon';
+                    linkShortcut.type = 'image/x-icon';
+                    linkShortcut.href = savedFavicon;
+                    document.head.appendChild(linkShortcut);
+                }
             }
 
             // Update top bar header org name (e.g. OctaQube -> {Software Short Name})
@@ -7564,10 +7554,7 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="modal-footer border-top p-3 d-flex justify-content-between align-items-center" style="background: var(--ds-bg-elevated, #f8fafc);">
-                <button type="button" class="ds-btn ds-btn-outline ds-btn-sm" id="sbmBtnAdjustLimit" onclick="SuperAdmin._openLimitModalFromBreakdown()">
-                    <i data-lucide="sliders" style="width:13px;height:13px;" class="me-1"></i> Adjust Storage Limit
-                </button>
+            <div class="modal-footer border-top p-3 d-flex justify-content-end align-items-center" style="background: var(--ds-bg-elevated, #f8fafc);">
                 <button type="button" class="ds-btn ds-btn-primary ds-btn-sm px-4" data-bs-dismiss="modal">Close</button>
             </div>
         </div>

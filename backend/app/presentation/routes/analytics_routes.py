@@ -2243,7 +2243,7 @@ def get_enterprise_dashboard():
             "mrr":                  {"value": round(mrr_curr, 2), "growth": mrr_growth,    "icon": "repeat",       "tooltip": "Monthly Recurring Revenue"},
             "arr":                  {"value": round(arr_curr, 2), "growth": arr_growth,    "icon": "trending-up",  "tooltip": "Annualized Recurring Revenue"},
             "total_orgs":           {"value": t_orgs,             "growth": orgs_growth,   "icon": "building",     "tooltip": "Total registered organizations"},
-            "active_orgs":          {"value": a_orgs,             "growth": orgs_growth,   "icon": "check-circle", "tooltip": "Orgs with active paid subscriptions"},
+            "active_orgs":          {"value": a_orgs,             "growth": orgs_growth,   "icon": "check-circle", "tooltip": "Total active customer organizations on platform"},
             "trial_orgs":           {"value": tr_orgs,            "growth": 0.0,           "icon": "gift",         "tooltip": "Orgs with trialing status"},
             "active_users":         {"value": act_users,          "growth": users_growth,  "icon": "users",        "tooltip": "Total active user accounts"},
             "storage_usage":        {"value": stor_fmt,           "growth": 0.0,           "icon": "hard-drive",   "tooltip": "Aggregated data storage footprint"},
@@ -2307,6 +2307,7 @@ def get_revenue_analytics():
     return jsonify({
         "status": "success",
         "trends": kpis["trends"],
+        "monthly_trends": kpis.get("monthly_trends", kpis["trends"]),
         "forecast": kpis["forecast"],
         "mrr": kpis["mrr"],
         "arr": kpis["arr"],

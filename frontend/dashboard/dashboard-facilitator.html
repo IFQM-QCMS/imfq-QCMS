@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
     <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
-    <link rel="preload" href="/assets/dist/auth-guard.72947852.min.js" as="script">
-    <script src="/assets/dist/auth-guard.72947852.min.js"></script>
+    <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
+    <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -193,7 +193,14 @@
                         <div class="glass-card">
                             <div class="ds-card-header">
                                 <h5 class="card-title"><i data-lucide="message-square" class="inline-block text-primary me-2" style="width:20px;height:20px;vertical-align:text-bottom;"></i>Team Assistance Requests</h5>
-                                <div class="d-flex align-items-center gap-2"><span class="badge bg-light text-muted border d-inline-flex align-items-center gap-1 d-md-none" style="font-size:10.5px;font-weight:500;padding:3px 7px;"><i data-lucide="arrow-left-right" style="width:11px;height:11px;"></i> Scroll</span><span class="ds-badge blue" id="assistanceCount">0 Requests</span></div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="btn-group btn-group-sm" role="group" style="background:var(--ds-surface-2,#f1f5f9);padding:2px;border-radius:6px;border:1px solid var(--ds-border,#e2e8f0);">
+                                        <button type="button" class="btn btn-sm btn-primary" id="facAssistanceTabPending" onclick="facDash.setAssistanceStatusFilter('Pending')" style="padding:2px 10px;font-size:11px;font-weight:600;border-radius:4px;">Pending</button>
+                                        <button type="button" class="btn btn-sm btn-light text-muted" id="facAssistanceTabAll" onclick="facDash.setAssistanceStatusFilter('all')" style="padding:2px 10px;font-size:11px;font-weight:600;border-radius:4px;background:transparent;border:none;">All</button>
+                                    </div>
+                                    <span class="badge bg-light text-muted border d-inline-flex align-items-center gap-1 d-md-none" style="font-size:10.5px;font-weight:500;padding:3px 7px;"><i data-lucide="arrow-left-right" style="width:11px;height:11px;"></i> Scroll</span>
+                                    <span class="ds-badge blue" id="assistanceCount">0 Requests</span>
+                                </div>
                             </div>
                             <div class="ds-card-body p-0">
                                 <div class="table-responsive">
@@ -336,7 +343,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content glass-card ds-card border-0" style="border: 1px solid var(--ds-border-color) !important;">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold" style="color:var(--ds-text-main);">
+                    <h5 class="modal-title fw-bold" id="replyModalTitle" style="color:var(--ds-text-main);">
                         <i data-lucide="reply" class="me-2 text-primary" style="width:20px;height:20px;vertical-align:text-bottom;"></i> Reply to Assistance Request
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -355,7 +362,7 @@
 
                     <!-- Facilitator reply -->
                     <div class="mb-3">
-                        <label class="ds-label" for="replyText">Your Reply / Guidance <span class="text-danger">*</span></label>
+                        <label class="ds-label" for="replyText" id="replyTextLabel">Your Reply / Guidance <span class="text-danger" id="replyTextRequired">*</span></label>
                         <textarea class="ds-input ds-textarea" id="replyText" rows="4" placeholder="Explain your feedback, guidance, or decision to the team member..."></textarea>
                     </div>
 
@@ -370,8 +377,8 @@
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-2">
-                    <button type="button" class="ds-btn ds-btn-ghost" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="ds-btn ds-btn-primary" onclick="facDash.submitReply()">
+                    <button type="button" class="ds-btn ds-btn-ghost" id="replyCancelBtn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="ds-btn ds-btn-primary" id="replySubmitBtn" onclick="facDash.submitReply()">
                         <i data-lucide="send" style="width:14px;height:14px;margin-right:6px;"></i> Send Reply
                     </button>
                 </div>
@@ -445,7 +452,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.2f888e93.min.js"></script>
+    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
     <script>
     const facDash = {
         noteModal: null,
@@ -461,6 +468,7 @@
         allPlants: [],
         allDepartments: [],
         currentSearchQuery: '',
+        assistanceFilterStatus: 'Pending',
 
         enableDragScroll(element) {
             if (!element) return;
@@ -497,6 +505,30 @@
             if (btn) {
                 btn.click();
             }
+        },
+
+        setAssistanceStatusFilter(status) {
+            this.assistanceFilterStatus = status;
+            const btnP = document.getElementById('facAssistanceTabPending');
+            const btnA = document.getElementById('facAssistanceTabAll');
+            if (btnP && btnA) {
+                if (status === 'Pending') {
+                    btnP.className = 'btn btn-sm btn-primary';
+                    btnP.style.background = '';
+                    btnP.style.border = '';
+                    btnA.className = 'btn btn-sm btn-light text-muted';
+                    btnA.style.background = 'transparent';
+                    btnA.style.border = 'none';
+                } else {
+                    btnP.className = 'btn btn-sm btn-light text-muted';
+                    btnP.style.background = 'transparent';
+                    btnP.style.border = 'none';
+                    btnA.className = 'btn btn-sm btn-primary';
+                    btnA.style.background = '';
+                    btnA.style.border = '';
+                }
+            }
+            this.loadAssistanceRequests();
         },
 
         async init() {
@@ -676,11 +708,15 @@
                 const s = await api.get('/facilitator/stats');
                 const kpiEl = document.getElementById('kpiGrid');
                 if (kpiEl) {
+                    const assistedCount = (s && s.assisted_count !== undefined && s.assisted_count !== null && s.assisted_count > 0)
+                        ? s.assisted_count
+                        : ((this.assistedHistoryData && this.assistedHistoryData.length > 0) ? this.assistedHistoryData.length : (s?.assisted_count || 0));
+
                     kpiEl.innerHTML =
                         OctaQube.kpiCard('Needs Guidance', s.pending_rca || s.pending_assistance || 0, 'help-circle', 'orange', null, "#assistance") +
                         OctaQube.kpiCard('Inactive Projects', s.stalled_projects || 0, 'alert-triangle', 'red') +
                         OctaQube.kpiCard('Total Active Projects', s.total_projects || 0, 'folder-open', 'blue', null, "#pipeline") +
-                        OctaQube.kpiCard('Assisted Projects', s.assisted_count || 0, 'history', 'purple', null, "#assisted-history");
+                        OctaQube.kpiCard('Assisted Projects', assistedCount, 'history', 'purple', null, "#assisted-history");
                 }
                 if (window.lucide) lucide.createIcons();
             } catch (e) { console.error('Stats failed', e); }
@@ -692,7 +728,8 @@
             const countEl = document.getElementById('assistanceCount');
             if (!body) return;
             try {
-                const requests = await api.get('/facilitator/assistance-requests');
+                const statusFilter = this.assistanceFilterStatus || 'Pending';
+                const requests = await api.get(`/facilitator/assistance-requests?status=${encodeURIComponent(statusFilter)}`);
                 this.assistanceData = requests || [];
                 this.renderAssistanceRequests(this.filterData(this.assistanceData));
             } catch (err) {
@@ -717,11 +754,8 @@
                 const statusBadge = r.status === 'Pending' ? 'orange'
                     : r.status === 'Approved' ? 'green'
                     : r.status === 'Not Approved' ? 'red' : 'blue';
-                const replySection = r.response
-                    ? `<div class="mt-1 p-2 rounded" style="background:var(--ds-surface-2,#f0fdf4);border-left:3px solid #22c55e;font-size:12px;"><strong>Reply:</strong> ${r.response}</div>`
-                    : '';
                 return `
-                <tr>
+                <tr style="cursor: pointer;" onclick="if (!event.target.closest('button')) facDash.respondToRequest(${r.id})">
                     <td>
                         <div class="fw-semibold">${r.project_title}</div>
                         <span class="text-xxs font-mono text-muted">${r.project_uid}</span>
@@ -736,14 +770,17 @@
                     </td>
                     <td>
                         <div class="text-sm" style="max-width:280px;white-space:pre-wrap;">${r.message}</div>
-                        ${replySection}
                     </td>
                     <td class="text-xs text-muted">${OctaQube.formatDate(r.created_at)}</td>
                     <td><span class="ds-badge ${statusBadge}">${r.status}</span></td>
                     <td class="text-end">
+                        ${r.status === 'Pending' ? `
                         <button class="ds-btn ds-btn-sm ds-btn-primary" onclick="facDash.respondToRequest(${r.id})">
                             <i data-lucide="reply" style="width:13px;height:13px;margin-right:4px;"></i> Reply
-                        </button>
+                        </button>` : `
+                        <button class="ds-btn ds-btn-sm ds-btn-outline-success" onclick="facDash.respondToRequest(${r.id})" title="Click to view details">
+                            <i data-lucide="check-circle-2" style="width:13px;height:13px;margin-right:4px;"></i> ${r.status === 'Approved' ? 'Approved' : 'Replied'}
+                        </button>`}
                     </td>
                 </tr>
                 `;
@@ -755,12 +792,66 @@
             const req = this.assistanceData.find(r => r.id === reqId);
             if (!req) return;
 
+            const isApproved = (req.status === 'Approved');
+
             document.getElementById('replyReqId').value = reqId;
             document.getElementById('replyProjectInfo').textContent = `${req.project_title} (${req.project_uid}) — Stage ${req.stage_id}`;
             document.getElementById('replyRequesterName').textContent = req.user_name || `User #${req.user_id}`;
             document.getElementById('replyOriginalMessage').textContent = req.message;
-            document.getElementById('replyText').value = req.response || '';
-            document.getElementById('replyStatus').value = req.status === 'Pending' ? 'Approved' : req.status;
+
+            const replyTextEl = document.getElementById('replyText');
+            const replyStatusEl = document.getElementById('replyStatus');
+            const replyModalTitle = document.getElementById('replyModalTitle');
+            const replySubmitBtn = document.getElementById('replySubmitBtn');
+            const replyCancelBtn = document.getElementById('replyCancelBtn');
+            const replyTextRequired = document.getElementById('replyTextRequired');
+
+            replyTextEl.value = req.response || '';
+            replyStatusEl.value = req.status === 'Pending' ? 'Approved' : req.status;
+
+            if (isApproved) {
+                if (replyModalTitle) {
+                    replyModalTitle.innerHTML = `<i data-lucide="check-circle-2" class="me-2 text-success" style="width:20px;height:20px;vertical-align:text-bottom;"></i> Assistance Request (Approved)`;
+                }
+                replyTextEl.readOnly = true;
+                replyTextEl.disabled = true;
+                replyTextEl.style.backgroundColor = 'var(--ds-surface-1, #f8fafc)';
+                replyTextEl.style.cursor = 'not-allowed';
+                replyTextEl.style.opacity = '0.9';
+
+                replyStatusEl.disabled = true;
+                replyStatusEl.style.backgroundColor = 'var(--ds-surface-1, #f8fafc)';
+                replyStatusEl.style.cursor = 'not-allowed';
+                replyStatusEl.style.pointerEvents = 'none';
+
+                if (replyTextRequired) replyTextRequired.style.display = 'none';
+                if (replySubmitBtn) replySubmitBtn.style.display = 'none';
+                if (replyCancelBtn) {
+                    replyCancelBtn.textContent = 'Close';
+                    replyCancelBtn.className = 'ds-btn ds-btn-primary px-4';
+                }
+            } else {
+                if (replyModalTitle) {
+                    replyModalTitle.innerHTML = `<i data-lucide="reply" class="me-2 text-primary" style="width:20px;height:20px;vertical-align:text-bottom;"></i> Reply to Assistance Request`;
+                }
+                replyTextEl.readOnly = false;
+                replyTextEl.disabled = false;
+                replyTextEl.style.backgroundColor = '';
+                replyTextEl.style.cursor = 'text';
+                replyTextEl.style.opacity = '';
+
+                replyStatusEl.disabled = false;
+                replyStatusEl.style.backgroundColor = '';
+                replyStatusEl.style.cursor = 'default';
+                replyStatusEl.style.pointerEvents = 'auto';
+
+                if (replyTextRequired) replyTextRequired.style.display = 'inline';
+                if (replySubmitBtn) replySubmitBtn.style.display = 'inline-flex';
+                if (replyCancelBtn) {
+                    replyCancelBtn.textContent = 'Cancel';
+                    replyCancelBtn.className = 'ds-btn ds-btn-ghost';
+                }
+            }
 
             if (!this.replyModal) {
                 this.replyModal = new bootstrap.Modal(document.getElementById('assistanceReplyModal'));
@@ -771,6 +862,10 @@
 
         async submitReply() {
             const reqId = document.getElementById('replyReqId').value;
+            const req = this.assistanceData.find(r => String(r.id) === String(reqId));
+            if (req && req.status === 'Approved') {
+                return;
+            }
             const reply = document.getElementById('replyText').value.trim();
             const status = document.getElementById('replyStatus').value;
 
@@ -858,7 +953,7 @@
                 this.assistedHistoryData = history || [];
                 this.renderAssistedHistory(this.filterData(this.assistedHistoryData));
             } catch (err) {
-                console.error('Assisted history failed', err);
+                        console.error('Assisted history failed', err);
                 if (body) body.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-danger">Failed to load assisted project history.</td></tr>`;
             }
         },
@@ -867,6 +962,13 @@
             const body = document.getElementById('assistedHistoryBody');
             const countEl = document.getElementById('assistedHistoryCount');
             if (countEl) countEl.textContent = `${history.length} Assisted`;
+
+            // Dynamically synchronize Assisted Projects KPI card with loaded history count
+            const assistedKpiVal = document.querySelector('#kpiGrid a[href="#assisted-history"] .kpi-value');
+            if (assistedKpiVal && history && history.length > 0) {
+                assistedKpiVal.textContent = history.length;
+            }
+
             if (!history || history.length === 0) {
                 const msg = (this.currentSearchQuery || document.getElementById('facPlantFilter')?.value || document.getElementById('facDeptFilter')?.value)
                     ? 'No assisted projects matching your selected plant, department, or search filters.'

@@ -2113,23 +2113,73 @@ const PlatformSettings = {
                     container.innerHTML = `<img src="${dataUrl}" style="max-height:60px; max-width:100%; object-fit:contain;" alt="${type}">`;
                 }
 
-                if (type === 'main-logo' || type === 'dark-logo') {
-                    document.querySelectorAll('.sidebar-brand img, .navbar-brand img, .brand-logo img').forEach(img => {
-                        img.src = dataUrl;
-                    });
-                } else if (type === 'favicon') {
-                    let link = document.querySelector("link[rel*='icon']");
-                    if (!link) {
-                        link = document.createElement('link');
-                        link.rel = 'shortcut icon';
-                        document.getElementsByTagName('head')[0].appendChild(link);
-                    }
-                    link.href = dataUrl;
-                }
-
+                // Persist immediately in localStorage
                 const assets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
                 assets[type] = dataUrl;
                 localStorage.setItem('octaqube_brand_assets', JSON.stringify(assets));
+
+                if (type === 'main-logo' || type === 'logo' || type === 'dark-logo') {
+                    // Update all sidebar brand icons / images immediately
+                    document.querySelectorAll('.sidebar-brand').forEach(sb => {
+                        let img = sb.querySelector('img');
+                        if (img) {
+                            img.src = dataUrl;
+                        } else {
+                            const iconBox = sb.querySelector('.brand-icon');
+                            if (iconBox) {
+                                const newImg = document.createElement('img');
+                                newImg.src = dataUrl;
+                                newImg.alt = 'Logo';
+                                newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
+                                iconBox.replaceWith(newImg);
+                            }
+                        }
+                    });
+                    document.querySelectorAll('.navbar-brand img, .brand-logo img').forEach(img => {
+                        img.src = dataUrl;
+                    });
+                    try {
+                        const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                        if (uStr) {
+                            const uObj = JSON.parse(uStr);
+                            uObj.platform_logo_url = dataUrl;
+                            const uJson = JSON.stringify(uObj);
+                            if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
+                            if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
+                            if (window.OctaQube && OctaQube.user) OctaQube.user.platform_logo_url = dataUrl;
+                        }
+                    } catch (_) {}
+                } else if (type === 'favicon') {
+                    // Update tab favicon dynamically across browsers
+                    document.querySelectorAll("link[rel*='icon']").forEach(el => el.remove());
+                    const linkIcon = document.createElement('link');
+                    linkIcon.rel = 'icon';
+                    linkIcon.type = 'image/png';
+                    linkIcon.href = dataUrl;
+                    document.head.appendChild(linkIcon);
+
+                    const linkShortcut = document.createElement('link');
+                    linkShortcut.rel = 'shortcut icon';
+                    linkShortcut.type = 'image/x-icon';
+                    linkShortcut.href = dataUrl;
+                    document.head.appendChild(linkShortcut);
+
+                    try {
+                        const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                        if (uStr) {
+                            const uObj = JSON.parse(uStr);
+                            uObj.platform_favicon_url = dataUrl;
+                            const uJson = JSON.stringify(uObj);
+                            if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
+                            if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
+                            if (window.OctaQube && OctaQube.user) OctaQube.user.platform_favicon_url = dataUrl;
+                        }
+                    } catch (_) {}
+                }
+
+                if (window.OctaQube && typeof OctaQube.applyBranding === 'function') {
+                    OctaQube.applyBranding();
+                }
 
                 OctaQube.toast(`Uploaded and updated ${type.replace('-', ' ')} in real time!`, 'success');
             };
@@ -2154,6 +2204,43 @@ const PlatformSettings = {
                 container.innerHTML = `<img src="${assets[type]}" style="max-height:60px; max-width:100%; object-fit:contain;" alt="${type}">`;
             }
         });
+
+        // Apply saved main logo to sidebar immediately
+        const savedLogo = assets['main-logo'] || assets['logo'] || brand.logo_url;
+        if (savedLogo) {
+            document.querySelectorAll('.sidebar-brand').forEach(sb => {
+                let img = sb.querySelector('img');
+                if (img) {
+                    img.src = savedLogo;
+                } else {
+                    const iconBox = sb.querySelector('.brand-icon');
+                    if (iconBox) {
+                        const newImg = document.createElement('img');
+                        newImg.src = savedLogo;
+                        newImg.alt = 'Logo';
+                        newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
+                        iconBox.replaceWith(newImg);
+                    }
+                }
+            });
+        }
+
+        // Apply saved favicon to browser tab
+        const savedFavicon = assets['favicon'] || brand.favicon_url;
+        if (savedFavicon) {
+            document.querySelectorAll("link[rel*='icon']").forEach(el => el.remove());
+            const linkIcon = document.createElement('link');
+            linkIcon.rel = 'icon';
+            linkIcon.type = 'image/png';
+            linkIcon.href = savedFavicon;
+            document.head.appendChild(linkIcon);
+
+            const linkShortcut = document.createElement('link');
+            linkShortcut.rel = 'shortcut icon';
+            linkShortcut.type = 'image/x-icon';
+            linkShortcut.href = savedFavicon;
+            document.head.appendChild(linkShortcut);
+        }
     },
 
     async saveBranding() {
@@ -2174,10 +2261,29 @@ const PlatformSettings = {
             brand.border_radius = this._getVal('ps-border-radius') || brand.border_radius;
             brand.card_style = this._getVal('ps-card-style') || brand.card_style;
             brand.button_style = this._getVal('ps-button-style') || brand.button_style;
-            brand.assets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+            const assets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+            brand.assets = assets;
+            if (assets['main-logo']) brand.logo_url = assets['main-logo'];
+            if (assets['favicon']) brand.favicon_url = assets['favicon'];
 
             this._brandingData = brand;
             localStorage.setItem('octaqube_branding_config', JSON.stringify(brand));
+
+            try {
+                const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                if (uStr) {
+                    const uObj = JSON.parse(uStr);
+                    if (brand.logo_url) uObj.platform_logo_url = brand.logo_url;
+                    if (brand.favicon_url) uObj.platform_favicon_url = brand.favicon_url;
+                    const uJson = JSON.stringify(uObj);
+                    if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
+                    if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
+                    if (window.OctaQube && OctaQube.user) {
+                        if (brand.logo_url) OctaQube.user.platform_logo_url = brand.logo_url;
+                        if (brand.favicon_url) OctaQube.user.platform_favicon_url = brand.favicon_url;
+                    }
+                }
+            } catch (_) {}
 
             if (window.themeManager) {
                 window.themeManager.applyModePalette(currentMode);
@@ -2189,6 +2295,10 @@ const PlatformSettings = {
                 branding_settings: brand
             };
             await this._put('/settings', payload);
+
+            if (window.OctaQube && typeof OctaQube.applyBranding === 'function') {
+                OctaQube.applyBranding();
+            }
 
             OctaQube.toast(`Branding customizations saved for ${currentMode === 'dark' ? 'Dark' : 'Light'} Mode & applied live!`, 'success');
         } catch (e) { OctaQube.toast(e.message || 'Save failed.', 'error'); }
