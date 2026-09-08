@@ -46,6 +46,28 @@ PLAN_LIMITS = {
         'white_label': True,
         'multi_plant': True,
         'api_access': True
+    },
+    'Pay-As-You-Go': {
+        'max_users': 1000000, # Unlimited
+        'max_locations': 1000000, # Unlimited
+        'max_active_projects': 1000000, # Unlimited
+        'features': ['basic_workflow', 'standard_reports', 'full_workflow', 'advanced_analytics', 'repository', 'ai_assistant', 'audit_logs', 'white_label', 'multi_plant', 'api_access'],
+        'workflow_stages': [1, 2, 3, 4, 5, 6, 7, 8],
+        'ai_assistant': True,
+        'white_label': True,
+        'multi_plant': True,
+        'api_access': True
+    },
+    'Pay-As-You-Go (Metered)': {
+        'max_users': 1000000, # Unlimited
+        'max_locations': 1000000, # Unlimited
+        'max_active_projects': 1000000, # Unlimited
+        'features': ['basic_workflow', 'standard_reports', 'full_workflow', 'advanced_analytics', 'repository', 'ai_assistant', 'audit_logs', 'white_label', 'multi_plant', 'api_access'],
+        'workflow_stages': [1, 2, 3, 4, 5, 6, 7, 8],
+        'ai_assistant': True,
+        'white_label': True,
+        'multi_plant': True,
+        'api_access': True
     }
 }
 
@@ -160,6 +182,16 @@ class SubscriptionManager:
         storage_gb = 10.0
         plan_name = raw_plan_name or 'Trial'
 
+        is_payg = False
+        if plan_obj:
+            p_model = getattr(plan_obj, 'pricing_model', '') or ''
+            p_type = getattr(plan_obj, 'plan_type', '') or ''
+            p_name = getattr(plan_obj, 'name', '') or ''
+            if p_model == 'pay_as_you_go' or 'pay-as-you-go' in p_type.lower() or any(k in p_name.lower() for k in ['pay-as-you-go', 'metered']):
+                is_payg = True
+        elif any(k in (raw_plan_name or '').lower() for k in ['pay-as-you-go', 'metered']):
+            is_payg = True
+
         if plan_obj and plan_obj.limits:
             limits = plan_obj.limits
             max_projects = limits.max_projects
@@ -167,9 +199,16 @@ class SubscriptionManager:
             max_locations = getattr(limits, 'max_locations', 5)
             storage_gb = getattr(limits, 'storage_limit_gb', 10.0)
             plan_name = plan_obj.name.strip()
+            if is_payg:
+                if not max_projects or max_projects < 99999:
+                    max_projects = 1000000
+                if not max_users or max_users < 99999:
+                    max_users = 1000000
+                if not max_locations or max_locations < 99999:
+                    max_locations = 1000000
 
         # 4. Fallback to PLAN_LIMITS dictionary
-        fallback_key = 'Trial' if is_trial_status else 'Starter'
+        fallback_key = 'Pay-As-You-Go' if is_payg else ('Trial' if is_trial_status else 'Starter')
         fallback = PLAN_LIMITS.get(plan_name, PLAN_LIMITS.get(plan_obj.plan_type if plan_obj else fallback_key, PLAN_LIMITS.get(fallback_key, PLAN_LIMITS['Trial'])))
 
         final_max_projects = max_projects if max_projects is not None else fallback.get('max_active_projects', 25)
@@ -210,10 +249,14 @@ class SubscriptionManager:
                     func.lower(func.trim(SaaSPlan.plan_type)) == clean_name.lower()
                 ).first()
             if db_plan and db_plan.limits:
-                base = PLAN_LIMITS.get(db_plan.plan_type, PLAN_LIMITS.get('Trial', PLAN_LIMITS['Starter'])).copy()
-                base['max_users'] = db_plan.limits.max_users
-                base['max_locations'] = getattr(db_plan.limits, 'max_locations', 5)
-                base['max_active_projects'] = db_plan.limits.max_projects
+                p_model = getattr(db_plan, 'pricing_model', '') or ''
+                p_type = getattr(db_plan, 'plan_type', '') or ''
+                p_name = getattr(db_plan, 'name', '') or ''
+                is_payg = p_model == 'pay_as_you_go' or 'pay-as-you-go' in p_type.lower() or any(k in p_name.lower() for k in ['pay-as-you-go', 'metered'])
+                base = PLAN_LIMITS.get(db_plan.plan_type, PLAN_LIMITS.get(db_plan.name, PLAN_LIMITS.get('Trial', PLAN_LIMITS['Starter']))).copy()
+                base['max_users'] = 1000000 if is_payg else db_plan.limits.max_users
+                base['max_locations'] = 1000000 if is_payg else getattr(db_plan.limits, 'max_locations', 5)
+                base['max_active_projects'] = 1000000 if is_payg else db_plan.limits.max_projects
                 base['storage_limit_gb'] = db_plan.limits.storage_limit_gb
                 return base
 
@@ -229,7 +272,10 @@ class SubscriptionManager:
         if max_users >= 99999: # Unlimited
             return True, "Unlimited"
 
-        current_users = User.query.filter_by(org_id=org_id).count()
+        current_users = User.query.filter(
+            User.org_id == org_id,
+            (User.is_active == True) | (User.is_active == None)
+        ).count()
 
         if current_users >= max_users:
             return False, f"User limit reached for {plan_name} plan ({max_users}). Please upgrade."
@@ -265,7 +311,11 @@ class SubscriptionManager:
             return True, "Unlimited"
 
         # Count active/in-progress projects for this organization
-        active_projects = Project.query.filter_by(org_id=org_id).filter(Project.status != 'Completed').count()
+        inactive_terminal_statuses = ['Closed', 'Archived', 'Completed', 'Rejected', 'Stage 1 Rejected', 'Cancelled']
+        active_projects = Project.query.filter(
+            Project.org_id == org_id,
+            ~Project.status.in_(inactive_terminal_statuses)
+        ).count()
 
         if active_projects >= max_projects:
             return False, f"Active project limit reached for {plan_name} plan ({max_projects}). Please upgrade for more concurrent projects."
@@ -278,7 +328,7 @@ class SubscriptionManager:
         if not org:
             return False
         
-        config = SubscriptionManager.get_plan_config(org.subscription_plan)
+        config = SubscriptionManager.get_plan_config(org.subscription_plan, org_id=org_id)
         
         # Check if subscription is active or trialing
         if org.subscription_status not in ['Active', 'Trialing']:
@@ -299,7 +349,7 @@ class SubscriptionManager:
         if not org:
             return False
         
-        config = SubscriptionManager.get_plan_config(org.subscription_plan)
+        config = SubscriptionManager.get_plan_config(org.subscription_plan, org_id=org_id)
         return stage_number in config.get('workflow_stages', [])
 
     @staticmethod
@@ -308,9 +358,16 @@ class SubscriptionManager:
         if not org:
             return None
             
-        config = SubscriptionManager.get_plan_config(org.subscription_plan)
-        current_users = User.query.filter_by(org_id=org_id).count()
-        active_projects = Project.query.filter_by(org_id=org_id).filter(Project.status != 'Completed').count()
+        config = SubscriptionManager.get_plan_config(org.subscription_plan, org_id=org_id)
+        inactive_terminal_statuses = ['Closed', 'Archived', 'Completed', 'Rejected', 'Stage 1 Rejected', 'Cancelled']
+        current_users = User.query.filter(
+            User.org_id == org_id,
+            (User.is_active == True) | (User.is_active == None)
+        ).count()
+        active_projects = Project.query.filter(
+            Project.org_id == org_id,
+            ~Project.status.in_(inactive_terminal_statuses)
+        ).count()
         
         status_str = (org.subscription_status or 'Active')
         plan_str = (org.subscription_plan or 'Starter')
@@ -325,11 +382,11 @@ class SubscriptionManager:
             "usage": {
                 "users": {
                     "current": current_users,
-                    "limit": config['max_users']
+                    "limit": config.get('max_users', 50)
                 },
                 "projects": {
                     "current": active_projects,
-                    "limit": config['max_active_projects']
+                    "limit": config.get('max_active_projects', 25)
                 }
             }
         }

@@ -6,6 +6,10 @@ const ProjectApp = {
     orgUsers: [],
     activeStageId: null,
     myAssistanceRequests: [],  // Cache of this user's requests for this project
+    allPlants: [],
+    allDepartments: [],
+    crossDeptRole: null,
+    crossDeptMembersCache: [],
 
     async init() {
         OctaQube.init();
@@ -87,6 +91,11 @@ const ProjectApp = {
         } catch (err) {
             OctaQube.toast('Failed to load project: ' + err.message, 'error');
         }
+    },
+
+    async loadProjectData(projectId) {
+        if (projectId) this.projectId = projectId;
+        return await this.loadProject();
     },
 
     async loadOrgUsers() {
@@ -171,22 +180,137 @@ const ProjectApp = {
             const activeReview = (data.reviews || []).find(r => r.stage_number === this.activeStageId && (r.decision === 'Rejected' || r.decision === 'Revision'));
             const commentText = data.rejection_reason || (activeReview ? activeReview.comments : '') || 'No details specified.';
 
+            let sessionUser = {};
+            try {
+                sessionUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+            } catch (_) {}
+            const rawRole = ((sessionUser.role && sessionUser.role.name) ? sessionUser.role.name : (sessionUser.role || '')).toString();
+            const userRole = rawRole.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const isReviewerOrAdmin = (userRole.includes('reviewer') || userRole.includes('admin') || sessionUser.id == data.reviewer_id);
+
+            const isFacilitator = userRole.includes('facilitator') || (data.facilitator_id && sessionUser.id == data.facilitator_id);
+            const isReviewer = userRole.includes('reviewer') || (data.reviewer_id && sessionUser.id == data.reviewer_id);
+            const isTeamLeader = userRole.includes('teamleader') || (data.team_leader_id && sessionUser.id == data.team_leader_id);
+            const isTeamMember = userRole.includes('teammember') || ((data.member_ids || []).map(Number).includes(Number(sessionUser.id))) || (data.creator_id && sessionUser.id == data.creator_id);
+            const isAdmin = userRole.includes('admin') || userRole.includes('superadmin');
+            // Option to request restart or see approved restart team reassignment is strictly for Team Member or Team Leader (not Facilitator or Reviewer)
+            const canSeeRestartPrompt = (isTeamLeader || isTeamMember || isAdmin) && !isFacilitator && !isReviewer;
+
             if (isRejected) {
-                banner.className = "alert alert-danger d-flex align-items-start gap-3 mb-4 fade-in";
-                banner.style.cssText = "border: 2px solid #ef4444; background: rgba(239,68,68,0.06); border-radius: var(--ds-radius-lg);";
-                banner.innerHTML = `
-                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.15);">
-                        <i data-lucide="x-circle" style="width: 22px; height: 22px; color: #ef4444;"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h6 class="alert-heading mb-1 fw-bold text-danger" style="font-size: 15px;">Project Permanently Rejected</h6>
-                        <p class="mb-2 text-secondary text-xs">This project has been permanently rejected by the Reviewer. Editing and further stage progression are disabled.</p>
-                        <div class="p-3 border rounded text-xs fw-semibold text-main" style="background: var(--ds-bg-card, #ffffff); border-color: rgba(239, 68, 68, 0.2) !important;">
-                            <strong>Rejection Reason:</strong> "${OctaQube.escapeHtml(commentText)}"
+                banner.classList.remove('d-none');
+                if (data.restart_status === 'Pending') {
+                    banner.className = "alert alert-warning d-flex align-items-start gap-3 mb-4 fade-in";
+                    banner.style.cssText = "border: 2px solid #f59e0b; background: rgba(245,158,11,0.06); border-radius: var(--ds-radius-lg);";
+                    banner.innerHTML = `
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: rgba(245, 158, 11, 0.15);">
+                            <i data-lucide="clock" style="width: 22px; height: 22px; color: #d97706;"></i>
                         </div>
-                    </div>
-                `;
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                <h6 class="alert-heading mb-0 fw-bold text-warning" style="font-size: 15px;">Project Restart Requested (Pending Reviewer Decision)</h6>
+                                <span class="badge bg-warning text-dark px-2.5 py-1 text-xs fw-semibold"><i data-lucide="hourglass" style="width:12px;height:12px;" class="me-1"></i> Awaiting Review</span>
+                            </div>
+                            <p class="mb-2 text-secondary text-xs">A request to restart this project from Stage 1 was submitted by <strong>${OctaQube.escapeHtml(data.restart_requested_by_name || 'Team Member')}</strong> on ${data.restart_requested_at ? new Date(data.restart_requested_at).toLocaleString() : 'recently'}.</p>
+                            <div class="p-3 border rounded text-xs fw-semibold text-main mb-2" style="background: var(--ds-bg-card, #ffffff); border-color: rgba(245, 158, 11, 0.25) !important;">
+                                <strong>Restart Justification:</strong> "${OctaQube.escapeHtml(data.restart_reason || 'No justification specified.')}"
+                            </div>
+                            <div class="p-2.5 border rounded text-xs text-muted" style="background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08) !important;">
+                                <strong>Original Rejection Reason:</strong> "${OctaQube.escapeHtml(commentText)}"
+                            </div>
+                            ${isReviewerOrAdmin ? `
+                                <div class="d-flex flex-wrap gap-2 mt-3 pt-2 border-top border-warning border-opacity-25">
+                                    <button class="ds-btn ds-btn-sm ds-btn-primary gap-1.5 shadow-sm" onclick="ProjectApp.openRestartReviewModal('approve')">
+                                        <i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> Approve Restart (Reset to Stage 1)
+                                    </button>
+                                    <button class="ds-btn ds-btn-sm ds-btn-danger gap-1.5" onclick="ProjectApp.openRestartReviewModal('reject')">
+                                        <i data-lucide="x-circle" style="width:14px;height:14px;"></i> Reject Restart Request
+                                    </button>
+                                </div>
+                            ` : `
+                                <div class="mt-3 pt-2 border-top border-warning border-opacity-25 d-flex align-items-center flex-wrap gap-2">
+                                    <button type="button" class="ds-btn ds-btn-sm ds-btn-outline gap-1.5 shadow-sm" disabled style="opacity: 0.7; cursor: not-allowed; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.4); color: #b45309;">
+                                        <i data-lucide="lock" style="width:14px;height:14px;"></i> Request Project Restart (Locked - Pending Reviewer Decision)
+                                    </button>
+                                    <span class="text-xs text-muted fst-italic"><i data-lucide="info" style="width:12px;height:12px;" class="me-1"></i> Awaiting Reviewer decision. Button is frozen until approved or rejected.</span>
+                                </div>
+                            `}
+                        </div>
+                    `;
+                } else if (data.restart_status === 'Rejected') {
+                    banner.className = "alert alert-danger d-flex align-items-start gap-3 mb-4 fade-in";
+                    banner.style.cssText = "border: 2px solid #ef4444; background: rgba(239,68,68,0.06); border-radius: var(--ds-radius-lg);";
+                    banner.innerHTML = `
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.15);">
+                            <i data-lucide="x-circle" style="width: 22px; height: 22px; color: #ef4444;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1 fw-bold text-danger" style="font-size: 15px;">Project Permanently Rejected - Restart Request Rejected</h6>
+                            <p class="mb-2 text-secondary text-xs">The Reviewer has reviewed and rejected the request to restart this project. <strong>Requested rejected. Unable to continue this project.</strong></p>
+                            <div class="p-3 border rounded text-xs fw-semibold text-main mb-2" style="background: var(--ds-bg-card, #ffffff); border-color: rgba(239, 68, 68, 0.25) !important;">
+                                <strong>Reviewer Rejection Comments:</strong> "${OctaQube.escapeHtml(data.restart_reviewer_comments || 'Restart request was rejected.')}"
+                            </div>
+                            <div class="p-2.5 border rounded text-xs text-muted mb-3" style="background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08) !important;">
+                                <strong>Original Rejection Reason:</strong> "${OctaQube.escapeHtml(commentText)}"
+                            </div>
+                            ${canSeeRestartPrompt ? `
+                                <div>
+                                    <button class="ds-btn ds-btn-sm ds-btn-outline gap-1.5 shadow-sm" onclick="ProjectApp.openRequestRestartModal()">
+                                        <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Submit Revised Restart Request
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    banner.className = "alert alert-danger d-flex align-items-start gap-3 mb-4 fade-in";
+                    banner.style.cssText = "border: 2px solid #ef4444; background: rgba(239,68,68,0.06); border-radius: var(--ds-radius-lg);";
+                    banner.innerHTML = `
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.15);">
+                            <i data-lucide="x-circle" style="width: 22px; height: 22px; color: #ef4444;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1 fw-bold text-danger" style="font-size: 15px;">Project Permanently Rejected</h6>
+                            <p class="mb-2 text-secondary text-xs">This project has been permanently rejected by the Reviewer. Editing and further stage progression are disabled.</p>
+                            <div class="p-3 border rounded text-xs fw-semibold text-main mb-3" style="background: var(--ds-bg-card, #ffffff); border-color: rgba(239, 68, 68, 0.2) !important;">
+                                <strong>Rejection Reason:</strong> "${OctaQube.escapeHtml(commentText)}"
+                            </div>
+                            ${canSeeRestartPrompt ? `
+                                <div>
+                                    <button class="ds-btn ds-btn-sm ds-btn-primary gap-1.5 shadow-sm" onclick="ProjectApp.openRequestRestartModal()">
+                                        <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Request Project Restart
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
                 if (window.lucide) lucide.createIcons();
+            } else if (data.restart_status === 'Approved' && data.status !== 'Rejected') {
+                if (canSeeRestartPrompt) {
+                    banner.classList.remove('d-none');
+                    banner.className = "alert alert-success d-flex align-items-start gap-3 mb-4 fade-in";
+                    banner.style.cssText = "border: 2px solid #10b981; background: rgba(16,185,129,0.06); border-radius: var(--ds-radius-lg);";
+                    banner.innerHTML = `
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.15);">
+                            <i data-lucide="check-circle-2" style="width: 22px; height: 22px; color: #10b981;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1 fw-bold text-success" style="font-size: 15px;">Project Restart Approved - Stage 1 Active</h6>
+                            <p class="mb-2 text-secondary text-xs">The Quality Reviewer has approved restarting this project: <strong>"${OctaQube.escapeHtml(data.restart_reviewer_comments || 'Approved to restart from Stage 1.')}"</strong>. The project has been reactivated at Stage 1. You can update the team members, Team Leader, Facilitator, and Reviewer to shift the project to them, or continue with the existing members.</p>
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <button class="ds-btn ds-btn-sm ds-btn-primary gap-1.5 shadow-sm" onclick="ProjectApp.openReassignTeamModal()">
+                                    <i data-lucide="users" style="width:14px;height:14px;"></i> Update Team &amp; Roles
+                                </button>
+                                <button class="ds-btn ds-btn-sm ds-btn-outline gap-1.5" onclick="ProjectApp.dismissRestartPrompt()">
+                                    <i data-lucide="arrow-right" style="width:14px;height:14px;"></i> Continue with Existing Members
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    if (window.lucide) lucide.createIcons();
+                } else {
+                    banner.className = "d-none";
+                }
             } else if (isRevision) {
                 banner.className = "alert alert-warning d-flex align-items-start gap-3 mb-4 fade-in";
                 banner.style.cssText = "border: 2px solid #f59e0b; background: rgba(245,158,11,0.06); border-radius: var(--ds-radius-lg);";
@@ -1116,7 +1240,7 @@ const ProjectApp = {
                 this.loadMeetings();
             }
             if (scheduleMeetingBtn) {
-                if (isProjectRejected || isReadOnly) {
+                if (isProjectRejected || isReadOnly || isProjectClosed) {
                     scheduleMeetingBtn.classList.add('d-none');
                 } else {
                     scheduleMeetingBtn.classList.remove('d-none');
@@ -1836,6 +1960,8 @@ const ProjectApp = {
     },
 
     meetingModal: null,
+    meetingHistoryModal: null,
+    stageMeetings: [],
 
     openMeetingModal() {
         if (!this.meetingModal) {
@@ -1874,6 +2000,16 @@ const ProjectApp = {
     async loadMeetings() {
         const listContainer = document.getElementById('stageMeetingsList');
         if (!listContainer) return;
+
+        const isProjectClosed = this.projectData && (this.projectData.status === 'Closed' || this.projectData.status === 'Completed');
+        const titleEl = document.getElementById('stageMeetingsTitle');
+        const iconEl = document.getElementById('stageMeetingsIcon');
+        if (titleEl) {
+            titleEl.textContent = isProjectClosed ? 'Meeting History' : 'Stage Scheduled Meetings';
+        }
+        if (iconEl) {
+            iconEl.setAttribute('data-lucide', isProjectClosed ? 'history' : 'calendar');
+        }
         
         listContainer.innerHTML = `
             <div class="text-center py-4 text-muted">
@@ -1885,15 +2021,31 @@ const ProjectApp = {
 
         try {
             const meetings = await api.get(`/projects/${this.projectId}/stage/${this.activeStageId}/meetings`);
+            this.stageMeetings = meetings || [];
+
             if (!meetings || !meetings.length) {
                 listContainer.innerHTML = `
                     <div class="text-center py-4 text-muted">
                         <i data-lucide="calendar-x" class="mb-2 opacity-50" style="width:24px;height:24px;"></i>
-                        <p class="text-xs mb-0">No meetings scheduled for this stage.</p>
+                        <p class="text-xs mb-0">${isProjectClosed ? 'No meeting history for this stage.' : 'No meetings scheduled for this stage.'}</p>
                     </div>
                 `;
                 if (window.lucide) lucide.createIcons();
                 return;
+            }
+
+            const now = Date.now();
+            const hasUpcoming = meetings.some(m => {
+                const scheduledTime = new Date(m.scheduled_at).getTime();
+                const durationMs = (parseInt(m.duration) || 30) * 60 * 1000;
+                return (scheduledTime + durationMs) >= now;
+            });
+
+            if (titleEl) {
+                titleEl.textContent = (isProjectClosed || !hasUpcoming) ? 'Meeting History' : 'Stage Scheduled Meetings';
+            }
+            if (iconEl) {
+                iconEl.setAttribute('data-lucide', (isProjectClosed || !hasUpcoming) ? 'history' : 'calendar');
             }
 
             listContainer.innerHTML = meetings.map(m => {
@@ -1906,19 +2058,40 @@ const ProjectApp = {
                 const duration = m.duration;
                 
                 const isOnline = m.meeting_type === 'online';
-                const actionBtn = isOnline && m.url ? `
-                    <a href="${m.url}" target="_blank" class="ds-btn ds-btn-primary ds-btn-sm mt-2">
-                        <i data-lucide="video" class="me-1" style="width:12px;height:12px;"></i> Join Meeting
-                    </a>
-                ` : `
-                    <span class="ds-badge ds-badge-sm mt-2" style="background:rgba(var(--ds-info-rgb),0.12);color:var(--ds-info);width:fit-content;display:inline-block;">
-                        <i data-lucide="map-pin" class="me-1" style="width:10px;height:10px;vertical-align:middle;"></i> Offline (No URL)
-                    </span>
-                `;
+                const scheduledTime = new Date(m.scheduled_at).getTime();
+                const durationMs = (parseInt(duration) || 30) * 60 * 1000;
+                const isPast = (scheduledTime + durationMs) < now;
+                const isMeetingDone = isProjectClosed || isPast;
+
+                let actionBtn = '';
+                if (isMeetingDone) {
+                    actionBtn = `
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                            <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm" onclick="ProjectApp.openMeetingHistoryModal(${m.id})">
+                                <i data-lucide="history" class="me-1" style="width:12px;height:12px;"></i> Meeting History
+                            </button>
+                            <span class="ds-badge ds-badge-sm" style="background:rgba(16,185,129,0.12);color:#10b981;">
+                                <i data-lucide="check-circle" class="me-1" style="width:10px;height:10px;vertical-align:middle;"></i> Concluded
+                            </span>
+                        </div>
+                    `;
+                } else if (isOnline && m.url) {
+                    actionBtn = `
+                        <a href="${m.url}" target="_blank" class="ds-btn ds-btn-primary ds-btn-sm mt-2">
+                            <i data-lucide="video" class="me-1" style="width:12px;height:12px;"></i> Join Meeting
+                        </a>
+                    `;
+                } else {
+                    actionBtn = `
+                        <span class="ds-badge ds-badge-sm mt-2" style="background:rgba(var(--ds-info-rgb),0.12);color:var(--ds-info);width:fit-content;display:inline-block;">
+                            <i data-lucide="map-pin" class="me-1" style="width:10px;height:10px;vertical-align:middle;"></i> Offline (No URL)
+                        </span>
+                    `;
+                }
 
                 return `
                     <div class="activity-item pb-3 mb-3 border-bottom fade-in">
-                        <div class="activity-dot bg-primary"></div>
+                        <div class="activity-dot ${isMeetingDone ? 'bg-secondary' : 'bg-primary'}"></div>
                         <div class="activity-content d-flex flex-wrap flex-sm-nowrap justify-content-between align-items-start gap-3">
                             <div class="v-stack">
                                 <h6 class="fw-bold mb-1" style="color:var(--ds-text-main);">${m.title}</h6>
@@ -1928,9 +2101,12 @@ const ProjectApp = {
                                 </span>
                                 ${actionBtn}
                             </div>
-                            <span class="ds-badge ds-badge-sm ${isOnline ? 'blue' : 'gray'}">
-                                ${isOnline ? 'Online' : 'Offline'}
-                            </span>
+                            <div class="d-flex align-items-center gap-1">
+                                ${isMeetingDone ? '<span class="ds-badge ds-badge-sm gray">Past</span>' : ''}
+                                <span class="ds-badge ds-badge-sm ${isOnline ? 'blue' : 'gray'}">
+                                    ${isOnline ? 'Online' : 'Offline'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1945,6 +2121,68 @@ const ProjectApp = {
                 </div>
             `;
             if (window.lucide) lucide.createIcons();
+        }
+    },
+
+    openMeetingHistoryModal(meetingId) {
+        const m = (this.stageMeetings || []).find(item => item.id === meetingId);
+        if (!m) return;
+
+        const dt = new Date(m.scheduled_at);
+        const dateStr = dt.toLocaleDateString(undefined, {
+            weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+        });
+        const timeStr = dt.toLocaleTimeString(undefined, {
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        const titleEl = document.getElementById('mh_title');
+        const projStageEl = document.getElementById('mh_project_stage');
+        const dtEl = document.getElementById('mh_datetime');
+        const durationEl = document.getElementById('mh_duration');
+        const typeEl = document.getElementById('mh_type');
+        const urlContainer = document.getElementById('mh_url_container');
+        const urlEl = document.getElementById('mh_url');
+        const statusBadge = document.getElementById('mh_status_badge');
+
+        if (titleEl) titleEl.textContent = m.title || 'Stage Meeting';
+        if (projStageEl) projStageEl.textContent = `${(this.projectData && this.projectData.title) || 'Project'} • Stage ${this.activeStageId}`;
+        if (dtEl) dtEl.textContent = `${dateStr} @ ${timeStr}`;
+        if (durationEl) durationEl.textContent = `${m.duration || 30} minutes`;
+        if (typeEl) typeEl.textContent = m.meeting_type === 'online' ? 'Online Meeting' : 'Offline Meeting (In-Person)';
+
+        if (statusBadge) {
+            const isClosed = this.projectData && (this.projectData.status === 'Closed' || this.projectData.status === 'Completed');
+            statusBadge.innerHTML = `<i data-lucide="check-circle" style="width:10px;height:10px;" class="me-1"></i> ${isClosed ? 'Project Closed • Concluded' : 'Concluded'}`;
+        }
+
+        if (m.meeting_type === 'online' && m.url) {
+            if (urlContainer) urlContainer.style.display = 'block';
+            if (urlEl) {
+                urlEl.href = m.url;
+                urlEl.textContent = m.url;
+            }
+        } else {
+            if (urlContainer) urlContainer.style.display = 'none';
+        }
+
+        if (!this.meetingHistoryModal) {
+            const modalEl = document.getElementById('meetingHistoryModal');
+            if (modalEl) this.meetingHistoryModal = new bootstrap.Modal(modalEl);
+        }
+        if (window.lucide) lucide.createIcons();
+        if (this.meetingHistoryModal) this.meetingHistoryModal.show();
+    },
+
+    copyMeetingUrl() {
+        const urlEl = document.getElementById('mh_url');
+        if (urlEl && urlEl.href) {
+            navigator.clipboard.writeText(urlEl.href).then(() => {
+                if (window.showToast) window.showToast('Meeting link copied to clipboard', 'info');
+                else alert('Meeting link copied to clipboard');
+            }).catch(() => {
+                alert(urlEl.href);
+            });
         }
     },
 
@@ -3288,7 +3526,822 @@ const ProjectApp = {
                 this.openDocument(doc.url);
             }, idx * 250);
         });
+    },
+
+    openRequestRestartModal() {
+        let sessionUser = {};
+        try {
+            sessionUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+        } catch (_) {}
+        const rawRole = ((sessionUser.role && sessionUser.role.name) ? sessionUser.role.name : (sessionUser.role || '')).toString();
+        const userRole = rawRole.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isFac = userRole.includes('facilitator') || (this.projectData && this.projectData.facilitator_id && sessionUser.id == this.projectData.facilitator_id);
+        const isRev = userRole.includes('reviewer') || (this.projectData && this.projectData.reviewer_id && sessionUser.id == this.projectData.reviewer_id);
+        const isTL = userRole.includes('teamleader') || (this.projectData && sessionUser.id == this.projectData.team_leader_id);
+        const isTM = userRole.includes('teammember') || (this.projectData && (this.projectData.member_ids || []).map(Number).includes(Number(sessionUser.id))) || (this.projectData && sessionUser.id == this.projectData.creator_id);
+        const isAdmin = userRole.includes('admin') || userRole.includes('superadmin');
+
+        if ((isFac || isRev || (!isTL && !isTM)) && !isAdmin) {
+            OctaQube.toast('Access denied. Only Team Member or Team Leader can request a project restart.', 'warning');
+            return;
+        }
+
+        if (this.projectData && this.projectData.restart_status === 'Pending') {
+            OctaQube.toast('A restart request has already been submitted and is currently pending Reviewer decision. The request button is locked until a decision is made.', 'warning');
+            return;
+        }
+        const modalEl = document.getElementById('requestProjectRestartModal');
+        if (!modalEl) return;
+        const infoEl = document.getElementById('restartModalProjectInfo');
+        if (infoEl && this.projectData) {
+            infoEl.innerHTML = `<strong>${OctaQube.escapeHtml(this.projectData.title)}</strong> (${OctaQube.escapeHtml(this.projectData.project_uid || 'PRJ-' + this.projectData.id)}) · ${OctaQube.escapeHtml(this.projectData.department || 'N/A')}`;
+        }
+        const reasonInput = document.getElementById('restartRequestReasonInput');
+        if (reasonInput) reasonInput.value = '';
+        const submitBtn = document.getElementById('submitRestartRequestBtn');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i data-lucide="send" style="width:14px;height:14px;"></i> Submit Request to Reviewer';
+        }
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    async submitRestartRequest() {
+        if (this.projectData && this.projectData.restart_status === 'Pending') {
+            OctaQube.toast('A restart request has already been submitted and is currently pending Reviewer decision.', 'warning');
+            return;
+        }
+        const reasonInput = document.getElementById('restartRequestReasonInput');
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+        if (!reason) {
+            OctaQube.toast('Please provide a reason explaining why this project should be restarted.', 'warning');
+            return;
+        }
+
+        const submitBtn = document.getElementById('submitRestartRequestBtn');
+        const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Submitting...';
+        }
+
+        try {
+            const res = await api.post(`/projects/${this.projectId}/request-restart`, { reason });
+            const modalEl = document.getElementById('requestProjectRestartModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+            OctaQube.toast(res.message || 'Restart request submitted to Reviewer successfully.', 'success');
+            await this.loadProject();
+        } catch (err) {
+            console.error('Failed to submit restart request:', err);
+            OctaQube.toast(err.message || 'Failed to submit restart request.', 'danger');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+    },
+
+    openRestartReviewModal(decision) {
+        this._pendingRestartDecision = decision;
+        const modalEl = document.getElementById('reviewProjectRestartModal');
+        if (!modalEl) return;
+        const titleEl = document.getElementById('restartDecisionModalTitle');
+        const detailsEl = document.getElementById('restartDecisionDetailsBox');
+        const commentsLabel = document.getElementById('restartDecisionCommentsLabel');
+        const commentsInput = document.getElementById('restartDecisionCommentsInput');
+        const confirmBtn = document.getElementById('restartDecisionConfirmBtn');
+
+        if (commentsInput) commentsInput.value = '';
+
+        if (detailsEl && this.projectData) {
+            detailsEl.innerHTML = `
+                <div class="mb-1"><strong>Requested by:</strong> ${OctaQube.escapeHtml(this.projectData.restart_requested_by_name || 'Team Member')}</div>
+                <div class="mb-1"><strong>Date:</strong> ${this.projectData.restart_requested_at ? new Date(this.projectData.restart_requested_at).toLocaleString() : 'Recently'}</div>
+                <div><strong>Restart Justification:</strong> "${OctaQube.escapeHtml(this.projectData.restart_reason || 'No justification specified')}"</div>
+            `;
+        }
+
+        if (decision === 'approve') {
+            if (titleEl) titleEl.innerHTML = `<i data-lucide="check-circle-2" class="me-2 text-success"></i> Approve Project Restart`;
+            if (commentsLabel) commentsLabel.textContent = 'Reviewer Instructions / Approval Notes (Optional)';
+            if (confirmBtn) {
+                confirmBtn.className = 'ds-btn ds-btn-primary gap-1.5 shadow-sm';
+                confirmBtn.innerHTML = `<i data-lucide="check" style="width:14px;height:14px;"></i> Approve Restart`;
+            }
+        } else {
+            if (titleEl) titleEl.innerHTML = `<i data-lucide="x-circle" class="me-2 text-danger"></i> Reject Restart Request`;
+            if (commentsLabel) commentsLabel.innerHTML = `Reason for Rejection <span class="text-danger">*</span>`;
+            if (confirmBtn) {
+                confirmBtn.className = 'ds-btn ds-btn-danger gap-1.5 shadow-sm';
+                confirmBtn.innerHTML = `<i data-lucide="x" style="width:14px;height:14px;"></i> Reject Restart`;
+            }
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    async submitRestartDecision() {
+        const decision = this._pendingRestartDecision;
+        const commentsInput = document.getElementById('restartDecisionCommentsInput');
+        const comments = commentsInput ? commentsInput.value.trim() : '';
+
+        if (decision === 'reject' && !comments) {
+            OctaQube.toast('Please provide a reason for rejecting the restart request.', 'warning');
+            return;
+        }
+
+        try {
+            const res = await api.post(`/projects/${this.projectId}/restart-decision`, {
+                decision,
+                comments
+            });
+            const modalEl = document.getElementById('reviewProjectRestartModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+            OctaQube.toast(res.message || 'Review decision processed successfully.', 'success');
+            await this.loadProject();
+        } catch (err) {
+            console.error('Failed to submit restart decision:', err);
+            OctaQube.toast(err.message || 'Failed to submit restart decision.', 'danger');
+        }
+    },
+
+    async loadPlantsAndDepartments() {
+        try {
+            const [plantsRes, deptsRes] = await Promise.allSettled([
+                api.get('/projects/plants'),
+                api.get('/projects/departments')
+            ]);
+
+            let plants = [];
+            if (plantsRes.status === 'fulfilled' && plantsRes.value) {
+                const r = plantsRes.value;
+                plants = Array.isArray(r) ? r : (r.plants || []);
+            }
+            const apiPlants = plants.map(p => (typeof p === 'string' ? p : (p.name || p.location))).filter(Boolean);
+
+            let depts = [];
+            if (deptsRes.status === 'fulfilled' && deptsRes.value) {
+                depts = Array.isArray(deptsRes.value) ? deptsRes.value : [];
+            }
+            const apiDepts = depts.map(d => (typeof d === 'string' ? { id: d, name: d } : { id: d.id, name: d.name })).filter(d => d.name);
+
+            // Also harvest any unique plants & departments present on loaded orgUsers
+            const orgUsers = window.orgUsers || [];
+            const userPlants = orgUsers.map(u => u.plant_name || u.location).filter(Boolean);
+            const userDepts = orgUsers.map(u => u.department).filter(Boolean);
+
+            this.allPlants = Array.from(new Set([...apiPlants, ...userPlants])).sort();
+            
+            const deptMap = new Map();
+            apiDepts.forEach(d => deptMap.set(d.name.toLowerCase(), d));
+            userDepts.forEach(name => {
+                if (!deptMap.has(name.toLowerCase())) {
+                    deptMap.set(name.toLowerCase(), { id: name, name });
+                }
+            });
+            this.allDepartments = Array.from(deptMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+        } catch (e) {
+            console.warn('Could not load plants or departments', e);
+            this.allPlants = this.allPlants || [];
+            this.allDepartments = this.allDepartments || [];
+        }
+    },
+
+    async openReassignTeamModal() {
+        const modalEl = document.getElementById('reassignProjectTeamModal');
+        if (!modalEl) return;
+
+        let sessionUser = {};
+        try {
+            sessionUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+        } catch (_) {}
+        const rawRole = ((sessionUser.role && sessionUser.role.name) ? sessionUser.role.name : (sessionUser.role || '')).toString();
+        const userRole = rawRole.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isFac = userRole.includes('facilitator') || (this.projectData && this.projectData.facilitator_id && sessionUser.id == this.projectData.facilitator_id);
+        const isRev = userRole.includes('reviewer') || (this.projectData && this.projectData.reviewer_id && sessionUser.id == this.projectData.reviewer_id);
+        const isTL = userRole.includes('teamleader') || (this.projectData && sessionUser.id == this.projectData.team_leader_id);
+        const isTM = userRole.includes('teammember') || (this.projectData && (this.projectData.member_ids || []).map(Number).includes(Number(sessionUser.id))) || (this.projectData && sessionUser.id == this.projectData.creator_id);
+        const isAdmin = userRole.includes('admin') || userRole.includes('superadmin');
+
+        if ((isFac || isRev || (!isTL && !isTM)) && !isAdmin) {
+            OctaQube.toast('Access denied. Only Team Member or Team Leader can update team roles.', 'warning');
+            return;
+        }
+
+        if (!window.orgUsers || !window.orgUsers.length) {
+            await this.loadOrgUsers();
+        }
+        await this.loadPlantsAndDepartments();
+
+        const users = window.orgUsers || [];
+
+        const tlSelect = document.getElementById('reassignTeamLeaderSelect');
+        const facSelect = document.getElementById('reassignFacilitatorSelect');
+        const revSelect = document.getElementById('reassignReviewerSelect');
+        const plantFilter = document.getElementById('reassignPlantFilter');
+        const deptFilter = document.getElementById('reassignDeptFilter');
+        const searchInput = document.getElementById('reassignMemberSearchInput');
+        const membersList = document.getElementById('reassignTeamMembersList');
+
+        const currentTL = this.projectData ? this.projectData.team_leader_id : null;
+        const currentFac = this.projectData ? this.projectData.facilitator_id : null;
+        const currentRev = this.projectData ? this.projectData.reviewer_id : null;
+        const currentMemberIds = new Set(this.projectData && this.projectData.member_ids ? this.projectData.member_ids : []);
+
+        const formatUserOption = (u) => {
+            const dept = u.department ? ` — ${u.department}` : '';
+            return `${OctaQube.escapeHtml(u.full_name || u.username)}${OctaQube.escapeHtml(dept)}`;
+        };
+
+        if (tlSelect) {
+            tlSelect.innerHTML = `<option value="">-- Select Team Leader --</option>` + users.map(u => `
+                <option value="${u.id}" ${u.id == currentTL ? 'selected' : ''}>${formatUserOption(u)}</option>
+            `).join('');
+        }
+
+        if (facSelect) {
+            facSelect.innerHTML = `<option value="">-- No Facilitator / Auto-assign --</option>` + users.map(u => `
+                <option value="${u.id}" ${u.id == currentFac ? 'selected' : ''}>${formatUserOption(u)}</option>
+            `).join('');
+        }
+
+        if (revSelect) {
+            revSelect.innerHTML = `<option value="">-- No Specific Reviewer / Org Pool --</option>` + users.map(u => `
+                <option value="${u.id}" ${u.id == currentRev ? 'selected' : ''}>${formatUserOption(u)}</option>
+            `).join('');
+        }
+
+        if (plantFilter) {
+            plantFilter.innerHTML = `<option value="">All Plants / Locations</option>` + (this.allPlants || []).map(p => `
+                <option value="${OctaQube.escapeHtml(p)}">${OctaQube.escapeHtml(p)}</option>
+            `).join('');
+            plantFilter.value = '';
+        }
+
+        if (deptFilter) {
+            deptFilter.innerHTML = `<option value="">All Departments</option>` + (this.allDepartments || []).map(d => `
+                <option value="${OctaQube.escapeHtml(d.name)}">${OctaQube.escapeHtml(d.name)}</option>
+            `).join('');
+            deptFilter.value = '';
+        }
+
+        if (searchInput) searchInput.value = '';
+
+        if (membersList) {
+            // Store all users for pagination
+            this._reassignAllUsers = users;
+            this._reassignFilteredUsers = users;
+            this._reassignPage = 1;
+            this._reassignRenderPage(1);
+            this.updateSelectedMembersCount();
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
+    },
+
+    filterReassignMembers() {
+        const plantVal = (document.getElementById('reassignPlantFilter')?.value || '').toLowerCase().trim();
+        const deptVal  = (document.getElementById('reassignDeptFilter')?.value || '').toLowerCase().trim();
+        const q        = (document.getElementById('reassignMemberSearchInput')?.value || '').toLowerCase().trim();
+
+        const all = this._reassignAllUsers || [];
+        this._reassignFilteredUsers = all.filter(u => {
+            const searchData = ((u.full_name || '') + ' ' + (u.username || '') + ' ' + (u.email || '') + ' ' + (u.role || '') + ' ' + (u.department || '') + ' ' + (u.plant_name || '')).toLowerCase();
+            const plantMatch = !plantVal || (u.plant_name || u.location || '').toLowerCase() === plantVal;
+            const deptMatch  = !deptVal  || (u.department || '').toLowerCase() === deptVal;
+            const searchMatch = !q || searchData.includes(q);
+            return plantMatch && deptMatch && searchMatch;
+        });
+        this._reassignPage = 1;
+        this._reassignRenderPage(1);
+    },
+
+    _reassignRenderPage(page) {
+        const membersList = document.getElementById('reassignTeamMembersList');
+        if (!membersList) return;
+
+        const perPageEl = document.getElementById('reassignPerPageSelect');
+        const perPage   = perPageEl ? parseInt(perPageEl.value) || 10 : 10;
+        const filtered  = this._reassignFilteredUsers || [];
+        const total     = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / perPage));
+        page = Math.max(1, Math.min(page, totalPages));
+        this._reassignPage = page;
+
+        const currentMemberIds = new Set(this.projectData && this.projectData.member_ids ? this.projectData.member_ids : []);
+        const start = (page - 1) * perPage;
+        const slice = filtered.slice(start, start + perPage);
+
+        // Avatar background colours (cycling)
+        const avatarColors = [
+            {bg:'rgba(99,102,241,0.13)',fg:'#6366f1'}, {bg:'rgba(16,185,129,0.13)',fg:'#10b981'},
+            {bg:'rgba(245,158,11,0.13)',fg:'#f59e0b'},  {bg:'rgba(239,68,68,0.13)',fg:'#ef4444'},
+            {bg:'rgba(59,130,246,0.13)',fg:'#3b82f6'},  {bg:'rgba(168,85,247,0.13)',fg:'#a855f7'},
+        ];
+
+        if (slice.length === 0) {
+            membersList.innerHTML = `
+                <div class="text-center text-muted py-4 text-xs">
+                    <i data-lucide="search-x" class="d-block mx-auto mb-1 text-muted" style="width:20px;height:20px;"></i>
+                    No members match the selected filters or search criteria.
+                </div>`;
+        } else {
+            membersList.innerHTML = slice.map((u, idx) => {
+                const isChecked = currentMemberIds.has(u.id);
+                const initials  = (u.full_name || u.username || 'U').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                const color     = avatarColors[(start + idx) % avatarColors.length];
+                const roleText  = OctaQube.escapeHtml(u.role || 'Team Member');
+                const deptText  = OctaQube.escapeHtml(u.department || 'N/A');
+                const plantText = OctaQube.escapeHtml(u.plant_name || u.location || '—');
+
+                return `
+                <div class="d-flex align-items-center py-2 px-3 border-bottom reassign-member-row"
+                     style="cursor:pointer;transition:background .12s;min-height:52px;"
+                     onmouseover="this.style.background='var(--ds-bg-surface,#f8fafc)'" onmouseout="this.style.background=''">
+                    <!-- Checkbox -->
+                    <input class="form-check-input reassign-member-checkbox flex-shrink-0 mt-0"
+                           type="checkbox" value="${u.id}" id="reassign_user_${u.id}"
+                           ${isChecked ? 'checked' : ''}
+                           onchange="ProjectApp.updateSelectedMembersCount()"
+                           style="width:15px;height:15px;margin:0;cursor:pointer;">
+                    <!-- Avatar -->
+                    <div class="flex-shrink-0 ms-2 d-flex align-items-center justify-content-center fw-bold rounded-circle"
+                         style="width:36px;height:36px;background:${color.bg};color:${color.fg};font-size:12px;letter-spacing:.02em;">
+                        ${initials}
+                    </div>
+                    <!-- Stakeholder: Name + Email -->
+                    <label class="ms-2 mb-0 cursor-pointer" for="reassign_user_${u.id}" style="flex:1;min-width:0;overflow:hidden;">
+                        <span class="fw-semibold d-block text-truncate" style="font-size:13px;line-height:1.3;">${OctaQube.escapeHtml(u.full_name || u.username)}</span>
+                        <span class="text-muted d-block text-truncate" style="font-size:11px;line-height:1.3;">${OctaQube.escapeHtml(u.email || '')}</span>
+                    </label>
+                    <!-- Corporate Role -->
+                    <div class="ms-3 flex-shrink-0" style="width:120px;">
+                        <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill text-xs fw-medium"
+                              style="background:rgba(99,102,241,0.08);color:#6366f1;border:1px solid rgba(99,102,241,0.18);max-width:116px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+                            <span style="width:6px;height:6px;border-radius:50%;background:#6366f1;flex-shrink:0;display:inline-block;"></span>
+                            ${roleText}
+                        </span>
+                    </div>
+                    <!-- Plant Location -->
+                    <div class="ms-3 flex-shrink-0 d-flex align-items-center gap-1 text-xs text-muted text-truncate" style="width:110px;" title="${plantText}">
+                        <i data-lucide="building-2" style="width:12px;height:12px;flex-shrink:0;color:var(--ds-primary,#6366f1);"></i>
+                        <span class="text-truncate">${plantText}</span>
+                    </div>
+                    <!-- Department -->
+                    <div class="ms-3 flex-shrink-0 text-xs text-muted text-truncate" style="width:110px;" title="${deptText}">${deptText}</div>
+                </div>`;
+            }).join('');
+        }
+
+        // Update pagination UI
+        const infoEl     = document.getElementById('reassignPaginationInfo');
+        const labelEl    = document.getElementById('reassignPageLabel');
+        const prevBtn    = document.getElementById('reassignPrevBtn');
+        const nextBtn    = document.getElementById('reassignNextBtn');
+        const pagEl      = document.getElementById('reassignMembersPagination');
+
+        const from = total === 0 ? 0 : start + 1;
+        const to   = Math.min(start + perPage, total);
+        if (infoEl)  infoEl.textContent  = `Showing ${from}–${to} of ${total} members`;
+        if (labelEl) labelEl.textContent = `Page ${page} of ${totalPages}`;
+        if (prevBtn) prevBtn.disabled = (page <= 1);
+        if (nextBtn) nextBtn.disabled = (page >= totalPages);
+        if (pagEl)   pagEl.style.display = '';
+
+        if (window.lucide) setTimeout(() => lucide.createIcons(), 30);
+    },
+
+    reassignGoToPage(page) {
+        this._reassignRenderPage(page);
+    },
+
+    updateSelectedMembersCount() {
+        const checked = document.querySelectorAll('.reassign-member-checkbox:checked');
+        const badge = document.getElementById('selectedMembersCountBadge');
+        if (badge) badge.textContent = `${checked.length} selected`;
+    },
+
+    async openAddCrossDeptRoleModal(targetRole = 'Team Member') {
+        this.crossDeptRole = targetRole || 'Team Member';
+        const modalEl = document.getElementById('crossDeptMemberModal');
+        if (!modalEl) return;
+
+        if (!this.allPlants || !this.allDepartments || !this.allPlants.length) {
+            await this.loadPlantsAndDepartments();
+        }
+
+        const titleEl = document.getElementById('crossDeptModalTitle');
+        const iconEl = document.getElementById('crossDeptModalIcon');
+        const countEl = document.getElementById('crossDeptSelectedCount');
+        const confirmBtn = document.getElementById('crossDeptConfirmBtn');
+
+        if (this.crossDeptRole === 'Facilitator') {
+            if (titleEl) titleEl.textContent = 'Select Facilitator from Another Department / Location';
+            if (iconEl) iconEl.setAttribute('data-lucide', 'user-check');
+            if (countEl) countEl.textContent = 'Click "Select as Facilitator" on any employee below.';
+            if (confirmBtn) confirmBtn.style.display = 'none';
+        } else if (this.crossDeptRole === 'Reviewer') {
+            if (titleEl) titleEl.textContent = 'Select Reviewer from Another Department / Location';
+            if (iconEl) iconEl.setAttribute('data-lucide', 'shield-check');
+            if (countEl) countEl.textContent = 'Click "Select as Reviewer" on any employee below.';
+            if (confirmBtn) confirmBtn.style.display = 'none';
+        } else if (this.crossDeptRole === 'Team Leader') {
+            if (titleEl) titleEl.textContent = 'Select Team Leader from Another Department / Location';
+            if (iconEl) iconEl.setAttribute('data-lucide', 'award');
+            if (countEl) countEl.textContent = 'Click "Select as Team Leader" on any employee below.';
+            if (confirmBtn) confirmBtn.style.display = 'none';
+        } else {
+            if (titleEl) titleEl.textContent = 'Select Member from Another Department / Location';
+            if (iconEl) iconEl.setAttribute('data-lucide', 'user-plus');
+            if (countEl) countEl.textContent = '0 member(s) checked';
+            if (confirmBtn) {
+                confirmBtn.style.display = 'inline-block';
+                confirmBtn.textContent = 'Add to Project Team';
+            }
+        }
+        if (window.lucide) lucide.createIcons();
+
+        const plantSel = document.getElementById('crossDeptPlantSelect');
+        if (plantSel) {
+            plantSel.innerHTML = '<option value="">All Locations</option>' +
+                (this.allPlants || []).map(p => `<option value="${OctaQube.escapeHtml(p)}">${OctaQube.escapeHtml(p)}</option>`).join('');
+            plantSel.value = '';
+        }
+
+        const deptSel = document.getElementById('crossDeptDeptSelect');
+        if (deptSel) {
+            deptSel.innerHTML = '<option value="">All Departments</option>' +
+                (this.allDepartments || []).map(d => `<option value="${OctaQube.escapeHtml(d.name)}">${OctaQube.escapeHtml(d.name)}</option>`).join('');
+            deptSel.value = '';
+        }
+
+        const searchInput = document.getElementById('crossDeptMemberSearch');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.placeholder = `Search ${this.crossDeptRole.toLowerCase()} by name, email, or username...`;
+        }
+
+        await this.loadCrossDeptMemberList();
+        const crossModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        crossModal.show();
+    },
+
+    async loadCrossDeptMemberList() {
+        const container = document.getElementById('crossDeptMemberList');
+        if (!container) return;
+        const roleName = this.crossDeptRole || 'Team Member';
+        container.innerHTML = `<div class="p-3 text-center text-muted text-sm"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading organization ${roleName.toLowerCase()}s...</div>`;
+
+        const plantVal = (document.getElementById('crossDeptPlantSelect')?.value || '').trim();
+        const deptVal = (document.getElementById('crossDeptDeptSelect')?.value || '').trim();
+        const searchVal = (document.getElementById('crossDeptMemberSearch')?.value || '').trim();
+
+        try {
+            let members = [];
+            // Try potential-members endpoint
+            try {
+                let url = `/projects/potential-members?role=${encodeURIComponent(roleName)}&ignore_dept=true&`;
+                if (plantVal) url += `plant_name=${encodeURIComponent(plantVal)}&`;
+                if (deptVal) url += `dept_name=${encodeURIComponent(deptVal)}&`;
+                if (searchVal) url += `search=${encodeURIComponent(searchVal)}&`;
+                const res = await api.get(url);
+                if (Array.isArray(res) && res.length) members = res;
+            } catch (ePm) {}
+
+            // Fallback: filter from window.orgUsers
+            if (!members.length && window.orgUsers && window.orgUsers.length) {
+                members = window.orgUsers.filter(u => {
+                    if (roleName === 'Facilitator' && u.role !== 'Facilitator') return false;
+                    if (roleName === 'Reviewer' && u.role !== 'Reviewer') return false;
+                    if (plantVal && (u.plant_name || u.location) !== plantVal) return false;
+                    if (deptVal && u.department !== deptVal) return false;
+                    return true;
+                });
+            }
+
+            this.crossDeptMembersCache = members;
+            this.renderCrossDeptMemberList();
+        } catch (e) {
+            console.error(`Failed to load cross-dept ${roleName}s`, e);
+            container.innerHTML = `<div class="p-3 text-center text-danger text-sm">Failed to load ${roleName.toLowerCase()}s.</div>`;
+        }
+    },
+
+    renderCrossDeptMemberList() {
+        const container = document.getElementById('crossDeptMemberList');
+        if (!container) return;
+
+        const list = this.crossDeptMembersCache || [];
+        const searchVal = (document.getElementById('crossDeptMemberSearch')?.value || '').toLowerCase().trim();
+        const isRoleMode = this.crossDeptRole === 'Facilitator' || this.crossDeptRole === 'Reviewer' || this.crossDeptRole === 'Team Leader';
+
+        let filtered = list;
+        if (searchVal) {
+            filtered = list.filter(m => 
+                (m.full_name || '').toLowerCase().includes(searchVal) ||
+                (m.username || '').toLowerCase().includes(searchVal) ||
+                (m.email || '').toLowerCase().includes(searchVal) ||
+                (m.department || '').toLowerCase().includes(searchVal) ||
+                (m.plant_name || m.location || '').toLowerCase().includes(searchVal)
+            );
+        }
+
+        if (!filtered.length) {
+            container.innerHTML = `<div class="p-3 text-center text-muted text-sm">No matching ${this.crossDeptRole ? this.crossDeptRole.toLowerCase() + 's' : 'members'} found</div>`;
+            return;
+        }
+
+        // Get currently checked members from reassign modal
+        const checkedInMainModal = new Set(
+            Array.from(document.querySelectorAll('.reassign-member-checkbox:checked')).map(cb => parseInt(cb.value))
+        );
+
+        container.innerHTML = filtered.map(m => {
+            const isChecked = checkedInMainModal.has(m.id);
+            const deptBadge = m.department ? `<span class="badge bg-light text-dark border me-1">${OctaQube.escapeHtml(m.department)}</span>` : '';
+            const locBadge = (m.plant_name || m.location) ? `<span class="badge bg-secondary-subtle text-secondary border me-1">${OctaQube.escapeHtml(m.plant_name || m.location)}</span>` : '';
+            const mName = m.full_name || m.username;
+            const mEmail = m.email || m.username;
+            const mDept = m.department || '';
+            const mPlant = m.plant_name || m.location || '';
+            const mRole = m.role || 'Member';
+
+            if (isRoleMode) {
+                return `
+                    <div class="d-flex align-items-center justify-content-between p-2 border-bottom hover-bg-light rounded text-sm gap-2">
+                        <div class="d-flex align-items-center gap-2 min-w-0">
+                            <div class="avatar-circle flex-shrink-0" style="width:32px;height:32px;border-radius:50%;background:rgba(var(--ds-primary-rgb),0.1);color:var(--ds-primary);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;">
+                                ${OctaQube.escapeHtml((mName || 'U').charAt(0).toUpperCase())}
+                            </div>
+                            <div class="min-w-0">
+                                <strong class="text-dark d-block text-truncate">${OctaQube.escapeHtml(mName)}</strong>
+                                <span class="text-muted text-xs">${OctaQube.escapeHtml(mEmail)}</span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <div>
+                                ${locBadge}
+                                ${deptBadge}
+                            </div>
+                            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1" onclick="ProjectApp.selectCrossDeptRoleUser(${m.id}, '${OctaQube.escapeHtml(mName).replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mDept).replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mPlant).replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mRole).replace(/'/g, "\\'")}')">
+                                <i data-lucide="check" style="width:12px;height:12px;"></i> Select as ${OctaQube.escapeHtml(this.crossDeptRole)}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="d-flex align-items-center justify-content-between p-2 border-bottom hover-bg-light rounded text-sm">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <input class="form-check-input cross-dept-cb flex-shrink-0" type="checkbox" value="${m.id}" data-name="${OctaQube.escapeHtml(mName)}" data-email="${OctaQube.escapeHtml(mEmail)}" data-dept="${OctaQube.escapeHtml(mDept)}" data-plant="${OctaQube.escapeHtml(mPlant)}" data-role="${OctaQube.escapeHtml(mRole)}" id="cd_mem_${m.id}" ${isChecked ? 'checked' : ''} onchange="ProjectApp.updateCrossDeptSelectedCount()">
+                        <label for="cd_mem_${m.id}" class="form-check-label cursor-pointer mb-0 text-truncate">
+                            <strong class="text-dark">${OctaQube.escapeHtml(mName)}</strong>
+                            <span class="text-muted text-xs ms-1">(${OctaQube.escapeHtml(mEmail)})</span>
+                        </label>
+                    </div>
+                    <div class="flex-shrink-0 ms-2">
+                        ${locBadge}
+                        ${deptBadge}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (!isRoleMode) {
+            this.updateCrossDeptSelectedCount();
+        }
+        if (window.lucide) lucide.createIcons();
+    },
+
+    selectCrossDeptRoleUser(id, name, dept, plant, role) {
+        let selectId = 'reassignTeamLeaderSelect';
+        if (this.crossDeptRole === 'Facilitator') selectId = 'reassignFacilitatorSelect';
+        else if (this.crossDeptRole === 'Reviewer') selectId = 'reassignReviewerSelect';
+
+        const selectEl = document.getElementById(selectId);
+        if (selectEl) {
+            const extra = [role || 'User'];
+            if (dept) extra.push(dept);
+            if (plant) extra.push(plant);
+            const label = `${name} (${extra.join(' · ')})`;
+
+            let existingOpt = Array.from(selectEl.options).find(o => o.value == id);
+            if (!existingOpt) {
+                existingOpt = document.createElement('option');
+                existingOpt.value = id;
+                existingOpt.textContent = label;
+                selectEl.appendChild(existingOpt);
+            }
+            selectEl.value = id;
+        }
+
+        const modalEl = document.getElementById('crossDeptMemberModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+        if (window.OctaQube && OctaQube.toast) {
+            OctaQube.toast(`Selected ${name} as Project ${this.crossDeptRole}`, 'success');
+        }
+    },
+
+    updateCrossDeptSelectedCount() {
+        const cbs = document.querySelectorAll('.cross-dept-cb:checked');
+        const el = document.getElementById('crossDeptSelectedCount');
+        if (el) el.textContent = `${cbs.length} member(s) checked`;
+    },
+
+    confirmAddCrossDeptMembers() {
+        const cbs = document.querySelectorAll('.cross-dept-cb');
+        const membersList = document.getElementById('reassignTeamMembersList');
+        let addedCount = 0;
+
+        cbs.forEach(cb => {
+            const id = parseInt(cb.value);
+            const mainCb = document.getElementById(`reassign_user_${id}`);
+
+            if (cb.checked) {
+                if (mainCb) {
+                    mainCb.checked = true;
+                } else if (membersList) {
+                    // Member not in list yet, create and append row
+                    const name = cb.getAttribute('data-name') || 'User';
+                    const email = cb.getAttribute('data-email') || '';
+                    const dept = cb.getAttribute('data-dept') || '';
+                    const plant = cb.getAttribute('data-plant') || '';
+                    const role = cb.getAttribute('data-role') || 'Member';
+
+                    const deptBadge = dept ? `<span class="badge bg-light text-dark border text-xxs me-1">${OctaQube.escapeHtml(dept)}</span>` : '';
+                    const plantBadge = plant ? `<span class="badge bg-secondary-subtle text-secondary border text-xxs me-1">${OctaQube.escapeHtml(plant)}</span>` : '';
+                    const roleBadge = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle text-xxs me-1">${OctaQube.escapeHtml(role)}</span>`;
+                    const searchTerms = OctaQube.escapeHtml(`${name} ${email} ${role} ${dept} ${plant}`.toLowerCase());
+
+                    const initial = (name || 'U').charAt(0).toUpperCase();
+
+                    const newRow = document.createElement('div');
+                    newRow.className = 'form-check d-flex align-items-center justify-content-between py-2 px-2 border-bottom border-light reassign-member-row hover-bg-light rounded-2 transition-all';
+                    newRow.setAttribute('data-id', id);
+                    newRow.setAttribute('data-plant', plant.toLowerCase());
+                    newRow.setAttribute('data-dept', dept.toLowerCase());
+                    newRow.setAttribute('data-search', searchTerms);
+                    newRow.innerHTML = `
+                        <div class="d-flex align-items-center gap-2.5 min-w-0">
+                            <input class="form-check-input reassign-member-checkbox flex-shrink-0 mt-0 cursor-pointer" type="checkbox" value="${id}" id="reassign_user_${id}" checked onchange="ProjectApp.updateSelectedMembersCount()" style="width:16px;height:16px;">
+                            <div class="avatar-circle flex-shrink-0" style="width:28px;height:28px;border-radius:50%;background:rgba(var(--ds-primary-rgb),0.1);color:var(--ds-primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">
+                                ${initial}
+                            </div>
+                            <label class="form-check-label text-xs cursor-pointer mb-0 text-truncate" for="reassign_user_${id}">
+                                <span class="fw-semibold text-main d-block">${OctaQube.escapeHtml(name)}</span>
+                                <span class="text-muted text-xxs font-mono text-truncate">${OctaQube.escapeHtml(email)}</span>
+                            </label>
+                        </div>
+                        <div class="d-flex align-items-center flex-shrink-0 ms-2 gap-1">
+                            ${roleBadge}
+                            ${deptBadge}
+                            ${plantBadge}
+                        </div>
+                    `;
+                    const noMatchEl = document.getElementById('reassignMemberNoMatch');
+                    if (noMatchEl) {
+                        membersList.insertBefore(newRow, noMatchEl);
+                    } else {
+                        membersList.appendChild(newRow);
+                    }
+                }
+                addedCount++;
+            } else {
+                if (mainCb) {
+                    mainCb.checked = false;
+                }
+            }
+        });
+
+        this.updateSelectedMembersCount();
+        this.filterReassignMembers();
+
+        const modalEl = document.getElementById('crossDeptMemberModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+
+        if (window.OctaQube && OctaQube.toast) {
+            OctaQube.toast(`Updated project team selections`, 'success');
+        }
+    },
+
+    async saveReassignedTeam() {
+        let sessionUser = {};
+        try {
+            sessionUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+        } catch (_) {}
+        const rawRole = ((sessionUser.role && sessionUser.role.name) ? sessionUser.role.name : (sessionUser.role || '')).toString();
+        const userRole = rawRole.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isFac = userRole.includes('facilitator') || (this.projectData && this.projectData.facilitator_id && sessionUser.id == this.projectData.facilitator_id);
+        const isRev = userRole.includes('reviewer') || (this.projectData && this.projectData.reviewer_id && sessionUser.id == this.projectData.reviewer_id);
+        const isTL = userRole.includes('teamleader') || (this.projectData && sessionUser.id == this.projectData.team_leader_id);
+        const isTM = userRole.includes('teammember') || (this.projectData && (this.projectData.member_ids || []).map(Number).includes(Number(sessionUser.id))) || (this.projectData && sessionUser.id == this.projectData.creator_id);
+        const isAdmin = userRole.includes('admin') || userRole.includes('superadmin');
+
+        if ((isFac || isRev || (!isTL && !isTM)) && !isAdmin) {
+            OctaQube.toast('Access denied. Only Team Member or Team Leader can save team reassignments.', 'warning');
+            return;
+        }
+
+        const tlSelect = document.getElementById('reassignTeamLeaderSelect');
+        const facSelect = document.getElementById('reassignFacilitatorSelect');
+        const revSelect = document.getElementById('reassignReviewerSelect');
+        const checkedBoxes = document.querySelectorAll('.reassign-member-checkbox:checked');
+
+        const team_leader_id = tlSelect && tlSelect.value ? parseInt(tlSelect.value) : null;
+        if (!team_leader_id) {
+            OctaQube.toast('Please select a Team Leader.', 'warning');
+            return;
+        }
+
+        const facilitator_id = facSelect && facSelect.value ? parseInt(facSelect.value) : null;
+        const reviewer_id = revSelect && revSelect.value ? parseInt(revSelect.value) : null;
+        const member_ids = Array.from(checkedBoxes).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+
+        try {
+            const res = await api.put(`/projects/${this.projectId}/reassign-team`, {
+                team_leader_id,
+                facilitator_id,
+                reviewer_id,
+                member_ids
+            });
+            const modalEl = document.getElementById('reassignProjectTeamModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+            OctaQube.toast(res.message || 'Project team updated successfully.', 'success');
+            await this.loadProject();
+        } catch (err) {
+            console.error('Failed to update project team:', err);
+            OctaQube.toast(err.message || 'Failed to update project team.', 'danger');
+        }
+    },
+
+    async dismissRestartPrompt(fromModal = false) {
+        let sessionUser = {};
+        try {
+            sessionUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
+        } catch (_) {}
+        const rawRole = ((sessionUser.role && sessionUser.role.name) ? sessionUser.role.name : (sessionUser.role || '')).toString();
+        const userRole = rawRole.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isFac = userRole.includes('facilitator') || (this.projectData && this.projectData.facilitator_id && sessionUser.id == this.projectData.facilitator_id);
+        const isRev = userRole.includes('reviewer') || (this.projectData && this.projectData.reviewer_id && sessionUser.id == this.projectData.reviewer_id);
+        const isTL = userRole.includes('teamleader') || (this.projectData && sessionUser.id == this.projectData.team_leader_id);
+        const isTM = userRole.includes('teammember') || (this.projectData && (this.projectData.member_ids || []).map(Number).includes(Number(sessionUser.id))) || (this.projectData && sessionUser.id == this.projectData.creator_id);
+        const isAdmin = userRole.includes('admin') || userRole.includes('superadmin');
+
+        if ((isFac || isRev || (!isTL && !isTM)) && !isAdmin) {
+            return;
+        }
+
+        try {
+            await api.post(`/projects/${this.projectId}/dismiss-restart-prompt`);
+            if (fromModal) {
+                const modalEl = document.getElementById('reassignProjectTeamModal');
+                if (modalEl) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
+            }
+            OctaQube.toast('Continuing with existing team members from Stage 1.', 'info');
+            await this.loadProject();
+        } catch (err) {
+            console.error('Failed to dismiss restart prompt:', err);
+        }
     }
 };
+
+// Handle nested modal scroll retention
+document.addEventListener('hidden.bs.modal', (e) => {
+    if (e.target && e.target.id === 'crossDeptMemberModal') {
+        const reassignModal = document.getElementById('reassignProjectTeamModal');
+        if (reassignModal && reassignModal.classList.contains('show')) {
+            document.body.classList.add('modal-open');
+        }
+    }
+});
+
+window.ProjectApp = ProjectApp;
+window.ProjectDetailsApp = ProjectApp;
 
 document.addEventListener('DOMContentLoaded', () => ProjectApp.init());

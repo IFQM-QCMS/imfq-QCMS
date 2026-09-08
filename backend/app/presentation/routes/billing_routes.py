@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request, send_from_directory, abort, curre
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func, or_, and_, text
 import os
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from werkzeug.utils import secure_filename
 from app.infrastructure.database.models.models import (
     db, User, Organization, Subscription, SubscriptionInvoice, SubscriptionPayment,
@@ -194,6 +195,7 @@ def list_invoices():
             "id": inv.id,
             "invoice_uid": inv.invoice_uid,
             "invoice_number": inv.invoice_number,
+            "org_id": inv.org_id,
             "org_name": inv.organization.name,
             "plan_name": inv.plan_name,
             "billing_cycle": inv.billing_cycle,
@@ -458,14 +460,25 @@ def refund_invoice(inv_id):
         return jsonify({"status": "error", "message": "Only paid invoices can be refunded"}), 422
 
     data = request.json or {}
-    refund_amount = float(data.get('refund_amount', inv.total_amount))
+    raw_amount = data.get('refund_amount', inv.total_amount)
+    try:
+        refund_amount = Decimal(str(raw_amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid refund amount"}), 422
+
+    if refund_amount <= Decimal('0.00'):
+        return jsonify({"status": "error", "message": "Refund amount must be positive"}), 422
+
     reason = data.get('reason', 'Customer Request')
 
     payment = SubscriptionPayment.query.get(inv.payment_id)
+    if not payment:
+        return jsonify({"status": "error", "message": "Associated payment record not found"}), 404
     
     # Refund limit validation
-    already_refunded = sum(r.amount for r in inv.refund_records)
-    if already_refunded + refund_amount > inv.total_amount:
+    already_refunded = sum(Decimal(str(r.amount or 0)) for r in (inv.refund_records or []))
+    inv_total = Decimal(str(inv.total_amount or 0))
+    if already_refunded + refund_amount > inv_total:
         return jsonify({"status": "error", "message": f"Refund amount exceeds total paid amount. Already refunded: {already_refunded}"}), 422
 
     ref_uid = "REF-" + uuid.uuid4().hex[:8].upper()
@@ -480,16 +493,17 @@ def refund_invoice(inv_id):
     db.session.add(refund)
 
     # Update payment record
-    payment.refund_amount += refund_amount
+    current_refund_amount = Decimal(str(payment.refund_amount or 0))
+    payment.refund_amount = current_refund_amount + refund_amount
     payment.refund_date = datetime.now(timezone.utc).replace(tzinfo=None)
-    if payment.refund_amount >= inv.total_amount:
+    if payment.refund_amount >= inv_total:
         payment.refund_status = 'Full'
         inv.invoice_status = 'Refunded'
     else:
         payment.refund_status = 'Partial'
 
     db.session.commit()
-    _audit_log(inv.org_id, inv.id, "Refund Issued", {"refund_uid": ref_uid, "amount": refund_amount})
+    _audit_log(inv.org_id, inv.id, "Refund Issued", {"refund_uid": ref_uid, "amount": float(refund_amount)})
 
     return jsonify({
         "status": "success",
@@ -552,17 +566,45 @@ def send_invoice_email(inv_id):
 def create_credit_note():
     data = request.json or {}
     org_id = data.get('org_id')
-    amount = float(data.get('amount', 0.0))
+    invoice_id = data.get('invoice_id')
+    raw_amount = data.get('amount', 0.0)
     notes = data.get('notes', '')
 
-    if not org_id:
+    if (not org_id or str(org_id).strip() in ('', 'undefined', 'null')) and invoice_id:
+        try:
+            inv = db.session.get(SubscriptionInvoice, int(invoice_id))
+            if inv:
+                org_id = inv.org_id
+        except (ValueError, TypeError):
+            pass
+
+    if not org_id or str(org_id).strip() in ('', 'undefined', 'null'):
         return jsonify({"status": "error", "message": "Organization is required"}), 422
-    if amount <= 0:
+
+    try:
+        org_id = int(org_id)
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid organization ID"}), 422
+
+    try:
+        amount = Decimal(str(raw_amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Invalid credit note amount"}), 422
+
+    if amount <= Decimal('0.00'):
         return jsonify({"status": "error", "message": "Credit note amount must be positive"}), 422
+
+    valid_inv_id = None
+    if invoice_id:
+        try:
+            valid_inv_id = int(invoice_id)
+        except (ValueError, TypeError):
+            valid_inv_id = None
 
     cn_uid = "CN-" + uuid.uuid4().hex[:8].upper()
     cn = SubscriptionCreditNote(
         org_id=org_id,
+        invoice_id=valid_inv_id,
         credit_note_uid=cn_uid,
         amount=amount,
         balance=amount,
@@ -572,7 +614,7 @@ def create_credit_note():
     db.session.add(cn)
     db.session.commit()
 
-    _audit_log(org_id, None, "Credit Note Created", {"credit_note_uid": cn_uid, "amount": amount})
+    _audit_log(org_id, valid_inv_id, "Credit Note Created", {"credit_note_uid": cn_uid, "amount": float(amount)})
 
     return jsonify({
         "status": "success",

@@ -1052,7 +1052,7 @@ const SuperAdmin = {
         if (mKpi) mKpi.textContent = `${summary.avg_kpi_improvement_pct || 0}%`;
 
         this.orgRevenueCurrentPage = 1;
-        const sizeSelect = document.getElementById('orgRevenuePageSize');
+        const sizeSelect = document.getElementById('orgRevenuePaginationContainer_pageSize') || document.getElementById('orgRevenuePageSize');
         if (sizeSelect) sizeSelect.value = String(this.orgRevenuePageSize);
 
         this.backToOrgRevenueList();
@@ -1064,6 +1064,10 @@ const SuperAdmin = {
             modal.show();
             if (window.lucide) lucide.createIcons();
         }
+    },
+
+    _renderOrgRevenueTable() {
+        this.filterOrgRevenueTable(false);
     },
 
     changeOrgRevenuePageSize(size) {
@@ -1143,8 +1147,15 @@ const SuperAdmin = {
                 currentPage: this.orgRevenueCurrentPage,
                 pageSize: this.orgRevenuePageSize,
                 pageSizeOptions: [10, 20, 50, 100],
-                onPageChange: (p) => { this.orgRevenueCurrentPage = p; this._renderOrgRevenueTable(); },
-                onPageSizeChange: (sz) => { this.orgRevenuePageSize = sz; this.orgRevenueCurrentPage = 1; this._renderOrgRevenueTable(); }
+                onPageChange: (p) => {
+                    SuperAdmin.orgRevenueCurrentPage = p;
+                    SuperAdmin.filterOrgRevenueTable(false);
+                },
+                onPageSizeChange: (sz) => {
+                    SuperAdmin.orgRevenuePageSize = parseInt(sz, 10) || 10;
+                    SuperAdmin.orgRevenueCurrentPage = 1;
+                    SuperAdmin.filterOrgRevenueTable(false);
+                }
             });
         }
 
@@ -2412,7 +2423,7 @@ const SuperAdmin = {
                                 ${inv.invoice_status === 'Paid' ? `
                                     <li><a class="dropdown-item text-danger" href="#" onclick="SuperAdmin.openRefundModal(${inv.id}, '${inv.invoice_number}', ${inv.total_amount}, '${inv.currency}')"><i data-lucide="rotate-ccw" class="me-2" style="width:13px;height:13px;"></i> Issue Refund</a></li>
                                 ` : ''}
-                                <li><a class="dropdown-item" href="#" onclick="SuperAdmin.openCreditNoteModal(${inv.org_id}, '${inv.org_name.replace(/'/g, "\\'")}')"><i data-lucide="gift" class="me-2" style="width:13px;height:13px;"></i> Issue Credit</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="SuperAdmin.openCreditNoteModal(${inv.org_id}, '${inv.org_name.replace(/'/g, "\\'")}', ${inv.id})"><i data-lucide="gift" class="me-2" style="width:13px;height:13px;"></i> Issue Credit</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="#" onclick="SuperAdmin.deleteInvoice(${inv.id})"><i data-lucide="trash-2" class="me-2" style="width:13px;height:13px;"></i> Delete</a></li>
                             </ul>
@@ -3558,26 +3569,38 @@ const SuperAdmin = {
         document.getElementById('brInvoiceId').value = invId;
         document.getElementById('brInvNum').textContent = invNum;
         document.getElementById('brCurrency').textContent = currency;
-        document.getElementById('brMaxAmount').textContent = `₹${total.toLocaleString('en-IN')}`;
+        document.getElementById('brMaxAmount').textContent = `₹${parseFloat(total || 0).toLocaleString('en-IN')}`;
         document.getElementById('brAmount').value = total;
 
-        const modal = new bootstrap.Modal(document.getElementById('billRefundModal'));
-        modal.show();
+        const modalEl = document.getElementById('billRefundModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     },
 
     async submitRefund() {
         const id = document.getElementById('brInvoiceId').value;
+        const amt = parseFloat(document.getElementById('brAmount').value);
+        if (isNaN(amt) || amt <= 0) {
+            api.showNotification('Please enter a valid positive refund amount', 'warning');
+            return;
+        }
+
         const payload = {
-            refund_amount: parseFloat(document.getElementById('brAmount').value),
-            reason: document.getElementById('brReason').value
+            refund_amount: amt,
+            reason: document.getElementById('brReason').value || 'Customer Request'
         };
 
         try {
             const res = await api.post(`/billing/invoices/${id}/refund`, payload);
             if (res && res.status === 'success') {
                 api.showNotification('Refund issued successfully', 'success');
-                const modal = bootstrap.Modal.getInstance(document.getElementById('billRefundModal'));
-                modal.hide();
+                const modalEl = document.getElementById('billRefundModal');
+                if (modalEl) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
                 this.loadRevenue();
             }
         } catch (e) {
@@ -3585,30 +3608,69 @@ const SuperAdmin = {
         }
     },
 
-    openCreditNoteModal(orgId, orgName) {
-        document.getElementById('bcnOrgId').value = orgId;
-        document.getElementById('bcnOrgName').textContent = orgName;
-        document.getElementById('bcnAmount').value = '1000.00';
-        document.getElementById('bcnNotes').value = 'Adjustment credit note balance';
+    openCreditNoteModal(orgId, orgName, invoiceId = null) {
+        const orgIdInput = document.getElementById('bcnOrgId');
+        if (orgIdInput) orgIdInput.value = (orgId !== undefined && orgId !== null && orgId !== 'undefined') ? orgId : '';
 
-        const modal = new bootstrap.Modal(document.getElementById('billCreditNoteModal'));
-        modal.show();
+        const invIdInput = document.getElementById('bcnInvoiceId');
+        if (invIdInput) invIdInput.value = invoiceId || '';
+
+        const nameEl = document.getElementById('bcnOrgName');
+        if (nameEl) nameEl.textContent = orgName || 'Organization';
+
+        const amtEl = document.getElementById('bcnAmount');
+        if (amtEl) amtEl.value = '1000.00';
+
+        const notesEl = document.getElementById('bcnNotes');
+        if (notesEl) notesEl.value = 'Adjustment credit note balance';
+
+        const modalEl = document.getElementById('billCreditNoteModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     },
 
     async submitCreditNote() {
-        const orgId = document.getElementById('bcnOrgId').value;
+        const orgIdVal = document.getElementById('bcnOrgId')?.value;
+        const invIdVal = document.getElementById('bcnInvoiceId')?.value;
+        const amtVal = parseFloat(document.getElementById('bcnAmount')?.value);
+        const notesVal = document.getElementById('bcnNotes')?.value;
+
+        if (isNaN(amtVal) || amtVal <= 0) {
+            api.showNotification('Please enter a valid positive credit amount', 'warning');
+            return;
+        }
+
         const payload = {
-            org_id: parseInt(orgId),
-            amount: parseFloat(document.getElementById('bcnAmount').value),
-            notes: document.getElementById('bcnNotes').value
+            amount: amtVal,
+            notes: notesVal || ''
         };
+
+        const parsedOrgId = parseInt(orgIdVal, 10);
+        if (!isNaN(parsedOrgId) && parsedOrgId > 0) {
+            payload.org_id = parsedOrgId;
+        }
+
+        const parsedInvId = parseInt(invIdVal, 10);
+        if (!isNaN(parsedInvId) && parsedInvId > 0) {
+            payload.invoice_id = parsedInvId;
+        }
+
+        if (!payload.org_id && !payload.invoice_id) {
+            api.showNotification('Organization is required', 'warning');
+            return;
+        }
 
         try {
             const res = await api.post('/billing/credit-notes', payload);
             if (res && res.status === 'success') {
                 api.showNotification('Credit note issued successfully', 'success');
-                const modal = bootstrap.Modal.getInstance(document.getElementById('billCreditNoteModal'));
-                modal.hide();
+                const modalEl = document.getElementById('billCreditNoteModal');
+                if (modalEl) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
                 this.loadRevenue();
             }
         } catch (e) {

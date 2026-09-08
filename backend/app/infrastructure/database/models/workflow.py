@@ -41,6 +41,15 @@ class Project(db.Model):
     rejection_reason = db.Column(db.Text, nullable=True)
     
     stages_config = db.Column(db.JSON, nullable=True)
+    
+    # Restart Governance Attributes
+    restart_status = db.Column(db.String(30), nullable=True) # None, 'Pending', 'Approved', 'Rejected', 'Dismissed'
+    restart_reason = db.Column(db.Text, nullable=True)
+    restart_requested_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    restart_requested_at = db.Column(db.DateTime, nullable=True)
+    restart_reviewer_comments = db.Column(db.Text, nullable=True)
+    restart_reviewed_at = db.Column(db.DateTime, nullable=True)
+    
     created_at = db.Column(db.DateTime, default=_utc_now)
     
     members = db.relationship('User', secondary='project_members', backref='projects')
@@ -52,6 +61,7 @@ class Project(db.Model):
     team_leader = db.relationship('User', foreign_keys=[team_leader_id], backref='led_projects')
     facilitator = db.relationship('User', foreign_keys=[facilitator_id], backref='facilitated_projects')
     reviewer = db.relationship('User', foreign_keys=[reviewer_id], backref='reviewed_projects')
+    restart_requested_by = db.relationship('User', foreign_keys=[restart_requested_by_id], lazy=True)
 
 class ProjectMember(db.Model):
     __tablename__ = 'project_members'

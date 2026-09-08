@@ -184,12 +184,20 @@ def get_leaderboard():
     if plant_param:
         from app.infrastructure.database.models.models import Plant
         if plant_param.isdigit():
-            query = query.filter(db.or_(getattr(User, 'plant_id', None) == int(plant_param), Department.plant_id == int(plant_param)))
+            p_val = int(plant_param)
+            query = query.filter(
+                db.case(
+                    (User.plant_id != None, User.plant_id == p_val),
+                    else_=Department.plant_id == p_val
+                )
+            )
         else:
-            query = query.outerjoin(Plant, getattr(User, 'plant_id', None) == Plant.id).filter(db.or_(
-                Plant.name.ilike(f"%{plant_param}%"),
-                Department.plant.has(Plant.name.ilike(f"%{plant_param}%"))
-            ))
+            query = query.outerjoin(Plant, getattr(User, 'plant_id', None) == Plant.id).filter(
+                db.case(
+                    (User.plant_id != None, Plant.name.ilike(f"%{plant_param}%")),
+                    else_=Department.plant.has(Plant.name.ilike(f"%{plant_param}%"))
+                )
+            )
 
     if dept_id:
         query = query.filter(User.department_id == dept_id)
@@ -481,12 +489,20 @@ def export_leaderboard():
 
     if plant_param:
         if plant_param.isdigit():
-            query = query.filter(db.or_(getattr(User, 'plant_id', None) == int(plant_param), Department.plant_id == int(plant_param)))
+            p_val = int(plant_param)
+            query = query.filter(
+                db.case(
+                    (User.plant_id != None, User.plant_id == p_val),
+                    else_=Department.plant_id == p_val
+                )
+            )
         else:
-            query = query.outerjoin(Plant, getattr(User, 'plant_id', None) == Plant.id).filter(db.or_(
-                Plant.name.ilike(f"%{plant_param}%"),
-                Department.plant.has(Plant.name.ilike(f"%{plant_param}%"))
-            ))
+            query = query.outerjoin(Plant, getattr(User, 'plant_id', None) == Plant.id).filter(
+                db.case(
+                    (User.plant_id != None, Plant.name.ilike(f"%{plant_param}%")),
+                    else_=Department.plant.has(Plant.name.ilike(f"%{plant_param}%"))
+                )
+            )
 
     if dept_id:
         query = query.filter(User.department_id == dept_id)

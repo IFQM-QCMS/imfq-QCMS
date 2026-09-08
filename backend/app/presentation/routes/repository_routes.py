@@ -244,7 +244,11 @@ def list_repository_projects():
     
     # Enforce Role-Based Access Control for visibility
     if user.role.name == 'Team Member':
-        query = query.filter(Project.members.any(id=user.id))
+        query = query.filter(db.or_(
+            Project.members.any(id=user.id),
+            Project.creator_id == user.id,
+            Project.team_leader_id == user.id
+        ))
     elif user.role.name == 'Team Leader':
         # Team Leaders can see projects they lead, created, or are assigned to
         query = query.filter(db.or_(
@@ -273,42 +277,102 @@ def list_repository_projects():
                 Project.department.has(Department.plant.has(Plant.name.ilike(f"%{plant_param}%")))
             ))
 
+    if dept_id and str(dept_id).isdigit():
+        query = query.filter_by(department_id=int(dept_id))
+
+    # Base query for all projects visible to this user in this org/plant/dept
+    scoped_base_query = query
+
+    # STRICT RULE: Closed / Completed / Archived projects belong in Knowledge Base ONLY.
+    # They MUST NEVER be visible in Project Repository.
+    closed_statuses = ['Closed', 'Completed', 'Archived', 'CLOSED', 'COMPLETED', 'ARCHIVED', 'Stage 8 Approved']
+    stopped_statuses = ['Rejected', 'Cancelled', 'Stopped', 'On Hold', 'Stage 1 Rejected']
+
+    def is_project_stopped(p):
+        if not p or not p.status:
+            return False
+        st = str(p.status).strip()
+        return st in stopped_statuses or st.startswith('Rejected') or st.startswith('Stopped')
+
+    # Activity & Inactivity cutoff (7-day standard across QCMS platform)
+    inactivity_days = 7
+    if user and hasattr(user, 'org_id') and user.org_id:
+        org = db.session.get(Organization, user.org_id)
+        if org and getattr(org, 'project_inactivity_days', None) and org.project_inactivity_days != 30:
+            inactivity_days = org.project_inactivity_days
+            
+    today_utc = datetime.now(timezone.utc).date()
+    cutoff_datetime = datetime.combine(today_utc - timedelta(days=inactivity_days - 1), datetime.min.time())
+
+    # Calculate real-time repository summary stats for this user (before view filters like status/search/stage)
+    repo_base_projects = scoped_base_query.filter(~Project.status.in_(closed_statuses)).all()
+    base_pids = [p.id for p in repo_base_projects]
+    audit_map = {}
+    if base_pids:
+        audit_rows = db.session.query(
+            AuditLog.project_id,
+            db.func.max(AuditLog.created_at)
+        ).filter(AuditLog.project_id.in_(base_pids)).group_by(AuditLog.project_id).all()
+        audit_map = {row[0]: row[1] for row in audit_rows}
+
+    total_count = len(repo_base_projects)
+    stopped_count = 0
+    active_count = 0
+    stalled_count = 0
+
+    for p in repo_base_projects:
+        if is_project_stopped(p):
+            stopped_count += 1
+            continue
+        last_act = audit_map.get(p.id) or p.created_at
+        if last_act and last_act < cutoff_datetime:
+            stalled_count += 1
+        else:
+            active_count += 1
+
+    # Now apply table view filters (search query, stage, category, status)
+    table_query = scoped_base_query
+
     if q:
         q_term = f"%{q}%"
-        query = query.filter(db.or_(
+        table_query = table_query.filter(db.or_(
             Project.title.ilike(q_term),
             Project.project_uid.ilike(q_term),
             Project.category.ilike(q_term)
         ))
 
-    if dept_id and str(dept_id).isdigit():
-        query = query.filter_by(department_id=int(dept_id))
-
-    # STRICT RULE: Closed / Completed / Archived projects belong in Knowledge Base ONLY.
-    # They MUST NEVER be visible in Project Repository.
-    closed_statuses = ['Closed', 'Completed', 'Archived', 'CLOSED', 'COMPLETED', 'ARCHIVED', 'Stage 8 Approved']
-
     if status and str(status).lower() != 'all':
         if status == 'Active':
-            query = query.filter(~Project.status.in_(closed_statuses + ['Rejected', 'On Hold', 'Cancelled']))
-        elif status in ['Closed', 'Completed', 'Archived']:
-            query = query.filter(Project.status.in_(closed_statuses))
-        elif status in ['Inactive', 'Stalled']:
-            three_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=3)
             recent_active_pids = db.session.query(AuditLog.project_id).filter(
-                AuditLog.created_at >= three_days_ago,
+                AuditLog.created_at >= cutoff_datetime,
                 AuditLog.project_id.isnot(None)
-            ).subquery()
-            query = query.filter(
-                ~Project.status.in_(closed_statuses),
+            ).scalar_subquery()
+            table_query = table_query.filter(
+                ~Project.status.in_(closed_statuses + list(stopped_statuses)),
+                ~Project.status.ilike('Rejected%'),
+                ~Project.status.ilike('Stopped%'),
                 db.or_(
-                    Project.created_at < three_days_ago,
-                    ~Project.id.in_(recent_active_pids)
+                    Project.created_at >= cutoff_datetime,
+                    Project.id.in_(recent_active_pids)
                 )
             )
+        elif status in ['Closed', 'Completed', 'Archived']:
+            table_query = table_query.filter(Project.status.in_(closed_statuses))
+        elif status in ['Inactive', 'Stalled']:
+            recent_active_pids = db.session.query(AuditLog.project_id).filter(
+                AuditLog.created_at >= cutoff_datetime,
+                AuditLog.project_id.isnot(None)
+            ).scalar_subquery()
+            table_query = table_query.filter(
+                ~Project.status.in_(closed_statuses + list(stopped_statuses)),
+                ~Project.status.ilike('Rejected%'),
+                ~Project.status.ilike('Stopped%'),
+                Project.created_at < cutoff_datetime,
+                ~Project.id.in_(recent_active_pids)
+            )
         elif status in ['Stopped', 'Rejected', 'Cancelled']:
-            query = query.filter(db.or_(
-                Project.status.in_(['Rejected', 'Cancelled', 'Stopped', 'On Hold']),
+            table_query = table_query.filter(db.or_(
+                Project.status.in_(list(stopped_statuses)),
                 Project.status.ilike('Rejected%'),
                 Project.status.ilike('Stopped%')
             ))
@@ -351,7 +415,7 @@ def list_repository_projects():
                 )
             ).scalar_subquery()
 
-            query = query.filter(
+            table_query = table_query.filter(
                 ~Project.status.in_(closed_statuses),
                 db.or_(
                     Project.status.ilike('%Pending%'),
@@ -365,32 +429,20 @@ def list_repository_projects():
                 )
             )
         else:
-            query = query.filter(Project.status == status)
+            table_query = table_query.filter(Project.status == status)
     else:
         # STRICT DEFAULT: Exclude closed/completed/archived projects from Project Repository
-        query = query.filter(~Project.status.in_(closed_statuses))
+        table_query = table_query.filter(~Project.status.in_(closed_statuses))
 
     if stage and str(stage).isdigit():
-        query = query.filter_by(current_stage=int(stage))
+        table_query = table_query.filter_by(current_stage=int(stage))
 
     if category:
-        query = query.filter_by(category=category)
+        table_query = table_query.filter_by(category=category)
         
-    projects = query.order_by(Project.created_at.desc()).all()
-    
-    inactivity_days = 30
-    if user and hasattr(user, 'org_id') and user.org_id:
-        org = db.session.get(Organization, user.org_id)
-        if org and getattr(org, 'project_inactivity_days', None):
-            inactivity_days = org.project_inactivity_days
-            
-    inactivity_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=inactivity_days)
+    projects = table_query.order_by(Project.created_at.desc()).all()
     
     results = []
-    total_count = len(projects)
-    active_count = 0
-    completed_count = 0
-    stalled_count = 0
     
     from app.infrastructure.database.models.models import (
         ProjectStageTracker, ProjectReview,
@@ -409,19 +461,19 @@ def list_repository_projects():
         # Calculate weighted progress percentage
         progress_pct = round(calculate_weighted_progress(p.current_stage, stage_weights), 1)
         
-        # Detect stalled/inactive status based on organization's configured inactivity threshold (days)
-        last_log = AuditLog.query.filter_by(project_id=p.id).order_by(AuditLog.created_at.desc()).first()
-        last_activity = last_log.created_at if last_log else p.created_at
+        # Detect stalled/inactive status based on activity cutoff
+        last_activity = audit_map.get(p.id)
+        if not last_activity:
+            last_log = AuditLog.query.filter_by(project_id=p.id).order_by(AuditLog.created_at.desc()).first()
+            last_activity = last_log.created_at if last_log else p.created_at
         
         is_stalled = False
-        if last_activity and last_activity < inactivity_cutoff:
-            is_stalled = True
-            stalled_count += 1
-        else:
-            active_count += 1
+        if not is_project_stopped(p):
+            if last_activity and last_activity < cutoff_datetime:
+                is_stalled = True
 
         display_status = p.status
-        if p.status not in ('Closed', 'Completed', 'Archived'):
+        if p.status not in ('Closed', 'Completed', 'Archived') and not is_project_stopped(p):
             is_p_approval = False
             if p.status and any(w in p.status for w in ['Pending', 'Submitted', 'Awaiting']):
                 is_p_approval = True
@@ -458,10 +510,8 @@ def list_repository_projects():
             "efficiency": efficiency,
             "status": display_status,
             "is_stalled": is_stalled,
-            "last_updated": last_activity.isoformat() + "Z"
+            "last_updated": (last_activity.isoformat() + "Z") if last_activity else None
         })
-        
-    stopped_count = sum(1 for p in projects if p.status in ('Rejected', 'Cancelled', 'Stopped', 'On Hold') or (p.status and (p.status.startswith('Rejected') or p.status.startswith('Stopped'))))
 
     total_items = len(results)
     if page is not None:

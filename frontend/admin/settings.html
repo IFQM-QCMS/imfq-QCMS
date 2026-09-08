@@ -6,7 +6,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -14,10 +14,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
     <link rel="stylesheet" href="/assets/css/compliance-enterprise.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
@@ -254,13 +254,23 @@
                                                 <div class="col-md-6">
                                                     <div class="ds-field">
                                                         <label class="ds-label">CURRENT PASSWORD <span class="text-danger">*</span></label>
-                                                        <input type="password" class="ds-input" id="personal_old_pass">
+                                                        <div class="position-relative">
+                                                            <input type="password" class="ds-input" id="personal_old_pass" placeholder="••••••••" style="padding-right: 42px !important;">
+                                                            <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent p-0 pe-3 d-flex align-items-center justify-content-center" onclick="settingsManager.togglePasswordVisibility('personal_old_pass', this)" title="Toggle password visibility" aria-label="Toggle password visibility" style="box-shadow: none; z-index: 5; cursor: pointer; color: var(--ds-text-secondary, #64748b); height: 100%; width: 40px;">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye" data-lucide="eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="ds-field">
                                                         <label class="ds-label">NEW PASSWORD <span class="text-danger">*</span></label>
-                                                        <input type="password" class="ds-input" id="personal_new_pass">
+                                                        <div class="position-relative">
+                                                            <input type="password" class="ds-input" id="personal_new_pass" placeholder="••••••••" style="padding-right: 42px !important;">
+                                                            <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent p-0 pe-3 d-flex align-items-center justify-content-center" onclick="settingsManager.togglePasswordVisibility('personal_new_pass', this)" title="Toggle password visibility" aria-label="Toggle password visibility" style="box-shadow: none; z-index: 5; cursor: pointer; color: var(--ds-text-secondary, #64748b); height: 100%; width: 40px;">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye" data-lucide="eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-12 text-end">
@@ -4222,7 +4232,7 @@ console.log(data);
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script src="/assets/dist/platform-settings.87cc66aa.min.js"></script>
     <script>
     const settingsManager = {
@@ -4801,6 +4811,24 @@ console.log(data);
             }
         },
 
+        togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            btn.title = isPassword ? 'Hide password' : 'Show password';
+            btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+
+            if (isPassword) {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-off" data-lucide="eye-off"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`;
+            } else {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye" data-lucide="eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+            }
+            if (window.lucide) {
+                try { lucide.createIcons(); } catch(e) {}
+            }
+        },
+
         async changePassword() {
             const oldPass = document.getElementById('personal_old_pass').value;
             const newPass = document.getElementById('personal_new_pass').value;
@@ -5001,28 +5029,41 @@ console.log(data);
                     btnExtend.style.display = isTrial ? 'inline-flex' : 'none';
                 }
                 
+                const badgeEl = document.getElementById('display_plan_badge');
+                if (badgeEl && stats.status) {
+                    badgeEl.innerText = stats.status.toUpperCase();
+                }
+
                 const usage = stats.usage || { users: { current: 0, limit: 50 }, projects: { current: 0, limit: 1 } };
                 
                 // User usage
                 if (usage.users) {
                     const userLimit = usage.users.limit;
-                    const userPct = (usage.users.current / userLimit) * 100;
+                    const isUserUnlimited = !userLimit || userLimit >= 99999 || userLimit === 'Unlimited';
                     const userTxt = document.getElementById('user-usage-text');
-                    if (userTxt) userTxt.innerText = `${usage.users.current} / ${userLimit}`;
+                    if (userTxt) {
+                        userTxt.innerText = isUserUnlimited ? `${usage.users.current} / Unlimited` : `${usage.users.current} / ${userLimit}`;
+                    }
                     const userBar = document.getElementById('user-usage-bar');
-                    if (userBar) userBar.style.width = `${userPct}%`;
+                    if (userBar) {
+                        const userPct = isUserUnlimited ? 0 : Math.min(Math.max((usage.users.current / userLimit) * 100, 0), 100);
+                        userBar.style.width = `${userPct}%`;
+                    }
                 }
                 
                 // Project usage
                 if (usage.projects) {
                     const projLimit = usage.projects.limit;
-                    const projText = projLimit === 1000000 || projLimit === 'Unlimited' ? usage.projects.current : `${usage.projects.current} / ${projLimit}`;
-                    const projPct = projLimit === 1000000 || projLimit === 'Unlimited' ? 0 : (usage.projects.current / projLimit) * 100;
-                    
+                    const isProjUnlimited = !projLimit || projLimit >= 99999 || projLimit === 'Unlimited';
                     const projTxt = document.getElementById('project-usage-text');
-                    if (projTxt) projTxt.innerText = projLimit === 1000000 || projLimit === 'Unlimited' ? `${usage.projects.current} / Unlimited` : projText;
+                    if (projTxt) {
+                        projTxt.innerText = isProjUnlimited ? `${usage.projects.current} / Unlimited` : `${usage.projects.current} / ${projLimit}`;
+                    }
                     const projBar = document.getElementById('project-usage-bar');
-                    if (projBar) projBar.style.width = projLimit === 1000000 || projLimit === 'Unlimited' ? '100%' : `${projPct}%`;
+                    if (projBar) {
+                        const projPct = isProjUnlimited ? 0 : Math.min(Math.max((usage.projects.current / projLimit) * 100, 0), 100);
+                        projBar.style.width = `${projPct}%`;
+                    }
                 }
 
                 // Trial extension usage metric
@@ -5992,6 +6033,9 @@ ET`;
             }
         }
     };
+
+    window.settingsManager = settingsManager;
+    window.togglePasswordVisibility = (id, btn) => settingsManager.togglePasswordVisibility(id, btn);
 
     document.addEventListener('DOMContentLoaded', () => settingsManager.init());
     </script>

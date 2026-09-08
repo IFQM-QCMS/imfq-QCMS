@@ -5,7 +5,7 @@ from app.presentation.middleware.middleware import role_required
 from app.domain.services.subscription_service import SubscriptionManager
 from app.domain.services.feature_engine import feature_module_required
 from app.presentation.middleware.idempotency_middleware import idempotent
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import copy
 from sqlalchemy.orm.attributes import flag_modified
@@ -293,8 +293,14 @@ def get_projects():
         repos = KnowledgeRepository.query.filter(
             KnowledgeRepository.project_id.in_(p_ids)
         ).all()
+        from app.infrastructure.database.models.models import AuditLog
+        audit_rows = db.session.query(
+            AuditLog.project_id,
+            db.func.max(AuditLog.created_at)
+        ).filter(AuditLog.project_id.in_(p_ids)).group_by(AuditLog.project_id).all()
+        audit_map = {row[0]: row[1] for row in audit_rows}
 
-        wf_map = {pid: {'s7_model': None, 's8_model': None, 'repo': None} for pid in p_ids}
+        wf_map = {pid: {'s7_model': None, 's8_model': None, 'repo': None, 'last_activity': audit_map.get(pid)} for pid in p_ids}
         for w in raw_wfs:
             if w.data:
                 wf_map[w.project_id][w.stage_id] = w.data
@@ -307,9 +313,22 @@ def get_projects():
         return wf_map
 
     def serialize_proj(p, wf_data_map=None):
-        created_iso = p.created_at.isoformat() if p.created_at else None
+        created_iso = (p.created_at.isoformat() + "Z") if p.created_at else None
         p_wf = wf_data_map.get(p.id) if wf_data_map else None
+        last_act = (p_wf.get('last_activity') if p_wf else None) or p.created_at
+        last_act_iso = (last_act.isoformat() + "Z") if last_act else created_iso
         eff_val = calculate_project_realtime_efficiency(p.id, p.current_stage, preloaded_wfs=p_wf)
+        
+        from datetime import datetime as dt_cls, timezone as tz_cls, timedelta as td_cls
+        today_utc = dt_cls.now(tz_cls.utc).date()
+        cutoff_datetime = dt_cls.combine(today_utc - td_cls(days=6), dt_cls.min.time())
+        is_stalled = False
+        if p.status not in ('Closed', 'Completed', 'Archived', 'CLOSED', 'COMPLETED', 'ARCHIVED', 'Stage 8 Approved'):
+            stopped_check = ['Rejected', 'Cancelled', 'Stopped', 'On Hold', 'Stage 1 Rejected']
+            if not (p.status in stopped_check or (p.status and (p.status.startswith('Rejected') or p.status.startswith('Stopped')))):
+                if last_act and last_act < cutoff_datetime:
+                    is_stalled = True
+
         return {
             "id": p.id,
             "project_uid": p.project_uid,
@@ -320,8 +339,9 @@ def get_projects():
             "department": p.department.name if p.department else "N/A",
             "creator": p.creator.username if p.creator else "System",
             "created_at": created_iso,
-            "updated_at": created_iso,
-            "last_updated": created_iso,
+            "updated_at": last_act_iso,
+            "last_updated": last_act_iso,
+            "is_stalled": is_stalled,
             "team_leader_id": p.team_leader_id,
             "team_leader_name": (p.team_leader.full_name or p.team_leader.username) if p.team_leader else None,
             "facilitator_id": p.facilitator_id,
@@ -1721,6 +1741,17 @@ def get_project_details(id_or_uid):
         "current_stage": project.current_stage,
         "status": project.status,
         "rejection_reason": project.rejection_reason,
+        "restart_status": project.restart_status,
+        "restart_reason": project.restart_reason,
+        "restart_requested_by_id": project.restart_requested_by_id,
+        "restart_requested_by_name": (
+            (project.restart_requested_by.full_name or project.restart_requested_by.username)
+            if getattr(project, 'restart_requested_by', None)
+            else (db.session.get(User, project.restart_requested_by_id).full_name if project.restart_requested_by_id and db.session.get(User, project.restart_requested_by_id) else None)
+        ),
+        "restart_requested_at": project.restart_requested_at.isoformat() + "Z" if project.restart_requested_at else None,
+        "restart_reviewer_comments": project.restart_reviewer_comments,
+        "restart_reviewed_at": project.restart_reviewed_at.isoformat() + "Z" if project.restart_reviewed_at else None,
         "start_date": project.start_date.isoformat() if project.start_date else None,
         "end_date": project.end_date.isoformat() if project.end_date else None,
         "department": project.department.name if project.department else "N/A",
@@ -2395,4 +2426,390 @@ def close_project(project_id):
     except Exception as err:
         db.session.rollback()
         return internal_server_error(err, "Project closure failed.")
+
+
+@project_bp.route('/<int:project_id>/request-restart', methods=['POST'])
+@jwt_required()
+def request_project_restart(project_id):
+    """Submit a request to the Reviewer to restart a rejected project from Stage 1."""
+    current_user_id = int(get_jwt_identity())
+    user = db.session.get(User, current_user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+        
+    project = db.session.get(Project, project_id)
+    if not project or project.org_id != user.org_id:
+        return jsonify({"msg": "Project not found"}), 404
+        
+    if project.status != 'Rejected':
+        return jsonify({"msg": "Only rejected projects can be requested to restart."}), 400
+        
+    if project.restart_status == 'Pending':
+        return jsonify({"msg": "A restart request has already been submitted and is currently pending Reviewer review. Further requests cannot be submitted until a decision is made."}), 400
+        
+    data = request.get_json(silent=True) or {}
+    reason = (data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({"msg": "Reason for restart request is required."}), 400
+
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    project.restart_status = 'Pending'
+    project.restart_reason = reason
+    project.restart_requested_by_id = current_user_id
+    project.restart_requested_at = now_dt
+    project.restart_reviewer_comments = None
+    project.restart_reviewed_at = None
+
+    # Audit log
+    from app.infrastructure.database.models.models import AuditLog, Notification, Role
+    db.session.add(AuditLog(
+        org_id=user.org_id, project_id=project.id, user_id=current_user_id,
+        action="Project Restart Requested",
+        details=f"Restart request submitted by {user.full_name or user.username}. Reason: {reason}",
+        ip_address=request.remote_addr if hasattr(request, 'remote_addr') else None,
+        user_agent=request.user_agent.string if hasattr(request, 'user_agent') and request.user_agent else None,
+        target_table="projects", target_id=project.id,
+        created_at=now_dt
+    ))
+
+    # Notify Reviewer
+    reviewer_ids = set()
+    if project.reviewer_id:
+        reviewer_ids.add(project.reviewer_id)
+    else:
+        rev_users = User.query.join(Role).filter(User.org_id == user.org_id, Role.name == 'Reviewer', User.is_active == True).all()
+        for r in rev_users:
+            reviewer_ids.add(r.id)
+
+    for rid in reviewer_ids:
+        db.session.add(Notification(
+            org_id=user.org_id,
+            user_id=rid,
+            title="Project Restart Requested",
+            message=f"Project '{project.title}' ({project.project_uid}) has a pending restart request from {user.full_name or user.username}.",
+            link=f"/projects/project-details.html?id={project.id}"
+        ))
+
+    db.session.commit()
+    return jsonify({
+        "status": "success",
+        "message": "Restart request submitted to Reviewer successfully.",
+        "restart_status": "Pending"
+    }), 200
+
+
+@project_bp.route('/<int:project_id>/restart-decision', methods=['POST'])
+@jwt_required()
+def review_project_restart(project_id):
+    """Reviewer approves or rejects the project restart request."""
+    current_user_id = int(get_jwt_identity())
+    user = db.session.get(User, current_user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+        
+    project = db.session.get(Project, project_id)
+    if not project or project.org_id != user.org_id:
+        return jsonify({"msg": "Project not found"}), 404
+        
+    user_role_name = user.role.name if user.role else ''
+    is_authorized = (
+        user_role_name in ('Reviewer', 'Admin', 'Super Admin', 'SuperAdmin') or
+        project.reviewer_id == current_user_id
+    )
+    if not is_authorized:
+        return jsonify({"msg": "Only a Quality Reviewer or Admin can decide on project restart requests."}), 403
+
+    if project.restart_status != 'Pending':
+        return jsonify({"msg": "There is no pending restart request for this project."}), 400
+
+    data = request.get_json(silent=True) or {}
+    decision = (data.get('decision') or '').strip().lower()
+    comments = (data.get('comments') or '').strip()
+
+    if decision not in ('approve', 'approved', 'reject', 'rejected'):
+        return jsonify({"msg": "Invalid decision. Must be 'approve' or 'reject'."}), 400
+
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    from app.infrastructure.database.models.models import AuditLog, Notification
+
+    if decision in ('approve', 'approved'):
+        project.status = 'In Progress'
+        project.current_stage = 1
+        project.restart_status = 'Approved'
+        project.restart_reviewer_comments = comments or "Approved to restart project from Stage 1."
+        project.restart_reviewed_at = now_dt
+        project.rejection_reason = None
+
+        # Reset Stage 1 tracker
+        t1 = ProjectStageTracker.query.filter_by(project_id=project.id, stage_number=1).first()
+        if t1:
+            t1.status = 'Incomplete'
+            t1.completed_at = None
+        else:
+            db.session.add(ProjectStageTracker(org_id=project.org_id, project_id=project.id, stage_number=1, status='Incomplete', started_at=now_dt))
+
+        # Reset trackers 2-8
+        for s_num in range(2, 9):
+            t = ProjectStageTracker.query.filter_by(project_id=project.id, stage_number=s_num).first()
+            if t:
+                t.status = 'Locked'
+                t.completed_at = None
+
+        # Audit log
+        db.session.add(AuditLog(
+            org_id=user.org_id, project_id=project.id, user_id=current_user_id,
+            action="Project Restart Approved",
+            details=f"Project restart approved by {user.full_name or user.username}. Reset to Stage 1. Comments: {comments or 'None'}",
+            ip_address=request.remote_addr if hasattr(request, 'remote_addr') else None,
+            user_agent=request.user_agent.string if hasattr(request, 'user_agent') and request.user_agent else None,
+            target_table="projects", target_id=project.id,
+            created_at=now_dt
+        ))
+
+        # Notify requester & team
+        notify_user_ids = set()
+        if project.restart_requested_by_id:
+            notify_user_ids.add(project.restart_requested_by_id)
+        if project.creator_id:
+            notify_user_ids.add(project.creator_id)
+        if project.team_leader_id:
+            notify_user_ids.add(project.team_leader_id)
+        for m in ProjectMember.query.filter_by(project_id=project.id).all():
+            notify_user_ids.add(m.user_id)
+
+        for uid in notify_user_ids:
+            if uid != current_user_id:
+                db.session.add(Notification(
+                    org_id=user.org_id, user_id=uid,
+                    title="Project Restart Approved",
+                    message=f"Project '{project.title}' restart request was APPROVED by the Reviewer. The project has restarted from Stage 1.",
+                    link=f"/projects/project-details.html?id={project.id}"
+                ))
+
+        db.session.commit()
+        return jsonify({
+            "status": "success",
+            "message": "Project restart request approved. Project is now active at Stage 1.",
+            "restart_status": "Approved",
+            "project_status": project.status,
+            "current_stage": project.current_stage
+        }), 200
+
+    else:
+        project.status = 'Rejected'
+        project.restart_status = 'Rejected'
+        project.restart_reviewer_comments = comments or "Restart request rejected by reviewer."
+        project.restart_reviewed_at = now_dt
+
+        # Audit log
+        db.session.add(AuditLog(
+            org_id=user.org_id, project_id=project.id, user_id=current_user_id,
+            action="Project Restart Request Rejected",
+            details=f"Project restart rejected by {user.full_name or user.username}. Comments: {comments or 'None'}",
+            ip_address=request.remote_addr if hasattr(request, 'remote_addr') else None,
+            user_agent=request.user_agent.string if hasattr(request, 'user_agent') and request.user_agent else None,
+            target_table="projects", target_id=project.id,
+            created_at=now_dt
+        ))
+
+        # Notify requester
+        notify_user_ids = set()
+        if project.restart_requested_by_id:
+            notify_user_ids.add(project.restart_requested_by_id)
+        if project.team_leader_id:
+            notify_user_ids.add(project.team_leader_id)
+
+        for uid in notify_user_ids:
+            if uid != current_user_id:
+                db.session.add(Notification(
+                    org_id=user.org_id, user_id=uid,
+                    title="Project Restart Request Rejected",
+                    message=f"Project '{project.title}' restart request was REJECTED by the Reviewer. Reason: {comments or 'No details specified.'}",
+                    link=f"/projects/project-details.html?id={project.id}"
+                ))
+
+        db.session.commit()
+        return jsonify({
+            "status": "success",
+            "message": "Restart request rejected.",
+            "restart_status": "Rejected"
+        }), 200
+
+
+@project_bp.route('/<int:project_id>/reassign-team', methods=['PUT', 'POST'])
+@jwt_required()
+def reassign_project_team(project_id):
+    """Update team leader, facilitator, reviewer, and team members for the restarted project."""
+    current_user_id = int(get_jwt_identity())
+    user = db.session.get(User, current_user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+        
+    project = db.session.get(Project, project_id)
+    if not project or project.org_id != user.org_id:
+        return jsonify({"msg": "Project not found"}), 404
+        
+    user_role_name = user.role.name if user.role else ''
+    is_member = ProjectMember.query.filter_by(project_id=project.id, user_id=user.id).first() is not None
+    is_authorized = (
+        user_role_name in ('Admin', 'Super Admin', 'SuperAdmin', 'Team Leader', 'Team Member') or
+        project.team_leader_id == current_user_id or
+        project.creator_id == current_user_id or
+        is_member
+    )
+    if not is_authorized:
+        return jsonify({"msg": "You do not have permission to reassign team members on this project."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    tl_id = payload.get('team_leader_id')
+    fac_id = payload.get('facilitator_id')
+    rev_id = payload.get('reviewer_id')
+    member_ids = payload.get('member_ids')
+
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # 1. Update Team Leader
+    if tl_id is not None:
+        try:
+            tl_id_val = int(tl_id) if tl_id else None
+            if tl_id_val:
+                tl_user = db.session.get(User, tl_id_val)
+                if tl_user and tl_user.org_id == user.org_id:
+                    project.team_leader_id = tl_id_val
+        except (ValueError, TypeError):
+            pass
+
+    # 2. Update Facilitator
+    if fac_id is not None:
+        try:
+            fac_id_val = int(fac_id) if fac_id else None
+            if fac_id_val:
+                fac_user = db.session.get(User, fac_id_val)
+                if fac_user and fac_user.org_id == user.org_id:
+                    project.facilitator_id = fac_id_val
+            else:
+                project.facilitator_id = None
+        except (ValueError, TypeError):
+            pass
+
+    # 3. Update Reviewer
+    if rev_id is not None:
+        try:
+            rev_id_val = int(rev_id) if rev_id else None
+            if rev_id_val:
+                rev_user = db.session.get(User, rev_id_val)
+                if rev_user and rev_user.org_id == user.org_id:
+                    project.reviewer_id = rev_id_val
+        except (ValueError, TypeError):
+            pass
+
+    # 4. Update Project Members
+    if member_ids is not None and isinstance(member_ids, list):
+        parsed_member_ids = set()
+        if project.team_leader_id:
+            parsed_member_ids.add(project.team_leader_id)
+        for m in member_ids:
+            try:
+                m_int = int(m)
+                if m_int > 0:
+                    parsed_member_ids.add(m_int)
+            except (ValueError, TypeError):
+                pass
+
+        ProjectMember.query.filter_by(project_id=project.id).delete()
+        for uid in parsed_member_ids:
+            db.session.add(ProjectMember(project_id=project.id, user_id=uid))
+
+    # 5. Sync into Stage 1 workflow data
+    wf1 = ProjectWorkflow.query.filter_by(project_id=project.id, stage_id=1).first()
+    if wf1 and wf1.data and isinstance(wf1.data, dict):
+        wf_data = copy.deepcopy(wf1.data)
+        if 'init' not in wf_data:
+            wf_data['init'] = {}
+        if project.facilitator_id:
+            wf_data['init']['facilitator_id'] = project.facilitator_id
+            f_obj = db.session.get(User, project.facilitator_id)
+            if f_obj:
+                wf_data['init']['facilitator'] = f_obj.full_name or f_obj.username
+        if project.reviewer_id:
+            wf_data['init']['reviewer_id'] = project.reviewer_id
+            r_obj = db.session.get(User, project.reviewer_id)
+            if r_obj:
+                wf_data['init']['reviewer'] = r_obj.full_name or r_obj.username
+        if 'team' not in wf_data:
+            wf_data['team'] = {}
+        if project.team_leader_id:
+            tl_obj = db.session.get(User, project.team_leader_id)
+            if tl_obj:
+                wf_data['team']['team_leader'] = tl_obj.full_name or tl_obj.username
+                wf_data['team']['team_leader_id'] = project.team_leader_id
+
+        current_members = ProjectMember.query.filter_by(project_id=project.id).all()
+        mem_objs = []
+        for cm in current_members:
+            if cm.user_id != project.team_leader_id:
+                u_m = db.session.get(User, cm.user_id)
+                if u_m:
+                    mem_objs.append({
+                        "user_id": u_m.id,
+                        "name": u_m.full_name or u_m.username,
+                        "role": u_m.role.name if u_m.role else "Team Member"
+                    })
+        wf_data['team']['team_members'] = mem_objs
+        wf1.data = wf_data
+        flag_modified(wf1, 'data')
+
+    project.restart_status = 'Dismissed'
+
+    # Audit log
+    from app.infrastructure.database.models.models import AuditLog
+    db.session.add(AuditLog(
+        org_id=user.org_id, project_id=project.id, user_id=current_user_id,
+        action="Project Team Reassigned",
+        details=f"Team members, Leader, Facilitator, and Reviewer reconfigured for restarted project by {user.full_name or user.username}.",
+        ip_address=request.remote_addr if hasattr(request, 'remote_addr') else None,
+        user_agent=request.user_agent.string if hasattr(request, 'user_agent') and request.user_agent else None,
+        target_table="projects", target_id=project.id,
+        created_at=now_dt
+    ))
+
+    db.session.commit()
+    return jsonify({
+        "status": "success",
+        "message": "Project team & governance updated successfully.",
+        "project": {
+            "team_leader_id": project.team_leader_id,
+            "facilitator_id": project.facilitator_id,
+            "reviewer_id": project.reviewer_id,
+            "members_count": ProjectMember.query.filter_by(project_id=project.id).count()
+        }
+    }), 200
+
+
+@project_bp.route('/<int:project_id>/dismiss-restart-prompt', methods=['POST'])
+@jwt_required()
+def dismiss_restart_prompt(project_id):
+    """Dismiss the restart team reconfiguration prompt and continue with current members."""
+    current_user_id = int(get_jwt_identity())
+    user = db.session.get(User, current_user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+    project = db.session.get(Project, project_id)
+    if not project or project.org_id != user.org_id:
+        return jsonify({"msg": "Project not found"}), 404
+
+    user_role_name = user.role.name if user.role else ''
+    is_member = ProjectMember.query.filter_by(project_id=project.id, user_id=user.id).first() is not None
+    is_authorized = (
+        user_role_name in ('Admin', 'Super Admin', 'SuperAdmin', 'Team Leader', 'Team Member') or
+        project.team_leader_id == current_user_id or
+        project.creator_id == current_user_id or
+        is_member
+    )
+    if not is_authorized:
+        return jsonify({"msg": "You do not have permission to dismiss the restart prompt."}), 403
+
+    project.restart_status = 'Dismissed'
+    db.session.commit()
+    return jsonify({"status": "success", "message": "Restart prompt dismissed."}), 200
 

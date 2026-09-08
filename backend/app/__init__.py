@@ -898,25 +898,29 @@ def create_app():
         # 2. Subdirectory flexibility for basename
         base_name = os.path.basename(clean_filename)
         if not resolved:
-            subfolders = ['project_evidence', 'sop', 'reports', 'support_attachments', 'branding', 'certificates', 'projects']
+            subfolders = ['project_evidence', 'sop', 'reports', 'support_attachments', 'branding', 'certificates', 'projects', 'diagnostics']
             resolved = check_file(primary_dir, base_name) or check_file(frontend_dir_local, base_name)
             if not resolved:
                 for sf in subfolders:
-                    resolved = check_file(primary_dir, os.path.join(sf, base_name).replace('\\', '/'))
+                    resolved = check_file(primary_dir, os.path.join(sf, base_name).replace('\\', '/')) or check_file(frontend_dir_local, os.path.join(sf, base_name).replace('\\', '/'))
                     if resolved:
                         break
 
-        # 3. Recursive exact base_name search in primary_dir
-        if not resolved and primary_dir and os.path.isdir(primary_dir):
-            for root, _, files in os.walk(primary_dir):
-                if base_name in files:
-                    rel = os.path.relpath(os.path.join(root, base_name), primary_dir)
-                    resolved = (primary_dir, rel.replace('\\', '/'))
+        # 3. Recursive exact base_name search in primary_dir and frontend_dir_local
+        if not resolved:
+            for s_dir in (primary_dir, frontend_dir_local):
+                if s_dir and os.path.isdir(s_dir):
+                    for root, _, files in os.walk(s_dir):
+                        if base_name in files:
+                            rel = os.path.relpath(os.path.join(root, base_name), s_dir)
+                            resolved = (s_dir, rel.replace('\\', '/'))
+                            break
+                if resolved:
                     break
 
         # 4. Suffix / Original name fallback (e.g. timestamp differences across seeds/imports)
         if not resolved and primary_dir and os.path.isdir(primary_dir):
-            pure_name = re.sub(r'^(?:ev_|sop_|ticket_\d+_)?\d{8}(?:_\d{6})?_', '', base_name)
+            pure_name = re.sub(r'^(?:ev_|sop_|ticket_\d+_|draft_\d+_)?\d{8}(?:_\d{6})?_', '', base_name)
             if pure_name and len(pure_name) > 3 and '.' in pure_name:
                 matching_candidates = []
                 for root, _, files in os.walk(primary_dir):
@@ -932,7 +936,9 @@ def create_app():
 
         if resolved:
             res_dir, res_path = resolved
-            return send_from_directory(res_dir, res_path)
+            as_att = request.args.get('download') == '1'
+            download_name = request.args.get('filename') or os.path.basename(res_path)
+            return send_from_directory(res_dir, res_path, as_attachment=as_att, download_name=download_name)
 
         # 5. Fallback to Unified Storage Service
         try:

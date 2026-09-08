@@ -50,37 +50,50 @@ def get_stats():
     if current_user.role.name == 'Admin':
         projects = Project.query.filter_by(org_id=current_user.org_id, department_id=dept_id).all()
     else:
-        # Team Leaders see ONLY projects where they are acting as the Team Leader
+        # Team Leaders see projects they lead, created, or are assigned to
         projects = Project.query.filter(
             Project.org_id == current_user.org_id,
-            Project.team_leader_id == current_user.id
+            db.or_(
+                Project.team_leader_id == current_user.id,
+                Project.creator_id == current_user.id,
+                Project.members.any(id=current_user.id)
+            )
         ).all()
     
     completed_statuses = {'Closed', 'Completed', 'Stage 8 Approved', 'Archived'}
-    inactive_statuses = {'Rejected', 'Cancelled', 'On Hold'}
-    seven_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
+    stopped_statuses = {'Rejected', 'Cancelled', 'Stopped', 'On Hold', 'Stage 1 Rejected'}
 
-    completed_count = sum(
-        1 for p in projects 
-        if p.status in completed_statuses
-    )
+    def is_stopped(p):
+        if not p or not p.status:
+            return False
+        st = str(p.status).strip()
+        return st in stopped_statuses or st.startswith('Rejected') or st.startswith('Stopped')
+
+    today_utc = datetime.now(timezone.utc).date()
+    cutoff_datetime = datetime.combine(today_utc - timedelta(days=6), datetime.min.time())
+
+    completed_count = sum(1 for p in projects if p.status in completed_statuses)
+    rejected_count = sum(1 for p in projects if is_stopped(p))
+
+    p_ids = [p.id for p in projects]
+    audit_map = {}
+    if p_ids:
+        audit_rows = db.session.query(
+            AuditLog.project_id,
+            db.func.max(AuditLog.created_at)
+        ).filter(AuditLog.project_id.in_(p_ids)).group_by(AuditLog.project_id).all()
+        audit_map = {row[0]: row[1] for row in audit_rows}
 
     inactive_count = 0
+    active_count = 0
     for p in projects:
-        if p.status in inactive_statuses:
+        if p.status in completed_statuses or is_stopped(p):
+            continue
+        last_activity = audit_map.get(p.id) or p.created_at
+        if last_activity and last_activity < cutoff_datetime:
             inactive_count += 1
-        elif p.status not in completed_statuses:
-            # Inactive if no AuditLog activity in 7 days
-            last_log = AuditLog.query.filter_by(project_id=p.id).order_by(AuditLog.created_at.desc()).first()
-            last_activity = last_log.created_at if last_log else p.created_at
-            if last_activity and last_activity < seven_days_ago:
-                inactive_count += 1
-
-    active_count = sum(
-        1 for p in projects 
-        if p.status not in completed_statuses and p.status not in inactive_statuses
-    ) - inactive_count
-    active_count = max(0, active_count)
+        else:
+            active_count += 1
     
     # Queue count (stages needing TL validation)
     if current_user.role.name == 'Admin':
@@ -95,8 +108,6 @@ def get_stats():
             Project.team_leader_id == current_user.id,
             Project.current_stage.in_([2, 5, 7])
         ).count()
-    
-    rejected_count = sum(1 for p in projects if p.status in {'Rejected', 'Stage 1 Rejected', 'Cancelled'})
 
     return jsonify({
         "total_projects": len(projects),

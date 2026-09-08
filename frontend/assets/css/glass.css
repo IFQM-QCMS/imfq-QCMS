@@ -1973,12 +1973,13 @@ select.ds-select option {
 }
 
 .quick-question-btn {
-    background: var(--ds-surface, rgba(255, 255, 255, 0.85));
-    color: var(--ds-text-main, #1e293b);
-    border: 1px solid var(--ds-border-color, rgba(99, 102, 241, 0.15)) !important;
+    background: #ffffff !important;
+    color: #002347 !important;
+    border: 1px solid rgba(0, 35, 71, 0.15) !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 500;
     line-height: 1.4;
     text-align: left;
     width: 100%;
@@ -1986,15 +1987,55 @@ select.ds-select option {
 }
 
 .quick-question-btn:hover {
-    background: rgba(99, 102, 241, 0.08) !important;
-    border-color: var(--ds-primary, #6366f1) !important;
-    color: var(--ds-primary, #6366f1) !important;
+    background: rgba(0, 35, 71, 0.04) !important;
+    border-color: var(--ds-accent, #C4A25A) !important;
+    color: var(--ds-primary, #002347) !important;
     transform: translateX(4px);
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 2px 8px rgba(0, 35, 71, 0.12);
 }
 
 .quick-question-btn:active {
     transform: translateX(1px);
+    background: rgba(0, 35, 71, 0.08) !important;
+}
+
+/* Dark Theme overrides for AI assistant example questions */
+[data-theme="dark"] .quick-question-btn,
+html[data-theme="dark"] .quick-question-btn,
+body.dark-mode .quick-question-btn,
+.dark-theme .quick-question-btn {
+    background: rgba(255, 255, 255, 0.07) !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .quick-question-btn:hover,
+html[data-theme="dark"] .quick-question-btn:hover,
+body.dark-mode .quick-question-btn:hover,
+.dark-theme .quick-question-btn:hover {
+    background: rgba(196, 162, 90, 0.18) !important;
+    border-color: #C4A25A !important;
+    color: #ffffff !important;
+    transform: translateX(4px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 10px rgba(196, 162, 90, 0.25) !important;
+}
+
+[data-theme="dark"] .quick-question-btn:active,
+html[data-theme="dark"] .quick-question-btn:active,
+body.dark-mode .quick-question-btn:active,
+.dark-theme .quick-question-btn:active {
+    background: rgba(196, 162, 90, 0.28) !important;
+    border-color: #C4A25A !important;
+    color: #ffffff !important;
+    transform: translateX(2px);
+}
+
+[data-theme="dark"] .quick-questions-container .text-muted,
+html[data-theme="dark"] .quick-questions-container .text-muted,
+body.dark-mode .quick-questions-container .text-muted,
+.dark-theme .quick-questions-container .text-muted {
+    color: #cbd5e1 !important;
 }
 
 .source-link {

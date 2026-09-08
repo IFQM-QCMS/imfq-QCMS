@@ -1552,18 +1552,40 @@ const SupportDesk = {
     },
 
     async handleWizFileUpload(input) {
-        const file = input.files[0];
+        const file = input && input.files && input.files[0];
         if (!file) return;
 
-        // Mock upload storage path
-        this.wizards.data.attachments.push({
-            file_name: file.name,
-            file_path: `/uploads/diagnostics/${file.name}`,
-            file_size: file.size,
-            mime_type: file.type
-        });
-        OctaQube.toast('File attached and virus-scanned successfully', 'success');
-        this.loadStepContent();
+        const allowedExts = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'doc', 'docx'];
+        const ext = file.name.toLowerCase().split('.').pop();
+        if (!allowedExts.includes(ext)) {
+            OctaQube.toast('Invalid file type. Supported: PDF, Images, Word documents.', 'warning');
+            input.value = '';
+            return;
+        }
+
+        OctaQube.toast('Uploading attachment and scanning for viruses...', 'info');
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const token = (window.api && window.api.token) || localStorage.getItem('token') || '';
+            const resp = await fetch('/api/support/upload-attachment', {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData
+            });
+            const res = await resp.json().catch(() => ({}));
+            if (resp.ok && res.status === 'success' && res.attachment) {
+                this.wizards.data.attachments.push(res.attachment);
+                OctaQube.toast('File attached and virus-scanned successfully', 'success');
+                this.loadStepContent();
+            } else {
+                OctaQube.toast(res.message || 'Failed to upload attachment', 'error');
+            }
+        } catch (err) {
+            OctaQube.toast('Upload error: ' + (err.message || 'Server error'), 'error');
+        } finally {
+            input.value = '';
+        }
     },
 
     removeWizFile(idx) {
@@ -1862,8 +1884,14 @@ const SupportDesk = {
                             const isImg = /\.(png|jpe?g|gif|webp|svg)$/i.test(att.file_name);
                             const iconName = isImg ? 'image' : (/\.pdf$/i.test(att.file_name) ? 'file-text' : 'file-text');
                             const fileKb = att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : '';
+                            const token = (window.api && window.api.token) || localStorage.getItem('token') || '';
+                            let fileUrl = att.file_path || '#';
+                            if (token && fileUrl.startsWith('/')) {
+                                fileUrl += (fileUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                            }
+                            const safeFileName = (att.file_name || 'download').replace(/"/g, '&quot;');
                             return `
-                                <a href="${att.file_path}" target="_blank" download class="ds-btn ds-btn-outline ds-btn-sm text-main py-1 px-2.5 d-inline-flex align-items-center gap-1.5 text-decoration-none me-2 mb-2">
+                                <a href="${fileUrl}" target="_blank" download="${safeFileName}" class="ds-btn ds-btn-outline ds-btn-sm text-main py-1 px-2.5 d-inline-flex align-items-center gap-1.5 text-decoration-none me-2 mb-2">
                                     <i data-lucide="${iconName}" class="text-primary" style="width:14px;height:14px;"></i>
                                     <span>${att.file_name}</span>
                                     ${fileKb ? `<span class="text-muted text-xxs">(${fileKb})</span>` : ''}
@@ -1924,7 +1952,13 @@ const SupportDesk = {
                     const isImg = /\.(png|jpe?g|gif|webp|svg)$/i.test(a.file_name);
                     const icon = isImg ? 'image' : 'file-text';
                     const kb = a.file_size ? `${(a.file_size / 1024).toFixed(1)} KB` : '';
-                    return `<a href="${a.file_path}" target="_blank" download
+                    const token = (window.api && window.api.token) || localStorage.getItem('token') || '';
+                    let fileUrl = a.file_path || '#';
+                    if (token && fileUrl.startsWith('/')) {
+                        fileUrl += (fileUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                    }
+                    const safeFileName = (a.file_name || 'download').replace(/"/g, '&quot;');
+                    return `<a href="${fileUrl}" target="_blank" download="${safeFileName}"
                         class="ds-btn ds-btn-ghost ds-btn-sm py-1 px-2 d-inline-flex align-items-center gap-1 text-decoration-none"
                         style="border:1px solid rgba(255,255,255,0.12);border-radius:6px;">
                         <i data-lucide="${icon}" class="text-primary" style="width:12px;height:12px;"></i>

@@ -6,15 +6,15 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Details | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest" crossorigin="anonymous"></script>
     <style>
         .stage-section { border-left: 3px solid var(--ds-primary); padding-left: 1rem; margin-bottom: 2rem; }
@@ -190,8 +190,8 @@
             <div id="stageMeetingsSection" class="glass-card ds-card p-4 mb-4 d-none">
                 <div class="ds-card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title">
-                        <i data-lucide="calendar" class="me-2" style="width:18px;height:18px;vertical-align:text-bottom;color:var(--ds-primary);"></i>
-                        Stage Scheduled Meetings
+                        <i id="stageMeetingsIcon" data-lucide="calendar" class="me-2" style="width:18px;height:18px;vertical-align:text-bottom;color:var(--ds-primary);"></i>
+                        <span id="stageMeetingsTitle">Stage Scheduled Meetings</span>
                     </h5>
                     <button class="ds-btn ds-btn-primary ds-btn-sm" id="scheduleStageMeetingBtn" onclick="ProjectApp.openMeetingModal()">
                         <i data-lucide="calendar-plus" style="width:14px;height:14px;"></i> Schedule Meeting
@@ -319,6 +319,82 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meeting History Modal -->
+    <div class="modal fade" id="meetingHistoryModal" tabindex="-1" aria-labelledby="meetingHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card ds-card border-0">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: rgba(var(--ds-primary-rgb, 0, 120, 212), 0.12); color: var(--ds-primary); width:36px; height:36px;">
+                            <i data-lucide="history" style="width:18px;height:18px;"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0" style="color:var(--ds-text-main);">Meeting History</h5>
+                            <span class="text-xs text-muted" id="mh_subtitle">Stage Meeting Record</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <div class="p-3 rounded mb-3" style="background: var(--ds-bg-surface, rgba(0,0,0,0.02)); border: 1px solid var(--ds-border-color, #e2e8f0);">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0 text-primary" id="mh_title" style="font-size:15px;">—</h6>
+                            <span id="mh_status_badge" class="ds-badge ds-badge-sm green">Concluded</span>
+                        </div>
+                        <div class="text-xs text-muted d-flex align-items-center gap-1 mb-0">
+                            <i data-lucide="folder" style="width:12px;height:12px;"></i>
+                            <span id="mh_project_stage">—</span>
+                        </div>
+                    </div>
+
+                    <div class="v-stack gap-2">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded border" style="background: var(--ds-bg-surface, #fff); border-color: var(--ds-border-color, #e2e8f0) !important;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i data-lucide="calendar" class="text-muted" style="width:15px;height:15px;"></i>
+                                <span class="text-xs text-muted">Date &amp; Time</span>
+                            </div>
+                            <span class="text-xs fw-bold" id="mh_datetime" style="color:var(--ds-text-main);">—</span>
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded border" style="background: var(--ds-bg-surface, #fff); border-color: var(--ds-border-color, #e2e8f0) !important;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i data-lucide="clock" class="text-muted" style="width:15px;height:15px;"></i>
+                                <span class="text-xs text-muted">Duration</span>
+                            </div>
+                            <span class="text-xs fw-bold" id="mh_duration" style="color:var(--ds-text-main);">—</span>
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded border" style="background: var(--ds-bg-surface, #fff); border-color: var(--ds-border-color, #e2e8f0) !important;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i data-lucide="video" class="text-muted" style="width:15px;height:15px;"></i>
+                                <span class="text-xs text-muted">Meeting Format</span>
+                            </div>
+                            <span class="text-xs fw-bold text-capitalize" id="mh_type" style="color:var(--ds-text-main);">—</span>
+                        </div>
+
+                        <div id="mh_url_container" class="p-2 rounded border" style="background: var(--ds-bg-surface, #fff); border-color: var(--ds-border-color, #e2e8f0) !important; display:none;">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i data-lucide="link" class="text-muted" style="width:14px;height:14px;"></i>
+                                    <span class="text-xs text-muted">Meeting URL / Link</span>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <a id="mh_url" href="#" target="_blank" class="text-xs text-truncate text-primary" style="max-width: 320px;">—</a>
+                                <button type="button" class="ds-btn ds-btn-ghost ds-btn-xs" onclick="ProjectApp.copyMeetingUrl()">
+                                    <i data-lucide="copy" style="width:12px;height:12px;"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-2">
+                    <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm w-100" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -799,10 +875,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script src="/assets/dist/stages-bundle.d970637b.min.js"></script>
     <script src="/assets/dist/live-presence.61694d14.min.js"></script>
-    <script src="/assets/dist/project-details-app.43c341b6.min.js"></script>
+    <script src="/assets/dist/project-details-app.5874f3f1.min.js"></script>
 </body>
 </html>
 

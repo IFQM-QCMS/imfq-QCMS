@@ -1345,3 +1345,54 @@ def upload_ticket_attachment(ticket_id):
     except Exception as e:
         db.session.rollback()
         return internal_server_error(e, "Upload failed.")
+
+
+# --- GENERAL FILE UPLOAD FOR SUPPORT TICKET ATTACHMENTS (DRAFTS / WIZARD) ---
+@support_bp.route('/upload-attachment', methods=['POST'])
+@jwt_required()
+def upload_support_attachment_general():
+    """Upload an attachment before or during ticket creation (PDF, images, docs)."""
+    import os
+    from werkzeug.utils import secure_filename
+
+    user, err = get_current_user_and_check_rbac()
+    if err:
+        return jsonify({"status": "error", "message": err}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No file provided"}), 400
+
+    file = request.files['file']
+    if not file or file.filename == '':
+        return jsonify({"status": "error", "message": "No file selected"}), 400
+
+    ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'doc', 'docx'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({
+            "status": "error",
+            "message": "Invalid file type. Supported formats: PDF, PNG, JPG, GIF, WEBP, DOC, DOCX."
+        }), 400
+
+    try:
+        from app.infrastructure.storage import storage
+        raw_name = secure_filename(file.filename) or f"attachment.{ext}"
+        timestamp = datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y%m%d_%H%M%S')
+        target_name = f"draft_{user.id}_{timestamp}_{raw_name}"
+        result = storage.save_file(file, filename=target_name, subfolder="support_attachments")
+
+        file_url = result['url']
+        file_size = result['size_bytes']
+
+        return jsonify({
+            "status": "success",
+            "attachment": {
+                "file_name": file.filename,
+                "file_path": file_url,
+                "file_size": file_size,
+                "mime_type": file.content_type or f"application/{ext}"
+            }
+        }), 201
+
+    except Exception as e:
+        return internal_server_error(e, "Upload failed.")

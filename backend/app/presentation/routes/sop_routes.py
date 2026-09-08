@@ -2150,47 +2150,38 @@ def create_sop_type():
 
     return jsonify({"msg": "SOP Type created successfully", "type": {"id": t.id, "name": t.name, "description": t.description}}), 201
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: update_sop_type (Lines 2075-2091)
-# Reason: SOP type edit.
-# ==============================================================================
-# @sop_bp.route('/types/<int:type_id>', methods=['PUT'])
-# @jwt_required()
-# def update_sop_type(type_id):
-#     user_id = get_jwt_identity()
-#     user = db.session.get(User, user_id)
-#     org_id = user.org_id if user else 1
+@sop_bp.route('/types/<int:type_id>', methods=['PUT'])
+@jwt_required()
+def update_sop_type(type_id):
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+    org_id = user.org_id if user else 1
 
-#     t = SOPType.query.filter_by(id=type_id, org_id=org_id).first_or_404()
-#     data = request.get_json() or {}
-#     name = (data.get('name') or '').strip()
-#     if name:
-#         t.name = name
-#     if 'description' in data:
-#         t.description = (data.get('description') or '').strip()
-#     db.session.commit()
+    t = SOPType.query.filter_by(id=type_id, org_id=org_id).first_or_404()
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if name:
+        existing = SOPType.query.filter(SOPType.org_id == org_id, SOPType.name == name, SOPType.id != type_id).first()
+        if existing:
+            return jsonify({"msg": "SOP Type already exists"}), 400
+        t.name = name
+    if 'description' in data:
+        t.description = (data.get('description') or '').strip()
+    db.session.commit()
 
-#     return jsonify({"msg": "SOP Type updated successfully", "type": {"id": t.id, "name": t.name, "description": t.description}}), 200
-# [END DEAD CODE: update_sop_type]
+    return jsonify({"msg": "SOP Type updated successfully", "type": {"id": t.id, "name": t.name, "description": t.description}}), 200
 
+@sop_bp.route('/types/<int:type_id>', methods=['DELETE'])
+@jwt_required()
+def delete_sop_type(type_id):
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+    org_id = user.org_id if user else 1
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: delete_sop_type (Lines 2093-2104)
-# Reason: SOP type delete.
-# ==============================================================================
-# @sop_bp.route('/types/<int:type_id>', methods=['DELETE'])
-# @jwt_required()
-# def delete_sop_type(type_id):
-#     user_id = get_jwt_identity()
-#     user = db.session.get(User, user_id)
-#     org_id = user.org_id if user else 1
+    t = SOPType.query.filter_by(id=type_id, org_id=org_id).first_or_404()
+    db.session.delete(t)
+    db.session.commit()
 
-#     t = SOPType.query.filter_by(id=type_id, org_id=org_id).first_or_404()
-#     db.session.delete(t)
-#     db.session.commit()
+    return jsonify({"msg": "SOP Type deleted successfully"}), 200
 
-#     return jsonify({"msg": "SOP Type deleted successfully"}), 200
-# [END DEAD CODE: delete_sop_type]
 

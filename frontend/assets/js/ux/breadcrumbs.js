@@ -5,6 +5,7 @@
 const Breadcrumbs = {
     mapping: {
         'dashboard-admin.html': 'Admin Dashboard',
+        'dashboard-ceo.html': 'CEO Strategic Dashboard',
         'dashboard-facilitator.html': 'Facilitator Dashboard',
         'dashboard-reviewer.html': 'Reviewer Dashboard',
         'dashboard-team-leader.html': 'Team Leader Dashboard',

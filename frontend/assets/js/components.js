@@ -1529,15 +1529,30 @@ const OctaQube = {
                 const duration = m.duration;
                 
                 const isOnline = m.meeting_type === 'online';
-                const actionBtn = isOnline && m.url ? `
-                    <a href="${m.url}" target="_blank" class="ds-btn ds-btn-primary ds-btn-sm mt-2">
-                        <i data-lucide="video" class="me-1" style="width:12px;height:12px;"></i> Join Meeting
-                    </a>
-                ` : `
-                    <span class="ds-badge ds-badge-sm mt-2" style="background:rgba(var(--ds-info-rgb),0.12);color:var(--ds-info);width:fit-content;display:inline-block;">
-                        <i data-lucide="map-pin" class="me-1" style="width:10px;height:10px;vertical-align:middle;"></i> Offline (No URL)
-                    </span>
-                `;
+                const scheduledTime = new Date(m.scheduled_at).getTime();
+                const durationMs = (parseInt(duration) || 30) * 60 * 1000;
+                const isPast = (scheduledTime + durationMs) < Date.now();
+
+                let actionBtn = '';
+                if (isPast) {
+                    actionBtn = `
+                        <span class="ds-badge ds-badge-sm mt-2 gray" style="width:fit-content;display:inline-block;">
+                            <i data-lucide="history" class="me-1" style="width:10px;height:10px;vertical-align:middle;"></i> Meeting Concluded
+                        </span>
+                    `;
+                } else if (isOnline && m.url) {
+                    actionBtn = `
+                        <a href="${m.url}" target="_blank" class="ds-btn ds-btn-primary ds-btn-sm mt-2">
+                            <i data-lucide="video" class="me-1" style="width:12px;height:12px;"></i> Join Meeting
+                        </a>
+                    `;
+                } else {
+                    actionBtn = `
+                        <span class="ds-badge ds-badge-sm mt-2" style="background:rgba(var(--ds-info-rgb),0.12);color:var(--ds-info);width:fit-content;display:inline-block;">
+                            <i data-lucide="map-pin" class="me-1" style="width:10px;height:10px;vertical-align:middle;"></i> Offline (No URL)
+                        </span>
+                    `;
+                }
 
                 return `
                     <div class="activity-item pb-3 mb-3 border-bottom fade-in">
@@ -1731,7 +1746,7 @@ const OctaQube = {
                     </button>
 
                     <!-- Breadcrumb Placeholder -->
-                    <div id="nav-breadcrumb-container" class="d-none d-lg-flex align-items-center px-2" style="min-width: 200px;"></div>
+                    <div id="nav-breadcrumb-container" class="d-none d-md-flex align-items-center px-2" style="min-width: 160px;"></div>
                 </div>
 
                 <div class="d-flex gap-2 gap-md-3 align-items-center">
@@ -1821,9 +1836,17 @@ const OctaQube = {
             window.Breadcrumbs.init('nav-breadcrumb-container');
         } else {
             const script = document.createElement('script');
-            script.src = '/assets/dist/breadcrumbs.58281b52.min.js';
+            script.src = '/assets/dist/breadcrumbs.min.js';
             script.onload = () => {
                 if (window.Breadcrumbs) window.Breadcrumbs.init('nav-breadcrumb-container');
+            };
+            script.onerror = () => {
+                const sFallback = document.createElement('script');
+                sFallback.src = '/assets/js/ux/breadcrumbs.js';
+                sFallback.onload = () => {
+                    if (window.Breadcrumbs) window.Breadcrumbs.init('nav-breadcrumb-container');
+                };
+                document.head.appendChild(sFallback);
             };
             document.head.appendChild(script);
         }
@@ -2492,7 +2515,7 @@ const OctaQube = {
                     </div>
                     <div class="quick-questions-container" id="quickQuestionsContainer">
                         <div class="text-xs fw-bold text-muted mb-2 d-flex align-items-center gap-1">
-                            <i data-lucide="sparkles" style="width:12px;height:12px;color:var(--ds-primary, #6366f1);"></i> Quick Questions:
+                            <i data-lucide="sparkles" style="width:12px;height:12px;color:var(--ds-accent, #C4A25A);"></i> Quick Questions:
                         </div>
                         <div class="d-flex flex-column gap-1.5" id="quickQuestionsList">
                             <button type="button" class="quick-question-btn p-2 rounded-2" data-prompt="What is the overall progress and completion status of our quality projects?">

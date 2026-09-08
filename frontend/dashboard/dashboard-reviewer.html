@@ -6,7 +6,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -14,8 +14,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reviewer Dashboard | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Detail styles moved to design-system.css */
@@ -157,7 +157,7 @@
                                                 <th>DEPARTMENT & PLANT</th>
                                                 <th>TEAM LEADER</th>
                                                 <th>STAGE & STATUS</th>
-                                                <th class="text-end">APPROVAL DATE</th>
+                                                <th class="text-end">SUBMISSION & APPROVAL DATES</th>
                                                 <th class="text-end">ACTION</th>
                                             </tr>
                                         </thead>
@@ -186,8 +186,8 @@
                                                 <th>PROJECT</th>
                                                 <th>DEPARTMENT & PLANT</th>
                                                 <th>TEAM LEADER</th>
-                                                <th style="width:35%;">REJECTION REASON (WHY REJECTED)</th>
-                                                <th class="text-end">REJECTION DATE</th>
+                                                <th style="width:33%;">REJECTION REASON & LIFECYCLE</th>
+                                                <th class="text-end">SUBMISSION & REJECTION DATES</th>
                                                 <th class="text-end">ACTION</th>
                                             </tr>
                                         </thead>
@@ -432,19 +432,34 @@
                             </div>
                         </div>
                         <div class="row g-2 text-xs pt-2 border-top">
-                            <div class="col-sm-4">
+                            <div class="col-sm-3">
                                 <span class="text-muted">Department:</span>
                                 <span class="fw-semibold text-dark ms-1" id="revCommDept">Maintenance</span>
                             </div>
-                            <div class="col-sm-4">
+                            <div class="col-sm-3">
                                 <span class="text-muted">Plant:</span>
                                 <span class="fw-semibold text-dark ms-1" id="revCommPlant">Chennai</span>
                             </div>
-                            <div class="col-sm-4">
+                            <div class="col-sm-3">
                                 <span class="text-muted">Team Leader:</span>
                                 <span class="fw-semibold text-dark ms-1" id="revCommTeamLeader">Amit Verma</span>
                             </div>
+                            <div class="col-sm-3">
+                                <span class="text-muted">Submitted:</span>
+                                <span class="fw-semibold text-dark ms-1" id="revCommSubmittedDate">--</span>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Restart Section (if applicable) -->
+                    <div id="revCommRestartSection" class="mb-3 p-3 rounded-3 border d-none" style="background: rgba(16, 185, 129, 0.04); border-color: rgba(16, 185, 129, 0.2) !important;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-xs d-flex align-items-center gap-1.5 text-main" id="revCommRestartTitle">
+                                <i data-lucide="rotate-ccw" style="width:14px;height:14px;color:#10b981;"></i> Stopped Project Restart Lifecycle
+                            </span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 text-xxs" id="revCommRestartBadge">Approved</span>
+                        </div>
+                        <div class="text-xs text-secondary d-flex flex-column gap-1" id="revCommRestartDetails"></div>
                     </div>
 
                     <!-- Reviewer Comments Box -->
@@ -469,7 +484,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script>
     const revDash = {
         selectedProjectId: null,
@@ -658,7 +673,10 @@
             body.innerHTML = sliced.map(p => `
                 <tr>
                     <td class="py-3">
-                        <div class="fw-bold text-success">${OctaQube.escapeHtml(p.title)}</div>
+                        <div class="fw-bold text-success d-flex align-items-center gap-1.5 flex-wrap">
+                            ${OctaQube.escapeHtml(p.title)}
+                            ${p.is_restart_approved ? '<span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 text-xxs font-sans fw-semibold"><i data-lucide="rotate-ccw" style="width:10px;height:10px;display:inline;margin-right:2px;"></i>Restart Approved</span>' : ''}
+                        </div>
                         <div class="text-xxs text-muted font-mono">${OctaQube.escapeHtml(p.project_uid)}</div>
                     </td>
                     <td>
@@ -669,10 +687,14 @@
                         <div class="fw-semibold text-main">${OctaQube.escapeHtml(p.team_leader)}</div>
                     </td>
                     <td>
-                        <span class="ds-badge green">Stage ${p.approved_stage || p.stage_number || p.current_stage || 1} · Approved</span>
+                        ${p.is_restart_approved 
+                            ? `<span class="ds-badge green"><i data-lucide="check-circle-2" style="width:12px;height:12px;display:inline;margin-right:3px;"></i>Restart Approved</span>`
+                            : `<span class="ds-badge green">Stage ${p.approved_stage || p.stage_number || p.current_stage || 1} · Approved</span>`
+                        }
                     </td>
-                    <td class="text-end text-muted text-xs">
-                        ${p.approved_at ? new Date(p.approved_at).toLocaleDateString() : '--'}
+                    <td class="text-end text-xs">
+                        <div class="text-muted text-xxs">Submitted: <span class="fw-medium text-dark">${p.submitted_at ? new Date(p.submitted_at).toLocaleDateString() : '--'}</span></div>
+                        <div class="text-success text-xxs font-mono fw-semibold mt-0.5">${p.is_restart_approved ? 'Restart Approved' : 'Approved'}: ${p.approved_at ? new Date(p.approved_at).toLocaleDateString() : '--'}</div>
                     </td>
                     <td class="text-end">
                         <button type="button" class="ds-btn ds-btn-sm ds-btn-ghost" onclick="revDash.viewApprovedComments(${p.id}, ${p.review_id || 'null'}, ${p.approved_stage || p.stage_number || 1})">View</button>
@@ -717,10 +739,23 @@
 
             const sliced = projects.slice((this.rejectedPage - 1) * this.pageSize, this.rejectedPage * this.pageSize);
 
-            body.innerHTML = sliced.map(p => `
+            body.innerHTML = sliced.map(p => {
+                let restartBadge = '';
+                if (p.restart_status === 'Approved') {
+                    restartBadge = `<div class="mt-1"><span class="badge bg-success-subtle text-success border border-success-subtle text-xxs"><i data-lucide="check-circle-2" style="width:10px;height:10px;display:inline;margin-right:2px;"></i>Restart Approved (${p.restart_reviewed_at ? new Date(p.restart_reviewed_at).toLocaleDateString() : ''})</span></div>`;
+                } else if (p.restart_status === 'Pending' || p.restart_status === 'Requested') {
+                    restartBadge = `<div class="mt-1"><span class="badge bg-warning-subtle text-warning border border-warning-subtle text-xxs"><i data-lucide="clock" style="width:10px;height:10px;display:inline;margin-right:2px;"></i>Restart Requested (${p.restart_requested_at ? new Date(p.restart_requested_at).toLocaleDateString() : ''})</span></div>`;
+                } else if (p.restart_status === 'Rejected') {
+                    restartBadge = `<div class="mt-1"><span class="badge bg-danger-subtle text-danger border border-danger-subtle text-xxs"><i data-lucide="x-circle" style="width:10px;height:10px;display:inline;margin-right:2px;"></i>Restart Rejected</span></div>`;
+                }
+
+                return `
                 <tr>
                     <td class="py-3">
-                        <div class="fw-bold text-danger">${OctaQube.escapeHtml(p.title)}</div>
+                        <div class="fw-bold text-danger d-flex align-items-center gap-1.5 flex-wrap">
+                            ${OctaQube.escapeHtml(p.title)}
+                            ${p.is_stopped_project ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-1.5 py-0.5 text-xxs font-sans fw-semibold"><i data-lucide="stop-circle" style="width:10px;height:10px;display:inline;margin-right:2px;"></i>Stopped</span>' : ''}
+                        </div>
                         <div class="text-xxs text-muted font-mono">${OctaQube.escapeHtml(p.project_uid)}</div>
                     </td>
                     <td>
@@ -731,19 +766,25 @@
                         <div class="fw-semibold text-main">${OctaQube.escapeHtml(p.team_leader)}</div>
                     </td>
                     <td>
-                        <div class="d-inline-flex align-items-center px-2 py-1 rounded bg-danger-subtle text-danger border border-danger-subtle text-xs" style="white-space:pre-wrap; max-width:100%;">
-                            <i data-lucide="info" style="width:12px;height:12px;margin-right:4px;flex-shrink:0;"></i>
-                            <span>Stage ${p.rejected_stage || p.stage_number || p.current_stage || 1}: ${OctaQube.escapeHtml(p.rejection_reason || 'No reason specified')}</span>
+                        <div class="d-inline-flex flex-column align-items-start px-2 py-1.5 rounded bg-danger-subtle text-danger border border-danger-subtle text-xs" style="white-space:pre-wrap; max-width:100%;">
+                            <div class="d-flex align-items-center">
+                                <i data-lucide="info" style="width:12px;height:12px;margin-right:4px;flex-shrink:0;"></i>
+                                <span class="fw-semibold">Stage ${p.rejected_stage || p.stage_number || p.current_stage || 1}:</span>
+                            </div>
+                            <div class="text-dark mt-0.5" style="font-size: 11px;">${OctaQube.escapeHtml(p.rejection_reason || 'No reason specified')}</div>
+                            ${restartBadge}
                         </div>
                     </td>
-                    <td class="text-end text-muted text-xs">
-                        ${p.rejected_at ? new Date(p.rejected_at).toLocaleDateString() : '--'}
+                    <td class="text-end text-xs">
+                        <div class="text-muted text-xxs">Submitted: <span class="fw-medium text-dark">${p.submitted_at ? new Date(p.submitted_at).toLocaleDateString() : '--'}</span></div>
+                        <div class="text-danger text-xxs font-mono fw-semibold mt-0.5">Rejected: ${p.rejected_at ? new Date(p.rejected_at).toLocaleDateString() : '--'}</div>
+                        ${p.restart_requested_at ? `<div class="text-muted text-xxs mt-0.5">Restart Req: ${new Date(p.restart_requested_at).toLocaleDateString()}</div>` : ''}
                     </td>
                     <td class="text-end">
                         <button type="button" class="ds-btn ds-btn-sm ds-btn-ghost" onclick="revDash.viewRejectedComments(${p.id}, ${p.review_id || 'null'}, ${p.rejected_stage || p.stage_number || 1})">View</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
 
             if (pagContainer) {
                 pagContainer.innerHTML = this.renderPagination(projects.length, this.rejectedPage, this.pageSize, 'revDash.changeRejectedPage');
@@ -756,12 +797,12 @@
             if (!item) return;
 
             const modalTitle = document.getElementById('revCommModalTitle');
-            if (modalTitle) modalTitle.textContent = "Stage Review Approval Comments";
+            if (modalTitle) modalTitle.textContent = item.is_restart_approved ? "Stopped Project - Restart Approval Details" : "Stage Review Approval Comments";
 
             const badge = document.getElementById('revCommBadge');
             if (badge) {
                 badge.className = 'ds-badge green';
-                badge.textContent = `Stage ${item.approved_stage || item.stage_number || 1} · Approved`;
+                badge.textContent = item.is_restart_approved ? 'Restart Approved' : `Stage ${item.approved_stage || item.stage_number || 1} · Approved`;
             }
 
             const titleEl = document.getElementById('revCommProjectTitle');
@@ -779,15 +820,43 @@
             const tlEl = document.getElementById('revCommTeamLeader');
             if (tlEl) tlEl.textContent = item.team_leader || 'Unassigned';
 
+            const subEl = document.getElementById('revCommSubmittedDate');
+            if (subEl) subEl.textContent = item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : '--';
+
             const dateEl = document.getElementById('revCommDate');
             if (dateEl) dateEl.textContent = item.approved_at ? new Date(item.approved_at).toLocaleDateString() : '--';
+
+            const restartSec = document.getElementById('revCommRestartSection');
+            if (restartSec) {
+                if (item.is_restart_approved) {
+                    restartSec.classList.remove('d-none');
+                    const rTitle = document.getElementById('revCommRestartTitle');
+                    if (rTitle) rTitle.innerHTML = `<i data-lucide="rotate-ccw" style="width:14px;height:14px;color:#10b981;"></i> Stopped Project Restart Lifecycle`;
+                    const rBadge = document.getElementById('revCommRestartBadge');
+                    if (rBadge) {
+                        rBadge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 text-xxs";
+                        rBadge.textContent = "Restart Approved";
+                    }
+                    const rDetails = document.getElementById('revCommRestartDetails');
+                    if (rDetails) {
+                        rDetails.innerHTML = `
+                            <div><strong>Restart Requested:</strong> ${item.restart_requested_at ? new Date(item.restart_requested_at).toLocaleDateString() : '--'}</div>
+                            <div><strong>Restart Reason:</strong> ${OctaQube.escapeHtml(item.restart_reason || 'N/A')}</div>
+                            <div><strong>Restart Approved:</strong> ${item.restart_reviewed_at ? new Date(item.restart_reviewed_at).toLocaleDateString() : '--'}</div>
+                            ${item.restart_reviewer_comments ? `<div><strong>Reviewer Comments:</strong> ${OctaQube.escapeHtml(item.restart_reviewer_comments)}</div>` : ''}
+                        `;
+                    }
+                } else {
+                    restartSec.classList.add('d-none');
+                }
+            }
 
             const commentBox = document.getElementById('revCommTextContainer');
             if (commentBox) {
                 commentBox.style.setProperty('border-left', '4px solid var(--ds-success)', 'important');
             }
 
-            const comments = (item.comments || '').trim();
+            const comments = (item.comments || item.restart_reviewer_comments || '').trim();
             const commentEl = document.getElementById('revCommText');
             if (commentEl) {
                 if (comments) {
@@ -815,7 +884,7 @@
             if (!item) return;
 
             const modalTitle = document.getElementById('revCommModalTitle');
-            if (modalTitle) modalTitle.textContent = "Stage Review Rejection Details";
+            if (modalTitle) modalTitle.textContent = item.is_stopped_project ? "Stopped Project Details" : "Stage Review Rejection Details";
 
             const badge = document.getElementById('revCommBadge');
             if (badge) {
@@ -838,8 +907,39 @@
             const tlEl = document.getElementById('revCommTeamLeader');
             if (tlEl) tlEl.textContent = item.team_leader || 'Unassigned';
 
+            const subEl = document.getElementById('revCommSubmittedDate');
+            if (subEl) subEl.textContent = item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : '--';
+
             const dateEl = document.getElementById('revCommDate');
             if (dateEl) dateEl.textContent = item.rejected_at ? new Date(item.rejected_at).toLocaleDateString() : '--';
+
+            const restartSec = document.getElementById('revCommRestartSection');
+            if (restartSec) {
+                if (item.restart_status) {
+                    restartSec.classList.remove('d-none');
+                    const rTitle = document.getElementById('revCommRestartTitle');
+                    if (rTitle) rTitle.innerHTML = `<i data-lucide="rotate-ccw" style="width:14px;height:14px;color:#f59e0b;"></i> Restart Request History`;
+                    const rBadge = document.getElementById('revCommRestartBadge');
+                    if (rBadge) {
+                        const isApp = item.restart_status === 'Approved';
+                        rBadge.className = isApp 
+                            ? "badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 text-xxs"
+                            : "badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-0.5 text-xxs";
+                        rBadge.textContent = item.restart_status === 'Approved' ? 'Restart Approved' : (item.restart_status === 'Rejected' ? 'Restart Rejected' : 'Restart Requested');
+                    }
+                    const rDetails = document.getElementById('revCommRestartDetails');
+                    if (rDetails) {
+                        rDetails.innerHTML = `
+                            <div><strong>Restart Requested:</strong> ${item.restart_requested_at ? new Date(item.restart_requested_at).toLocaleDateString() : '--'}</div>
+                            <div><strong>Restart Reason:</strong> ${OctaQube.escapeHtml(item.restart_reason || 'N/A')}</div>
+                            ${item.restart_reviewed_at ? `<div><strong>Restart Reviewed:</strong> ${new Date(item.restart_reviewed_at).toLocaleDateString()}</div>` : ''}
+                            ${item.restart_reviewer_comments ? `<div><strong>Reviewer Comments:</strong> ${OctaQube.escapeHtml(item.restart_reviewer_comments)}</div>` : ''}
+                        `;
+                    }
+                } else {
+                    restartSec.classList.add('d-none');
+                }
+            }
 
             const commentBox = document.getElementById('revCommTextContainer');
             if (commentBox) {

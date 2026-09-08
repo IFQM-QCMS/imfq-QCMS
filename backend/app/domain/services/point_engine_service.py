@@ -279,8 +279,13 @@ class PointEngineService:
         Guarantees NO fake numbers — only real historical actions!
         """
         if org_id:
+            # Skip expensive rescanning if organization already has leaderboard rows
+            if EmployeeLeaderboard.query.filter_by(organization_id=org_id).first():
+                return
             users = User.query.filter_by(org_id=org_id).all()
         else:
+            if EmployeeLeaderboard.query.first():
+                return
             users = User.query.all()
 
         EXCLUDED_ROLES = {'superadmin', 'system admin', 'system administrator'}

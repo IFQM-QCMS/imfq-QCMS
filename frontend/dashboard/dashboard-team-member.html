@@ -7,7 +7,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -15,8 +15,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Custom Floating Tooltip for Ref Number */
@@ -751,7 +751,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script>
         const tmDash = {
             projects: [], // Personal workstation projects
@@ -851,11 +851,14 @@
             renderWorkstationKPIs() {
                 const total = this.projects.length;
                 const completed_statuses = ['Closed', 'Completed', 'Stage 8 Approved', 'Archived'];
-                const rejected_statuses = ['Rejected', 'Cancelled'];
-                const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                const rejected_statuses = ['Rejected', 'Cancelled', 'Stopped', 'On Hold', 'Stage 1 Rejected'];
 
-                const isCompleted = (p) => completed_statuses.includes(p.status);
-                const isRejected = (p) => rejected_statuses.includes(p.status) || (p.status || '').startsWith('Rejected');
+                const isCompleted = (p) => p && completed_statuses.includes(p.status);
+                const isRejected = (p) => {
+                    if (!p || !p.status) return false;
+                    const st = String(p.status).trim();
+                    return rejected_statuses.includes(st) || st.startsWith('Rejected') || st.startsWith('Stopped');
+                };
 
                 const completed = this.projects.filter(p => isCompleted(p)).length;
                 const rejected = this.projects.filter(p => isRejected(p)).length;
@@ -863,19 +866,27 @@
                 // Inactive Projects: Open/in-progress projects with NO activity in the last 7 days
                 const inactive = this.projects.filter(p => {
                     if (isCompleted(p) || isRejected(p)) return false;
+                    if (typeof p.is_stalled === 'boolean') return p.is_stalled;
                     const dateStr = p.last_updated || p.updated_at || p.created_at;
-                    if (!dateStr) return false; // If no date specified, treat as active
-                    const lastActivity = new Date(dateStr);
-                    return !isNaN(lastActivity.getTime()) && lastActivity < sevenDaysAgo;
+                    if (!dateStr) return false;
+                    const actDate = new Date(dateStr);
+                    if (isNaN(actDate.getTime())) return false;
+                    const now = new Date();
+                    const diffDays = Math.floor((now.setHours(0,0,0,0) - actDate.setHours(0,0,0,0)) / (24 * 60 * 60 * 1000));
+                    return diffDays >= 7;
                 }).length;
 
                 // Active Projects: Open/in-progress projects with activity within the last 7 days
                 const active = this.projects.filter(p => {
                     if (isCompleted(p) || isRejected(p)) return false;
+                    if (typeof p.is_stalled === 'boolean') return !p.is_stalled;
                     const dateStr = p.last_updated || p.updated_at || p.created_at;
-                    if (!dateStr) return true; // Default to active
-                    const lastActivity = new Date(dateStr);
-                    return isNaN(lastActivity.getTime()) || lastActivity >= sevenDaysAgo;
+                    if (!dateStr) return true;
+                    const actDate = new Date(dateStr);
+                    if (isNaN(actDate.getTime())) return true;
+                    const now = new Date();
+                    const diffDays = Math.floor((now.setHours(0,0,0,0) - actDate.setHours(0,0,0,0)) / (24 * 60 * 60 * 1000));
+                    return diffDays < 7;
                 }).length;
 
                 const grid = document.getElementById('workstationKpiGrid');
@@ -897,8 +908,13 @@
             },
 
             openRejectedProjectsModal() {
-                const rejected_statuses = ['Rejected', 'Cancelled'];
-                const rejectedProjs = (this.projects || []).filter(p => rejected_statuses.includes(p.status));
+                const rejected_statuses = ['Rejected', 'Cancelled', 'Stopped', 'On Hold', 'Stage 1 Rejected'];
+                const isRejected = (p) => {
+                    if (!p || !p.status) return false;
+                    const st = String(p.status).trim();
+                    return rejected_statuses.includes(st) || st.startsWith('Rejected') || st.startsWith('Stopped');
+                };
+                const rejectedProjs = (this.projects || []).filter(p => isRejected(p));
 
                 const body = document.getElementById('tmRejectedProjectsBody');
                 if (body) {
@@ -1052,11 +1068,16 @@
                             const icon = isOnline ? 'video' : 'map-pin';
                             const url = m.url || m.meeting_link;
                             const duration = m.duration || m.duration_minutes || 0;
-                            const actionBtn = isOnline && url ? `
+                            const isPast = (dt.getTime() + (parseInt(duration) || 30) * 60 * 1000) < Date.now();
+                            const actionBtn = isPast ? `
+                                <span class="ds-badge ds-badge-sm gray">
+                                    <i data-lucide="history" class="me-1" style="width:10px;height:10px;"></i> Concluded
+                                </span>
+                            ` : (isOnline && url ? `
                                 <a href="${url}" target="_blank" class="ds-btn ds-btn-primary ds-btn-sm">
                                     Join Meeting
                                 </a>
-                            ` : '';
+                            ` : '');
                             return `
                                 <div class="list-group-item p-3 p-sm-4 d-flex flex-wrap flex-sm-nowrap align-items-center justify-content-between gap-3 fade-in">
                                     <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">

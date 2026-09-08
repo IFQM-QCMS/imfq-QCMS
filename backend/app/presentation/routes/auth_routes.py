@@ -31,7 +31,40 @@ import time
 
 auth_bp = Blueprint('auth', __name__)
 
+class PlatformSettingsSnapshot:
+    """Thread-safe, session-detached snapshot of PlatformSettings attributes to prevent DetachedInstanceError."""
+    def __init__(self, ps=None):
+        if ps:
+            self.id = getattr(ps, 'id', 1)
+            self.registration_open = getattr(ps, 'registration_open', True)
+            self.require_email_otp = getattr(ps, 'require_email_otp', True)
+            self.require_phone_otp = getattr(ps, 'require_phone_otp', False)
+            auth_set = getattr(ps, 'authentication_settings', None)
+            self.authentication_settings = dict(auth_set) if isinstance(auth_set, dict) else {}
+            sec_set = getattr(ps, 'security_settings', None)
+            self.security_settings = dict(sec_set) if isinstance(sec_set, dict) else {}
+            self.support_email = getattr(ps, 'support_email', 'support@ifqm.org.in')
+            self.email_provider = getattr(ps, 'email_provider', None)
+            self.branding_settings = getattr(ps, 'branding_settings', {}) or {}
+        else:
+            self.id = 1
+            self.registration_open = True
+            self.require_email_otp = True
+            self.require_phone_otp = False
+            self.authentication_settings = {}
+            self.security_settings = {}
+            self.support_email = 'support@ifqm.org.in'
+            self.email_provider = None
+            self.branding_settings = {}
+
+    def __getattr__(self, name):
+        return None
+
 _settings_cache = {"data": None, "ts": 0}
+
+def invalidate_platform_settings_cache():
+    _settings_cache["data"] = None
+    _settings_cache["ts"] = 0
 
 def get_platform_settings_safe():
     now = time.time()
@@ -42,16 +75,19 @@ def get_platform_settings_safe():
         from app.infrastructure.database.models.models import PlatformSettings
         ps = PlatformSettings.query.order_by(PlatformSettings.id.asc()).first()
         if ps:
-            _settings_cache["data"] = ps
+            snapshot = PlatformSettingsSnapshot(ps)
+            _settings_cache["data"] = snapshot
             _settings_cache["ts"] = now
-        return ps
+            return snapshot
+        snapshot = PlatformSettingsSnapshot(None)
+        return snapshot
     except Exception as e:
         print(f"[QCMS Warning] PlatformSettings query error: {e}")
         try:
             db.session.rollback()
         except Exception:
             pass
-        return _settings_cache.get("data")
+        return _settings_cache.get("data") or PlatformSettingsSnapshot(None)
 
 def get_support_email_safe():
     try:
@@ -417,10 +453,14 @@ def request_registration_otp():
     # Reset failed attempts counter
     cache.delete(f"otp_fails:email:{email}")
 
-    # Send email via standardized utility (never return in HTTP response)
-    EmailUtils.send_registration_otp(email, otp)
-    
     db.session.commit()
+
+    # Send email via standardized utility (never return in HTTP response)
+    try:
+        EmailUtils.send_registration_otp(email, otp)
+    except Exception as email_err:
+        print(f"[QCMS Auth] Non-blocking email dispatch warning for {email}: {email_err}")
+
     return jsonify({"msg": "Verification code sent to your email.", "require_email_otp": True}), 200
 
 @auth_bp.route('/verify-registration-otp', methods=['POST'])

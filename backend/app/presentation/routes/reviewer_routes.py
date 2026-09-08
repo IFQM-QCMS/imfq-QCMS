@@ -83,10 +83,14 @@ def _get_pending_projects(org_id, reviewer_id, user_dept_id=None, is_admin=False
     active_projects = query.all()
     pending_list = []
     for p in active_projects:
-        tracker = ProjectStageTracker.query.filter_by(project_id=p.id, stage_number=p.current_stage).first()
-        if tracker and tracker.status == 'Submitted For Review':
-            workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=p.current_stage).first()
-            pending_list.append((p, p.current_stage, workflow))
+        if p.restart_status == 'Pending':
+            workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=1).first()
+            pending_list.append((p, 1, workflow))
+        else:
+            tracker = ProjectStageTracker.query.filter_by(project_id=p.id, stage_number=p.current_stage).first()
+            if tracker and tracker.status == 'Submitted For Review':
+                workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=p.current_stage).first()
+                pending_list.append((p, p.current_stage, workflow))
             
     return pending_list
 
@@ -121,40 +125,17 @@ def get_stats():
     else:
         pending_count = len(_get_pending_projects(user.org_id, user.id, user_dept_id, is_admin=False))
         
-    # Stage 8 impact projects (pending impact review)
-    approved_impact_ids = [s.project_id for s in Stage8Standardization.query.filter_by(status='Approved').all()]
+    # Stage 8 impact projects (pending impact review - matches impact-projects list)
+    try:
+        pending_impact = len(_get_impact_projects_list(user, is_admin))
+    except Exception:
+        pending_impact = 0
 
-    impact_query = Project.query.filter(
-        Project.org_id == user.org_id,
-        Project.current_stage == 8,
-        ~Project.status.in_(['Closed', 'Pending CEO Review', 'Pending CEO Closure', 'Impact Approved']),
-        Project.status.in_(['Stage 8 Submitted', 'Stage 8 Reviewer Approved', 'Stage 8 Approved'])
-    )
-    if approved_impact_ids:
-        impact_query = impact_query.filter(~Project.id.in_(approved_impact_ids))
-
-    if not is_admin:
-        from sqlalchemy import or_
-        if user_dept_id:
-            impact_query = impact_query.filter(or_(Project.department_id == user_dept_id, Project.reviewer_id == user.id, Project.department_id.is_(None)))
-        else:
-            impact_query = impact_query.filter(or_(Project.reviewer_id == user.id, Project.department_id.is_(None)))
-    pending_impact = impact_query.count()
-
-    # Stage 8 closure projects (SOP created, ready for closure)
-    closure_query = Project.query.filter(
-        Project.org_id == user.org_id,
-        Project.current_stage == 8,
-        Project.status != 'Closed',
-        Project.status.in_(['Impact Approved', 'SOP Created', 'Pending Closure'])
-    )
-    if not is_admin:
-        from sqlalchemy import or_
-        if user_dept_id:
-            closure_query = closure_query.filter(or_(Project.department_id == user_dept_id, Project.reviewer_id == user.id, Project.department_id.is_(None)))
-        else:
-            closure_query = closure_query.filter(or_(Project.reviewer_id == user.id, Project.department_id.is_(None)))
-    pending_closure = closure_query.count()
+    # Stage 8 closure projects (matches closure-projects list)
+    try:
+        pending_closure = len(_get_closure_projects_list(user, is_admin))
+    except Exception:
+        pending_closure = 0
 
     # Average improvement
     try:
@@ -176,20 +157,10 @@ def get_stats():
     except Exception:
         avg_improvement = 0
 
-    # Approved count for this reviewer
+    # Approved and Rejected counts for this reviewer (scoped correctly, single source of truth)
     try:
-        if is_admin:
-            approved_count = ProjectReview.query.filter_by(org_id=user.org_id, decision='Approved').count()
-            rejected_count = ProjectReview.query.filter_by(org_id=user.org_id, decision='Rejected').count()
-        else:
-            approved_count = ProjectReview.query.filter(
-                ProjectReview.org_id == user.org_id,
-                ProjectReview.decision == 'Approved'
-            ).count()
-            rejected_count = ProjectReview.query.filter(
-                ProjectReview.org_id == user.org_id,
-                ProjectReview.decision == 'Rejected'
-            ).count()
+        approved_count = len(_get_approved_projects_list(user, is_admin))
+        rejected_count = len(_get_rejected_projects_list(user, is_admin))
     except Exception:
         approved_count = 0
         rejected_count = 0
@@ -203,12 +174,7 @@ def get_stats():
         "avg_improvement": f"{avg_improvement}%"
     })
 
-@reviewer_bp.route('/approved-projects', methods=['GET'])
-@reviewer_required
-def get_approved_projects():
-    user = db.session.get(User, get_jwt_identity())
-    is_admin = (user.role and user.role.name == 'Admin')
-    
+def _get_approved_projects_list(user, is_admin):
     # Fetch all discrete stage approval reviews made by this reviewer (or across org if Admin)
     if is_admin:
         approved_reviews = ProjectReview.query.filter_by(
@@ -245,6 +211,19 @@ def get_approved_projects():
             if wf and wf.data and isinstance(wf.data, dict):
                 comments = wf.data.get('review', {}).get('comments') or ""
         
+        sub_log = AuditLog.query.filter(
+            AuditLog.project_id == p.id,
+            AuditLog.action.ilike(f'%Stage {stage_num}%Submitted%'),
+            AuditLog.created_at <= (r.decided_at or r.created_at)
+        ).order_by(AuditLog.created_at.desc()).first()
+        if not sub_log:
+            sub_log = AuditLog.query.filter(
+                AuditLog.project_id == p.id,
+                AuditLog.action.ilike('%Submitted%'),
+                AuditLog.created_at <= (r.decided_at or r.created_at)
+            ).order_by(AuditLog.created_at.desc()).first()
+        submitted_at = sub_log.created_at.isoformat() + "Z" if sub_log else (p.created_at.isoformat() + "Z" if p.created_at else "")
+
         result.append({
             "id": p.id,
             "review_id": r.id,
@@ -257,7 +236,65 @@ def get_approved_projects():
             "stage_number": stage_num,
             "current_stage": p.current_stage,
             "status": f"Stage {stage_num} Approved",
+            "is_restart_approved": False,
+            "is_stopped_project": False,
             "comments": comments,
+            "submitted_at": submitted_at,
+            "approved_at": approved_at
+        })
+
+    # Also include stopped/restarted projects where restart was approved
+    if is_admin:
+        restart_approved_projects = Project.query.filter(
+            Project.org_id == user.org_id,
+            Project.restart_status == 'Approved'
+        ).order_by(Project.restart_reviewed_at.desc()).all()
+    else:
+        restart_approved_projects = Project.query.filter(
+            Project.org_id == user.org_id,
+            Project.reviewer_id == user.id,
+            Project.restart_status == 'Approved'
+        ).order_by(Project.restart_reviewed_at.desc()).all()
+
+    for p in restart_approved_projects:
+        if (p.id, 'restart_approved') in reviewed_keys:
+            continue
+        reviewed_keys.add((p.id, 'restart_approved'))
+
+        tl = p.team_leader
+        tl_name = (tl.full_name or tl.username) if tl else "Unassigned"
+
+        sub_log = AuditLog.query.filter(
+            AuditLog.project_id == p.id,
+            AuditLog.action.ilike('%Submitted%')
+        ).order_by(AuditLog.created_at.desc()).first()
+        submitted_at = sub_log.created_at.isoformat() + "Z" if sub_log else (p.created_at.isoformat() + "Z" if p.created_at else "")
+
+        restart_req_at = p.restart_requested_at.isoformat() + "Z" if p.restart_requested_at else ""
+        approved_at = p.restart_reviewed_at.isoformat() + "Z" if p.restart_reviewed_at else (p.created_at.isoformat() + "Z" if p.created_at else "")
+        comments = (p.restart_reviewer_comments or "Approved to restart from Stage 1.").strip()
+
+        result.append({
+            "id": p.id,
+            "review_id": None,
+            "project_uid": p.project_uid or f"PRJ-{p.id}",
+            "title": p.title,
+            "department": p.department.name if p.department else "N/A",
+            "plant": p.plant or (p.department.plant.name if p.department and p.department.plant else "General"),
+            "team_leader": tl_name,
+            "approved_stage": 1,
+            "stage_number": 1,
+            "current_stage": p.current_stage or 1,
+            "status": "Stage 1 · Restart Approved",
+            "is_restart_approved": True,
+            "is_stopped_project": True,
+            "restart_status": p.restart_status,
+            "restart_reason": p.restart_reason,
+            "restart_requested_at": restart_req_at,
+            "restart_reviewed_at": approved_at,
+            "restart_reviewer_comments": comments,
+            "comments": comments,
+            "submitted_at": submitted_at or restart_req_at,
             "approved_at": approved_at
         })
         
@@ -293,18 +330,16 @@ def get_approved_projects():
                 "stage_number": stage_num,
                 "current_stage": p.current_stage,
                 "status": f"Stage {stage_num} Approved",
+                "is_restart_approved": False,
+                "is_stopped_project": False,
                 "comments": comments,
+                "submitted_at": p.created_at.isoformat() + "Z" if p.created_at else "",
                 "approved_at": p.created_at.isoformat() + "Z" if p.created_at else ""
             })
             
-    return jsonify(result), 200
+    return result
 
-@reviewer_bp.route('/rejected-projects', methods=['GET'])
-@reviewer_required
-def get_rejected_projects():
-    user = db.session.get(User, get_jwt_identity())
-    is_admin = (user.role and user.role.name == 'Admin')
-    
+def _get_rejected_projects_list(user, is_admin):
     if is_admin:
         rejected_reviews = ProjectReview.query.filter_by(
             org_id=user.org_id,
@@ -339,6 +374,20 @@ def get_rejected_projects():
             wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=stage_num).first()
             if wf and wf.data and isinstance(wf.data, dict):
                 comments = wf.data.get('review', {}).get('comments') or comments
+
+        # Look up submission date before rejection
+        sub_log = AuditLog.query.filter(
+            AuditLog.project_id == p.id,
+            AuditLog.action.ilike(f'%Stage {stage_num}%Submitted%'),
+            AuditLog.created_at <= (r.decided_at or r.created_at)
+        ).order_by(AuditLog.created_at.desc()).first()
+        if not sub_log:
+            sub_log = AuditLog.query.filter(
+                AuditLog.project_id == p.id,
+                AuditLog.action.ilike('%Submitted%'),
+                AuditLog.created_at <= (r.decided_at or r.created_at)
+            ).order_by(AuditLog.created_at.desc()).first()
+        submitted_at = sub_log.created_at.isoformat() + "Z" if sub_log else (p.created_at.isoformat() + "Z" if p.created_at else "")
         
         result.append({
             "id": p.id,
@@ -352,6 +401,13 @@ def get_rejected_projects():
             "stage_number": stage_num,
             "rejection_reason": comments or "No reason specified",
             "comments": comments,
+            "is_stopped_project": True,
+            "restart_status": p.restart_status,
+            "restart_reason": p.restart_reason,
+            "restart_requested_at": p.restart_requested_at.isoformat() + "Z" if p.restart_requested_at else None,
+            "restart_reviewed_at": p.restart_reviewed_at.isoformat() + "Z" if p.restart_reviewed_at else None,
+            "restart_reviewer_comments": p.restart_reviewer_comments,
+            "submitted_at": submitted_at,
             "rejected_at": rejected_at
         })
         
@@ -374,6 +430,18 @@ def get_rejected_projects():
             stage_num = p.current_stage or 1
             wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=stage_num).first()
             comments = wf.data.get('review', {}).get('comments') if (wf and wf.data and isinstance(wf.data, dict)) else (p.rejection_reason or "No reason specified")
+
+            sub_log = AuditLog.query.filter(
+                AuditLog.project_id == p.id,
+                AuditLog.action.ilike(f'%Stage {stage_num}%Submitted%')
+            ).order_by(AuditLog.created_at.desc()).first()
+            if not sub_log:
+                sub_log = AuditLog.query.filter(
+                    AuditLog.project_id == p.id,
+                    AuditLog.action.ilike('%Submitted%')
+                ).order_by(AuditLog.created_at.desc()).first()
+            submitted_at = sub_log.created_at.isoformat() + "Z" if sub_log else (p.created_at.isoformat() + "Z" if p.created_at else "")
+
             result.append({
                 "id": p.id,
                 "review_id": None,
@@ -386,10 +454,159 @@ def get_rejected_projects():
                 "stage_number": stage_num,
                 "rejection_reason": comments or "No reason specified",
                 "comments": comments,
+                "is_stopped_project": True,
+                "restart_status": p.restart_status,
+                "restart_reason": p.restart_reason,
+                "restart_requested_at": p.restart_requested_at.isoformat() + "Z" if p.restart_requested_at else None,
+                "restart_reviewed_at": p.restart_reviewed_at.isoformat() + "Z" if p.restart_reviewed_at else None,
+                "restart_reviewer_comments": p.restart_reviewer_comments,
+                "submitted_at": submitted_at,
                 "rejected_at": p.created_at.isoformat() + "Z" if p.created_at else ""
             })
             
-    return jsonify(result), 200
+    return result
+
+def _get_impact_projects_list(user, is_admin):
+    approved_impact_ids = [s.project_id for s in Stage8Standardization.query.filter_by(status='Approved').all()]
+
+    query = Project.query.filter(
+        Project.org_id == user.org_id,
+        Project.current_stage == 8,
+        ~Project.status.in_(['Closed', 'Pending CEO Review', 'Pending CEO Closure', 'Impact Approved']),
+        Project.status.in_(['Stage 8 Submitted', 'Stage 8 Reviewer Approved', 'Stage 8 Approved'])
+    )
+    if approved_impact_ids:
+        query = query.filter(~Project.id.in_(approved_impact_ids))
+
+    # Apply dept filter if user has a specific dept
+    user_dept_id = None
+    if user.dept and user.dept.name not in ['All', 'N/A']:
+        user_dept_id = user.department_id
+
+    if not is_admin:
+        from sqlalchemy import or_
+        if user_dept_id:
+            query = query.filter(or_(Project.department_id == user_dept_id, Project.reviewer_id == user.id, Project.department_id.is_(None)))
+        else:
+            query = query.filter(or_(Project.reviewer_id == user.id, Project.department_id.is_(None)))
+        
+    projects = query.all()
+    result = []
+    for p in projects:
+        impact = Stage8Standardization.query.filter_by(project_id=p.id).first()
+        sop = SOP.query.filter_by(project_id=p.id).first()
+        wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
+        wf_data = wf.data if (wf and wf.data) else {}
+
+        has_sop = (sop is not None) or bool(impact and impact.sop_standardization) or bool(wf_data.get('sop_standardization'))
+        
+        baseline_data = getattr(impact, 'baseline_data', None) or wf_data.get('baseline') or wf_data.get('baseline_data')
+        final_data = getattr(impact, 'final_data', None) or wf_data.get('final') or wf_data.get('final_data') or wf_data.get('metrics')
+        has_impact = bool(final_data is not None)
+
+        kpi_pct = getattr(impact, 'kpi_improvement_pct', None)
+        if (kpi_pct is None or kpi_pct == 0) and baseline_data and final_data:
+            try:
+                b_val = float(str(baseline_data.get('value', 0) if isinstance(baseline_data, dict) else baseline_data))
+                f_val = float(str(final_data.get('value', 0) if isinstance(final_data, dict) else final_data))
+                if b_val > 0:
+                    kpi_pct = round(((f_val - b_val) / b_val) * 100, 2)
+            except (ValueError, TypeError, AttributeError):
+                pass
+        if kpi_pct is None:
+            kpi_pct = wf_data.get('kpi_improvement_pct', 0)
+
+        # Fetch action_plan from Stage 7
+        s7 = Stage7PerformanceVerificationBenefitsRealization.query.filter_by(project_id=p.id).first()
+
+        result.append({
+            "id": p.id,
+            "title": p.title,
+            "baseline": baseline_data,
+            "final": final_data,
+            "kpi_improvement_pct": kpi_pct or 0,
+            "kpi_target": s7.action_plan if (s7 and s7.action_plan) else {},
+            "cost_savings": impact.cost_savings if impact else (wf_data.get('cost_savings', 0) or 0),
+            "status": p.status,
+            "impact_status": impact.status if impact else "Pending",
+            "approved": (impact.status == "Approved") if impact else False,
+            "has_sop": has_sop,
+            "sop_id": sop.id if sop else None,
+            "has_impact": has_impact
+        })
+    return result
+
+def _get_closure_projects_list(user, is_admin):
+    query = Project.query.filter(
+        Project.org_id == user.org_id,
+        Project.current_stage == 8,
+        Project.status != 'Closed'
+    )
+    # Apply dept filter if user has a specific dept
+    user_dept_id = None
+    if user.dept and user.dept.name not in ['All', 'N/A']:
+        user_dept_id = user.department_id
+
+    if not is_admin:
+        from sqlalchemy import or_
+        if user_dept_id:
+            query = query.filter(or_(Project.department_id == user_dept_id, Project.reviewer_id == user.id, Project.department_id.is_(None)))
+        else:
+            query = query.filter(or_(Project.reviewer_id == user.id, Project.department_id.is_(None)))
+        
+    projects = query.all()
+    result = []
+    for p in projects:
+        std = Stage8Standardization.query.filter_by(project_id=p.id).first()
+        sop = SOP.query.filter_by(project_id=p.id).first()
+        
+        # Fallback to Stage 8 workflow JSON data if available
+        wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
+        wf_data = wf.data if (wf and wf.data) else {}
+
+        if sop:
+            sop_status = sop.status
+        elif std and (std.sop_standardization or getattr(std, 'sop_details', None)):
+            sop_status = "Uploaded"
+        elif wf_data.get('sop_standardization'):
+            sop_status = "Uploaded"
+        else:
+            sop_status = "Pending"
+
+        has_lessons = bool((std and std.lessons_learned) or wf_data.get('lessons_learned'))
+        has_training = bool(
+            (std and (getattr(std, 'horizontal_deployment', None) or getattr(std, 'training_records', None) or getattr(std, 'training_adoption', None))) 
+            or wf_data.get('training_adoption') 
+            or wf_data.get('training_records')
+            or wf_data.get('horizontal_deployment')
+        )
+        result.append({
+            "id": p.id,
+            "title": p.title,
+            "status": p.status,
+            "is_pending_ceo": p.status in ['Pending CEO Review', 'Pending CEO Closure'],
+            "sop_status": sop_status,
+            "sop_id": sop.id if sop else None,
+            "has_training_records": has_training,
+            "has_lessons": has_lessons,
+            "facilitator_signoff": std.facilitator_validation if std else False,
+            "admin_closure": std.admin_closure if std else False
+        })
+    return result
+
+@reviewer_bp.route('/approved-projects', methods=['GET'])
+@reviewer_required
+def get_approved_projects():
+    user = db.session.get(User, get_jwt_identity())
+    is_admin = (user.role and user.role.name == 'Admin')
+    return jsonify(_get_approved_projects_list(user, is_admin)), 200
+
+@reviewer_bp.route('/rejected-projects', methods=['GET'])
+@reviewer_required
+def get_rejected_projects():
+    user = db.session.get(User, get_jwt_identity())
+    is_admin = (user.role and user.role.name == 'Admin')
+    return jsonify(_get_rejected_projects_list(user, is_admin)), 200
 
 # --- Pending Approvals ---
 @reviewer_bp.route('/pending', methods=['GET'])
@@ -410,7 +627,7 @@ def get_pending_approvals():
     result = []
     for p, stage, workflow in pending_data:
         dept = db.session.get(Department, p.department_id) if p.department_id else None
-        tl = db.session.get(User, p.creator_id) if p.creator_id else None
+        tl = db.session.get(User, p.team_leader_id) if p.team_leader_id else (db.session.get(User, p.creator_id) if p.creator_id else None)
         
         # Build stage_data dict safely from the workflow's JSON data column.
         # For Admin closure review, pull lessons/preventive from SOP instead.
@@ -448,9 +665,13 @@ def get_pending_approvals():
             "pending_stage": stage,
             "stages_config": p.organization.get_stages_config() if p.organization else [],
             "stage_data": record_dict,
-            "submitted_at": (workflow.updated_at.isoformat() + "Z") if (workflow and workflow.updated_at) else (p.created_at.isoformat() + "Z"),
+            "submitted_at": (p.restart_requested_at.isoformat() + "Z") if (p.restart_status == 'Pending' and p.restart_requested_at) else ((workflow.updated_at.isoformat() + "Z") if (workflow and workflow.updated_at) else (p.created_at.isoformat() + "Z")),
             "team_leader": tl.full_name or tl.username if tl else "Unassigned",
-            "team_leader_pic": get_profile_picture_url(tl)
+            "team_leader_pic": get_profile_picture_url(tl),
+            "is_restart_request": (p.restart_status == 'Pending'),
+            "restart_reason": p.restart_reason,
+            "restart_requested_at": p.restart_requested_at.isoformat() + "Z" if p.restart_requested_at else None,
+            "original_rejection_reason": p.rejection_reason if p.restart_status == 'Pending' else None
         })
         
     return jsonify(result)
@@ -795,76 +1016,8 @@ def log_action(org_id, user_id, action, project_id=None, details=None):
 @reviewer_required
 def get_impact_review():
     user = db.session.get(User, get_jwt_identity())
-    is_admin = user.role.name == 'Admin'
-    
-    approved_impact_ids = [s.project_id for s in Stage8Standardization.query.filter_by(status='Approved').all()]
-
-    query = Project.query.filter(
-        Project.org_id == user.org_id,
-        Project.current_stage == 8,
-        ~Project.status.in_(['Closed', 'Pending CEO Review', 'Pending CEO Closure', 'Impact Approved']),
-        Project.status.in_(['Stage 8 Submitted', 'Stage 8 Reviewer Approved', 'Stage 8 Approved'])
-    )
-    if approved_impact_ids:
-        query = query.filter(~Project.id.in_(approved_impact_ids))
-
-    # Apply dept filter if user has a specific dept
-    user_dept_id = None
-    if user.dept and user.dept.name not in ['All', 'N/A']:
-        user_dept_id = user.department_id
-
-    if not is_admin:
-        from sqlalchemy import or_
-        if user_dept_id:
-            query = query.filter(or_(Project.department_id == user_dept_id, Project.reviewer_id == user.id, Project.department_id.is_(None)))
-        else:
-            query = query.filter(or_(Project.reviewer_id == user.id, Project.department_id.is_(None)))
-        
-    projects = query.all()
-    result = []
-    for p in projects:
-        impact = Stage8Standardization.query.filter_by(project_id=p.id).first()
-        sop = SOP.query.filter_by(project_id=p.id).first()
-        wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
-        wf_data = wf.data if (wf and wf.data) else {}
-
-        has_sop = (sop is not None) or bool(impact and impact.sop_standardization) or bool(wf_data.get('sop_standardization'))
-        
-        baseline_data = getattr(impact, 'baseline_data', None) or wf_data.get('baseline') or wf_data.get('baseline_data')
-        final_data = getattr(impact, 'final_data', None) or wf_data.get('final') or wf_data.get('final_data') or wf_data.get('metrics')
-        has_impact = bool(final_data is not None)
-
-        kpi_pct = getattr(impact, 'kpi_improvement_pct', None)
-        if (kpi_pct is None or kpi_pct == 0) and baseline_data and final_data:
-            try:
-                b_val = float(str(baseline_data.get('value', 0) if isinstance(baseline_data, dict) else baseline_data))
-                f_val = float(str(final_data.get('value', 0) if isinstance(final_data, dict) else final_data))
-                if b_val > 0:
-                    kpi_pct = round(((f_val - b_val) / b_val) * 100, 2)
-            except (ValueError, TypeError, AttributeError):
-                pass
-        if kpi_pct is None:
-            kpi_pct = wf_data.get('kpi_improvement_pct', 0)
-
-        # Fetch action_plan from Stage 7
-        s7 = Stage7PerformanceVerificationBenefitsRealization.query.filter_by(project_id=p.id).first()
-
-        result.append({
-            "id": p.id,
-            "title": p.title,
-            "baseline": baseline_data,
-            "final": final_data,
-            "kpi_improvement_pct": kpi_pct or 0,
-            "kpi_target": s7.action_plan if (s7 and s7.action_plan) else {},
-            "cost_savings": impact.cost_savings if impact else (wf_data.get('cost_savings', 0) or 0),
-            "status": p.status,
-            "impact_status": impact.status if impact else "Pending",
-            "approved": (impact.status == "Approved") if impact else False,
-            "has_sop": has_sop,
-            "sop_id": sop.id if sop else None,
-            "has_impact": has_impact
-        })
-    return jsonify(result)
+    is_admin = (user.role and user.role.name == 'Admin')
+    return jsonify(_get_impact_projects_list(user, is_admin)), 200
 
 @reviewer_bp.route('/stage8/<int:project_id>/approve-submission', methods=['POST'])
 @reviewer_required
@@ -990,64 +1143,8 @@ def add_post_data(project_id):
 @reviewer_required
 def get_closure_projects():
     user = db.session.get(User, get_jwt_identity())
-    is_admin = user.role.name == 'Admin'
-    
-    query = Project.query.filter(
-        Project.org_id == user.org_id,
-        Project.current_stage == 8,
-        Project.status != 'Closed'
-    )
-    # Apply dept filter if user has a specific dept
-    user_dept_id = None
-    if user.dept and user.dept.name not in ['All', 'N/A']:
-        user_dept_id = user.department_id
-
-    if not is_admin:
-        from sqlalchemy import or_
-        if user_dept_id:
-            query = query.filter(or_(Project.department_id == user_dept_id, Project.reviewer_id == user.id, Project.department_id.is_(None)))
-        else:
-            query = query.filter(or_(Project.reviewer_id == user.id, Project.department_id.is_(None)))
-        
-    projects = query.all()
-    result = []
-    for p in projects:
-        std = Stage8Standardization.query.filter_by(project_id=p.id).first()
-        sop = SOP.query.filter_by(project_id=p.id).first()
-        
-        # Fallback to Stage 8 workflow JSON data if available
-        wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
-        wf_data = wf.data if (wf and wf.data) else {}
-
-        if sop:
-            sop_status = sop.status
-        elif std and (std.sop_standardization or getattr(std, 'sop_details', None)):
-            sop_status = "Uploaded"
-        elif wf_data.get('sop_standardization'):
-            sop_status = "Uploaded"
-        else:
-            sop_status = "Pending"
-
-        has_lessons = bool((std and std.lessons_learned) or wf_data.get('lessons_learned'))
-        has_training = bool(
-            (std and (getattr(std, 'horizontal_deployment', None) or getattr(std, 'training_records', None) or getattr(std, 'training_adoption', None))) 
-            or wf_data.get('training_adoption') 
-            or wf_data.get('training_records')
-            or wf_data.get('horizontal_deployment')
-        )
-        result.append({
-            "id": p.id,
-            "title": p.title,
-            "status": p.status,
-            "is_pending_ceo": p.status in ['Pending CEO Review', 'Pending CEO Closure'],
-            "sop_status": sop_status,
-            "sop_id": sop.id if sop else None,
-            "has_training_records": has_training,
-            "has_lessons": has_lessons,
-            "facilitator_signoff": std.facilitator_validation if std else False,
-            "admin_closure": std.admin_closure if std else False
-        })
-    return jsonify(result)
+    is_admin = (user.role and user.role.name == 'Admin')
+    return jsonify(_get_closure_projects_list(user, is_admin)), 200
 
 @reviewer_bp.route('/closure/<int:project_id>/complete', methods=['POST'])
 @reviewer_required

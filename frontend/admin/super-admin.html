@@ -7,7 +7,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -15,8 +15,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Control | OctaQube SaaS Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -6500,6 +6500,8 @@
                 </div>
                 <div class="modal-footer border-top pt-2">
                     <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -6562,152 +6564,15 @@
             </div>
         </div>
     </div>
-    <!-- Organization Realized Project Revenue & Value Modal -->
-    <div class="modal fade" id="orgProjectRevenueModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content glass-card border-0" style="border-radius: 16px; background: var(--ds-bg-card);">
-                <div class="modal-header border-bottom pb-3">
-                    <div>
-                        <h5 class="modal-title fw-bold text-main d-flex align-items-center gap-2">
-                            <i data-lucide="award" class="text-success" style="width:20px;height:20px;"></i>
-                            Organization Business Value & Project Revenue
-                        </h5>
-                        <div class="text-xs text-muted mt-1">Verified tangible savings & economic revenue realized by customer organizations strictly from closed QC projects.</div>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4 text-xs">
-                    <!-- Top Summary Stats -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="p-3 border rounded-3 text-center" style="background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.2) !important;">
-                                <div class="text-muted text-xxs text-uppercase fw-bold">Platform Total Realized</div>
-                                <div class="text-lg fw-bold text-success mt-1" id="modalTotalRealizedVal">—</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="p-3 border rounded-3 text-center" style="background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.2) !important;">
-                                <div class="text-muted text-xxs text-uppercase fw-bold">Total Closed Projects</div>
-                                <div class="text-lg fw-bold text-primary mt-1" id="modalTotalClosedProjects">—</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="p-3 border rounded-3 text-center" style="background: rgba(139,92,246,0.06); border-color: rgba(139,92,246,0.2) !important;">
-                                <div class="text-muted text-xxs text-uppercase fw-bold">Avg Value / Project</div>
-                                <div class="text-lg fw-bold mt-1" style="color:#8b5cf6;" id="modalAvgSavingsPerProj">—</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="p-3 border rounded-3 text-center" style="background: rgba(6,182,212,0.06); border-color: rgba(6,182,212,0.2) !important;">
-                                <div class="text-muted text-xxs text-uppercase fw-bold">Avg Quality Improvement</div>
-                                <div class="text-lg fw-bold text-info mt-1" id="modalAvgKpiImp">—</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Main Organizations List View -->
-                    <div id="orgRevenueListView">
-                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                            <div class="position-relative" style="flex:1; max-width:380px;">
-                                <i data-lucide="search" class="text-muted position-absolute" style="top:50%; left:12px; transform:translateY(-50%); width:14px; height:14px; pointer-events:none; z-index:2;"></i>
-                                <input type="text" class="ds-input text-xs w-100" id="orgRevenueSearchInput" placeholder="Search organization..." oninput="SuperAdmin.filterOrgRevenueTable()" style="padding-left:36px; padding-top:6px; padding-bottom:6px; border-radius:8px;">
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <select class="form-select form-select-sm text-xs" id="orgRevenueStatusFilter" onchange="SuperAdmin.filterOrgRevenueTable()" style="width:170px;">
-                                    <option value="all">All Organizations</option>
-                                    <option value="with_savings">With Closed Projects</option>
-                                    <option value="zero_savings">No Closed Projects Yet</option>
-                                </select>
-                                <button class="ds-btn ds-btn-secondary ds-btn-sm" onclick="SuperAdmin.exportRealizedValueData('csv')">
-                                    <i data-lucide="download" style="width:12px;height:12px;" class="me-1"></i> Export CSV
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive border rounded-3" style="max-height: 420px; overflow-y: auto;">
-                            <table class="table table-hover align-middle mb-0 text-xs" id="orgRevenueTable">
-                                <thead class="table-light sticky-top" style="background: var(--ds-surface-raised, #f8fafc);">
-                                    <tr>
-                                        <th style="width: 28%;">Organization</th>
-                                        <th style="width: 16%;">Plan &amp; Status</th>
-                                        <th style="width: 14%; text-align: center;">Closed Projects</th>
-                                        <th style="width: 18%; text-align: right;">Total Tangible Savings</th>
-                                        <th style="width: 14%; text-align: right;">Avg / Project</th>
-                                        <th style="width: 10%; text-align: center;">Avg Quality Imp.</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="orgRevenueTableBody">
-                                    <!-- Dynamic rows -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination Footer -->
-                        <div id="orgRevenuePaginationContainer"></div>
-                    </div>
-
-                    <!-- Organization Drilldown View (Closed Projects of a single org) -->
-                    <div id="orgClosedProjectsDetailView" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                            <button class="ds-btn ds-btn-secondary ds-btn-sm d-flex align-items-center gap-1" onclick="SuperAdmin.backToOrgRevenueList()">
-                                <i data-lucide="arrow-left" style="width:13px;height:13px;"></i> Back to All Organizations
-                            </button>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-primary-subtle text-primary font-monospace" id="detailOrgBadge">Organization Details</span>
-                            </div>
-                        </div>
-
-                        <div class="p-3 mb-3 border rounded-3 d-flex justify-content-between align-items-center flex-wrap gap-3" style="background: var(--ds-surface-raised, #f8fafc);">
-                            <div>
-                                <h6 class="fw-bold mb-1 text-main" id="detailOrgName">—</h6>
-                                <div class="text-xs text-muted" id="detailOrgSubText">Plan: — | Onboarded: —</div>
-                            </div>
-                            <div class="d-flex gap-4">
-                                <div class="text-end">
-                                    <div class="text-xxs text-muted text-uppercase">Total Closed Projects</div>
-                                    <div class="fw-bold text-primary fs-6" id="detailOrgClosedCount">0</div>
-                                </div>
-                                <div class="text-end">
-                                    <div class="text-xxs text-muted text-uppercase">Total Verified Value / Savings</div>
-                                    <div class="fw-bold text-success fs-6" id="detailOrgTotalSavings">₹0.00</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive border rounded-3" style="max-height: 380px; overflow-y: auto;">
-                            <table class="table table-hover align-middle mb-0 text-xs">
-                                <thead class="table-light sticky-top" style="background: var(--ds-surface-raised, #f8fafc);">
-                                    <tr>
-                                        <th style="width: 28%;">Project Title &amp; Ref</th>
-                                        <th style="width: 14%;">Department</th>
-                                        <th style="width: 14%;">Category</th>
-                                        <th style="width: 12%;">Closed Date</th>
-                                        <th style="width: 16%; text-align: right;">Verified Savings</th>
-                                        <th style="width: 16%; text-align: center;">Quality Improvement</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="detailOrgProjectsTableBody">
-                                    <!-- Dynamic project rows -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-top pt-2">
-                    <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
-    <script src="/assets/dist/support-desk.410817e8.min.js"></script>
+    <script src="/assets/dist/support-desk.b5563980.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
     <script src="/assets/dist/platform-settings.87cc66aa.min.js"></script>
-    <script src="/assets/dist/super-admin.c20ece85.min.js"></script>
+    <script src="/assets/dist/super-admin.588c0fdf.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;

@@ -6,7 +6,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -14,9 +14,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Directory | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .ds-btn-frozen {
+            opacity: 0.55 !important;
+            filter: grayscale(30%);
+            position: relative;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+        }
+        .ds-btn-frozen:hover {
+            opacity: 0.75 !important;
+        }
+    </style>
 </head>
 <body>
     <div class="app-layout">
@@ -52,15 +64,40 @@
                         <button class="ds-btn ds-btn-secondary ds-btn-sm d-flex align-items-center gap-1.5" onclick="Users.openFieldsModal()">
                             <i data-lucide="settings" style="width:14px;height:14px;"></i> Configure Fields
                         </button>
-                        <button class="ds-btn ds-btn-secondary ds-btn-sm d-flex align-items-center gap-1.5" onclick="Users.openBulkModal()">
+                        <button class="ds-btn ds-btn-secondary ds-btn-sm d-flex align-items-center gap-1.5" onclick="Users.openBulkModal()" id="btnBulkImport" title="Bulk Import Members">
                             <i data-lucide="upload" style="width:14px;height:14px;"></i> Bulk Import
                         </button>
                         <button class="ds-btn ds-btn-secondary ds-btn-sm d-flex align-items-center gap-1.5" onclick="Users.exportCSV()" id="btnBulkExport" title="Export member registry to CSV spreadsheet">
                             <i data-lucide="download" style="width:14px;height:14px;"></i> Bulk Export
                         </button>
-                        <button class="ds-btn ds-btn-primary ds-btn-sm d-flex align-items-center gap-1.5" onclick="Users.openAddModal()">
+                        <button class="ds-btn ds-btn-primary ds-btn-sm d-flex align-items-center gap-1.5" onclick="Users.openAddModal()" id="btnAddMember" title="Add Member">
                             <i data-lucide="user-plus" style="width:14px;height:14px;"></i> Add Member
                         </button>
+                    </div>
+                </div>
+
+                <!-- Setup Required Alert Banner (Displayed when 0 plants or 0 departments) -->
+                <div id="setupRequiredAlertBanner" class="m-3 mx-4 p-3 alert alert-warning d-none border-0 shadow-sm" style="background: rgba(245, 158, 11, 0.12); border-left: 4px solid #f59e0b !important; border-radius: 10px;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="background: rgba(245, 158, 11, 0.2); color: #d97706; width: 38px; height: 38px;">
+                                <i data-lucide="shield-alert" style="width: 20px; height: 20px;"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.92rem;">Setup Required Before Adding Members</h6>
+                                <p class="mb-0 text-xs text-muted" id="setupRequiredAlertDesc">
+                                    Your organization has not created any Plant Locations or Departments yet. Adding members and bulk spreadsheet import are frozen until these are configured.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2" id="setupRequiredBannerActions">
+                            <a href="/admin/plants.html" id="bannerPlantBtn" class="ds-btn ds-btn-primary ds-btn-sm text-nowrap">
+                                <i data-lucide="building-2" style="width: 13px; height: 13px;"></i> Create Plant Location
+                            </a>
+                            <a href="/admin/departments.html" id="bannerDeptBtn" class="ds-btn ds-btn-secondary ds-btn-sm text-nowrap">
+                                <i data-lucide="briefcase" style="width: 13px; height: 13px;"></i> Create Department
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -111,6 +148,81 @@
     </div>
 
     <!-- Actions consolidated into table row for single-init reliability -->
+
+    <!-- Setup Required Modal (Frozen Members Notice) -->
+    <div class="modal fade" id="setupRequiredModal" tabindex="-1" aria-labelledby="setupRequiredModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card ds-card border-0 shadow-lg" style="border-radius: 16px;">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: rgba(245, 158, 11, 0.15); color: #d97706; width: 44px; height: 44px;">
+                            <i data-lucide="alert-triangle" style="width: 24px; height: 24px;"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0" style="color:var(--ds-text-main);">Setup Required First</h5>
+                            <span class="text-xs text-muted">Organization structure must be initialized</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <p class="text-sm text-secondary mb-3">
+                        You cannot add or bulk import members yet. Every member must be assigned to an active <strong>Plant Location</strong> and <strong>Department</strong>. Please complete the setup steps below:
+                    </p>
+
+                    <div class="v-stack gap-3">
+                        <!-- Step 1: Plant Location -->
+                        <div class="p-3 rounded border d-flex align-items-center justify-content-between gap-3" style="background: var(--ds-bg-surface, #fff); border-color: var(--ds-border-color) !important;">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded p-2" style="background: rgba(var(--ds-primary-rgb), 0.1); color: var(--ds-primary);">
+                                    <i data-lucide="building-2" style="width: 20px; height: 20px;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-sm" style="color: var(--ds-text-main);">Step 1: Plant Location</div>
+                                    <div class="text-xs text-muted" id="setupModalPlantStatus">Checking plant status...</div>
+                                </div>
+                            </div>
+                            <div id="setupModalPlantAction">
+                                <a href="/admin/plants.html" class="ds-btn ds-btn-primary ds-btn-sm text-nowrap">
+                                    Create Plant &rarr;
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Department -->
+                        <div class="p-3 rounded border d-flex align-items-center justify-content-between gap-3" style="background: var(--ds-bg-surface, #fff); border-color: var(--ds-border-color) !important;">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded p-2" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">
+                                    <i data-lucide="briefcase" style="width: 20px; height: 20px;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-sm" style="color: var(--ds-text-main);">Step 2: Department</div>
+                                    <div class="text-xs text-muted" id="setupModalDeptStatus">Checking department status...</div>
+                                </div>
+                            </div>
+                            <div id="setupModalDeptAction">
+                                <a href="/admin/departments.html" class="ds-btn ds-btn-outline ds-btn-sm text-nowrap">
+                                    Create Department &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-2.5 rounded mt-3 text-xs text-muted d-flex align-items-center gap-2" style="background: rgba(var(--ds-info-rgb), 0.08); color: var(--ds-text-secondary);">
+                        <i data-lucide="info" style="width: 16px; height: 16px; flex-shrink: 0;" class="text-primary"></i>
+                        <span>Once created, member registration and bulk spreadsheet importing will unlock automatically.</span>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-1 d-flex justify-content-between">
+                    <button type="button" class="ds-btn ds-btn-ghost ds-btn-sm" data-bs-dismiss="modal">Close</button>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/plants.html" class="ds-btn ds-btn-secondary ds-btn-sm">Go to Plants</a>
+                        <a href="/admin/departments.html" class="ds-btn ds-btn-primary ds-btn-sm">Go to Departments</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Add User Modal -->
     <div class="modal fade" id="userModal" tabindex="-1">
@@ -453,7 +565,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script>
         const Users = {
             currentFilter: 'all',
@@ -718,6 +830,7 @@
                     await this.fetchDepartments();
                     await this.loadPlants();
                     await this.loadCustomFields();
+                    this.updateMemberActionButtonsState();
                     this.loadUsers();
                     
                     const dropzone = document.getElementById('bulkDropzone');
@@ -1003,9 +1116,11 @@
                         modalSel.innerHTML = '<option value="">All / Unassigned Plant</option>' +
                             this.allPlants.map(p => `<option value="${p.id}">${OctaQube.escapeHtml(p.name)}</option>`).join('');
                     }
+                    this.updateMemberActionButtonsState();
                 } catch (e) {
                     console.error('Failed to load plants:', e);
                     this.allPlants = [];
+                    this.updateMemberActionButtonsState();
                 }
             },
 
@@ -1092,8 +1207,11 @@
                     this.departments = depts || [];
                     const curPlantId = document.getElementById('userPlantFilter')?.value || '';
                     this.updateDepartmentFilter(curPlantId);
+                    this.updateMemberActionButtonsState();
                 } catch (e) {
                     console.error('Failed to fetch departments:', e);
+                    this.departments = [];
+                    this.updateMemberActionButtonsState();
                 }
             },
 
@@ -1277,6 +1395,114 @@
                 const colors = ['#334155', '#1e293b', '#065f46', '#4338ca', '#3f3f46', '#9f1239'];
                 const index = (name || 'U').charCodeAt(0) % colors.length;
                 return colors[index];
+            },
+
+            hasPlantsAndDepartments() {
+                const hasPlants = Array.isArray(this.allPlants) && this.allPlants.length > 0;
+                const actualDepts = (this.departments || []).filter(d => d && d.name && d.name !== 'N/A' && d.name !== 'All' && d.name !== 'All Departments');
+                const hasDepts = actualDepts.length > 0;
+                return {
+                    hasPlants,
+                    hasDepts,
+                    ready: hasPlants && hasDepts,
+                    plantCount: (this.allPlants || []).length,
+                    deptCount: actualDepts.length
+                };
+            },
+
+            updateMemberActionButtonsState() {
+                const status = this.hasPlantsAndDepartments();
+                const btnAdd = document.getElementById('btnAddMember');
+                const btnBulk = document.getElementById('btnBulkImport');
+                const banner = document.getElementById('setupRequiredAlertBanner');
+
+                if (!status.ready) {
+                    if (btnAdd) {
+                        btnAdd.classList.add('ds-btn-frozen');
+                        btnAdd.title = 'Setup Required: Create Plant Location and Department first';
+                    }
+                    if (btnBulk) {
+                        btnBulk.classList.add('ds-btn-frozen');
+                        btnBulk.title = 'Setup Required: Create Plant Location and Department first';
+                    }
+                    if (banner) {
+                        banner.classList.remove('d-none');
+                        const descEl = document.getElementById('setupRequiredAlertDesc');
+                        if (descEl) {
+                            if (!status.hasPlants && !status.hasDepts) {
+                                descEl.innerHTML = 'Your organization has not created any <strong>Plant Locations</strong> or <strong>Departments</strong> yet. Adding members and bulk spreadsheet import are frozen until these are configured.';
+                            } else if (!status.hasPlants) {
+                                descEl.innerHTML = 'Your organization has not created any <strong>Plant Locations</strong> yet. Please create at least one plant location before adding members.';
+                            } else {
+                                descEl.innerHTML = 'Your organization has not created any <strong>Departments</strong> yet. Please create at least one department before adding members.';
+                            }
+                        }
+                    }
+                } else {
+                    if (btnAdd) {
+                        btnAdd.classList.remove('ds-btn-frozen');
+                        btnAdd.title = 'Add Member';
+                    }
+                    if (btnBulk) {
+                        btnBulk.classList.remove('ds-btn-frozen');
+                        btnBulk.title = 'Bulk Import Members';
+                    }
+                    if (banner) {
+                        banner.classList.add('d-none');
+                    }
+                }
+                if (window.lucide) lucide.createIcons();
+            },
+
+            showSetupRequiredModal(status) {
+                if (!status) status = this.hasPlantsAndDepartments();
+
+                const plantStatusEl = document.getElementById('setupModalPlantStatus');
+                const deptStatusEl = document.getElementById('setupModalDeptStatus');
+                const plantActionEl = document.getElementById('setupModalPlantAction');
+                const deptActionEl = document.getElementById('setupModalDeptAction');
+
+                if (plantStatusEl) {
+                    if (status.hasPlants) {
+                        plantStatusEl.innerHTML = `<span class="text-success fw-semibold"><i data-lucide="check" style="width:12px;height:12px;" class="me-1"></i> Ready (${status.plantCount} Plant Location(s) created)</span>`;
+                    } else {
+                        plantStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i data-lucide="x" style="width:12px;height:12px;" class="me-1"></i> Not Created (0 Plants)</span>`;
+                    }
+                }
+                if (plantActionEl) {
+                    if (status.hasPlants) {
+                        plantActionEl.innerHTML = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill text-xs">✓ Done</span>`;
+                    } else {
+                        plantActionEl.innerHTML = `<a href="/admin/plants.html" class="ds-btn ds-btn-primary ds-btn-sm text-nowrap"><i data-lucide="plus" style="width:12px;height:12px;"></i> Create Plant &rarr;</a>`;
+                    }
+                }
+
+                if (deptStatusEl) {
+                    if (status.hasDepts) {
+                        deptStatusEl.innerHTML = `<span class="text-success fw-semibold"><i data-lucide="check" style="width:12px;height:12px;" class="me-1"></i> Ready (${status.deptCount} Department(s) created)</span>`;
+                    } else {
+                        deptStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i data-lucide="x" style="width:12px;height:12px;" class="me-1"></i> Not Created (0 Departments)</span>`;
+                    }
+                }
+                if (deptActionEl) {
+                    if (status.hasDepts) {
+                        deptActionEl.innerHTML = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 rounded-pill text-xs">✓ Done</span>`;
+                    } else {
+                        deptActionEl.innerHTML = `<a href="/admin/departments.html" class="ds-btn ds-btn-primary ds-btn-sm text-nowrap"><i data-lucide="plus" style="width:12px;height:12px;"></i> Create Dept &rarr;</a>`;
+                    }
+                }
+
+                if (window.OctaQube && OctaQube.toast) {
+                    OctaQube.toast('Please create at least one Plant Location and one Department before adding members.', 'warning');
+                }
+
+                const modalEl = document.getElementById('setupRequiredModal');
+                if (modalEl) {
+                    let modal = bootstrap.Modal.getInstance(modalEl);
+                    if (!modal) modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                }
+                if (window.lucide) lucide.createIcons();
             },
 
             roleBadge(role) {
@@ -1758,6 +1984,12 @@
             },
 
             openBulkModal() {
+                const status = this.hasPlantsAndDepartments();
+                if (!status.ready) {
+                    this.showSetupRequiredModal(status);
+                    return;
+                }
+
                 this.activeImportJob.isModalOpen = true;
                 this.hideBackgroundBanner();
 

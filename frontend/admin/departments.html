@@ -6,7 +6,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -14,8 +14,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Departments | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Radio-choice card styles for delete modal */
@@ -240,13 +240,36 @@
                         <p class="text-xs text-muted">A new department will be created and all users moved there automatically.</p>
                     </div>
 
+                    <!-- Step Progress: Live Loading, Count & Timer Animation -->
+                    <div id="delDeptProgress" style="display:none;" class="py-4 text-center">
+                        <div class="mb-3 d-flex justify-content-center">
+                            <div class="spinner-border text-danger" role="status" style="width: 2.5rem; height: 2.5rem;">
+                                <span class="visually-hidden">Deleting...</span>
+                            </div>
+                        </div>
+                        <h6 class="fw-bold mb-1 text-slate-900" id="delDeptProgressTitle">Deleting Department...</h6>
+                        <p class="text-xs text-secondary mb-3" id="delDeptProgressMsg">Safely disassociating and removing member records...</p>
+                        
+                        <div class="progress mb-2" style="height: 8px; border-radius: 4px; background: rgba(0,0,0,0.08); overflow:hidden;">
+                            <div id="delDeptProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-danger" 
+                                 role="progressbar" style="width: 15%; transition: width 0.3s ease;"></div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between text-xs text-secondary px-1">
+                            <span id="delDeptProgressCount" class="fw-medium">Processing...</span>
+                            <span id="delDeptProgressTimer" class="font-monospace fw-semibold d-inline-flex align-items-center">
+                                <i data-lucide="clock" class="me-1" style="width:12px;height:12px;"></i>0.0s
+                            </span>
+                        </div>
+                    </div>
+
                 </div>
-                <div class="modal-footer border-0 px-4 pb-4 pt-2 d-flex justify-content-between align-items-center">
+                <div class="modal-footer border-0 px-4 pb-4 pt-2 d-flex justify-content-between align-items-center" id="delDeptModalFooter">
                     <button class="ds-btn ds-btn-ghost" id="delDeptBackBtn" onclick="deptManager.deleteBack()" style="display:none;">
                         <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back
                     </button>
                     <div class="d-flex gap-2 ms-auto">
-                        <button class="ds-btn ds-btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                        <button class="ds-btn ds-btn-ghost" data-bs-dismiss="modal" id="delDeptCancelBtn">Cancel</button>
                         <button class="ds-btn ds-btn-danger px-4" id="delDeptConfirmBtn" onclick="deptManager.confirmDelete()" style="display:none;">Confirm Delete</button>
                     </div>
                 </div>
@@ -256,7 +279,7 @@
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script>
     const deptManager = {
         allDepts: [],
@@ -384,7 +407,7 @@
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="z-index: 10050 !important; min-width: 200px;">
                                 <li><a class="dropdown-item py-2 fw-medium" href="#" onclick="deptManager.openEditModal(${d.id}, '${d.name.replace(/'/g, "\\'")}', ${d.plant_id || 'null'})"><i data-lucide="edit-2" class="me-2 text-primary" style="width:15px;height:15px;"></i> Edit / Reassign Plant</a></li>
                                 <li><hr class="dropdown-divider my-1"></li>
-                                <li><a class="dropdown-item text-danger py-2 fw-medium" href="#" onclick="deptManager.delete(${d.id})"><i data-lucide="trash-2" class="me-2" style="width:15px;height:15px;"></i> Remove Dept</a></li>
+                                <li><a class="dropdown-item text-danger py-2 fw-medium" href="#" onclick="deptManager.delete(${d.id}, '${d.name.replace(/'/g, "\\'")}')"><i data-lucide="trash-2" class="me-2" style="width:15px;height:15px;"></i> Remove Dept</a></li>
                             </ul>
                         </div>
                     </td>
@@ -521,30 +544,43 @@
             }
         },
 
-        async delete(id) {
+        async delete(id, name) {
             this.closeAllDropdowns();
             this._deleteId = id;
             this._deleteAction = null;
             this._deleteSubAction = null;
 
-            // Fetch stats
-            try {
-                const stats = await api.get(`/admin/departments/${id}/stats`);
-                this._deleteUserCount = stats.user_count || 0;
-                this._deleteDeptName  = stats.dept_name  || 'Department';
-            } catch (e) {
-                this._deleteUserCount = 0;
-                this._deleteDeptName  = 'Department';
-            }
+            // Immediate baseline from loaded table data so counts and name are accurate immediately
+            const cachedDept = this.allDepts.find(d => d.id === id);
+            let userCount = cachedDept ? (cachedDept.employee_count ?? cachedDept.user_count ?? 0) : 0;
+            name = cachedDept ? cachedDept.name : (name || 'Department');
 
-            // Populate modal
-            document.getElementById('delDeptTitle').textContent = `Delete "${this._deleteDeptName}"`;
-            const impact = this._deleteUserCount > 0
-                ? `This department has <strong>${this._deleteUserCount} user(s)</strong> assigned to it.`
-                : 'This department has <strong>no users</strong> — it can be safely deleted.';
-            document.getElementById('delDeptImpact').innerHTML = impact;
-            document.getElementById('delDeptUserCount').textContent  = this._deleteUserCount;
-            document.getElementById('delDeptUserCount2').textContent = this._deleteUserCount;
+            const applyStatsUI = (uCount, dName) => {
+                this._deleteUserCount = uCount;
+                this._deleteDeptName  = dName;
+                document.getElementById('delDeptTitle').textContent = `Delete "${dName}"`;
+                const impact = uCount > 0
+                    ? `This department has <strong>${uCount} member(s)/user(s)</strong> assigned to it.`
+                    : 'This department has <strong>no users</strong> — it can be safely deleted.';
+                document.getElementById('delDeptImpact').innerHTML = impact;
+                document.getElementById('delDeptUserCount').textContent  = uCount;
+                document.getElementById('delDeptUserCount2').textContent = uCount;
+
+                // If no users → skip straight to confirm
+                if (uCount === 0) {
+                    document.querySelector('#delDeptStep1Options').style.display = 'none';
+                    if (document.querySelector('#delDeptStep1 p')) document.querySelector('#delDeptStep1 p').style.display = 'none';
+                    document.getElementById('delDeptConfirmBtn').style.display = 'inline-flex';
+                    this._deleteAction = 'delete_users';
+                } else {
+                    document.querySelector('#delDeptStep1Options').style.display = 'flex';
+                    if (document.querySelector('#delDeptStep1 p')) document.querySelector('#delDeptStep1 p').style.display = 'block';
+                    document.getElementById('delDeptConfirmBtn').style.display = 'none';
+                }
+            };
+
+            // Render modal immediately with table data
+            applyStatsUI(userCount, name);
 
             // Reset to step 1
             this._showDelStep(1);
@@ -554,46 +590,61 @@
             document.querySelectorAll('input[name="delDeptSubChoice"]').forEach(r => r.checked = false);
             document.querySelectorAll('.del-choice-card').forEach(c => c.classList.remove('selected'));
 
-            // If no users → skip straight to confirm
-            if (this._deleteUserCount === 0) {
-                document.querySelector('#delDeptStep1Options').style.display = 'none';
-                if (document.querySelector('#delDeptStep1 p')) document.querySelector('#delDeptStep1 p').style.display = 'none';
-                document.getElementById('delDeptConfirmBtn').style.display = 'inline-flex';
-                this._deleteAction = 'delete_users';
-            } else {
-                document.querySelector('#delDeptStep1Options').style.display = 'flex';
-                if (document.querySelector('#delDeptStep1 p')) document.querySelector('#delDeptStep1 p').style.display = 'block';
-            }
-
             // Populate other-dept dropdown (exclude self)
             const select = document.getElementById('delDeptTargetId');
             select.innerHTML = '<option value="">— choose department —</option>';
             this.allDepts.filter(d => d.id !== id).forEach(d => {
                 const o = document.createElement('option');
                 o.value = d.id;
-                o.textContent = d.name + (d.plant_name ? ` (${d.plant_name})` : '');
+                const members = d.employee_count ?? d.user_count ?? 0;
+                o.textContent = `${d.name} (${d.plant_name || 'All Plants'}) — ${members} member${members === 1 ? '' : 's'}`;
                 select.appendChild(o);
             });
 
             bootstrap.Modal.getOrCreateInstance(document.getElementById('deptDeleteModal')).show();
             if (window.lucide) lucide.createIcons();
+
+            // Fetch live stats from API in background to ensure freshest numbers
+            try {
+                const stats = await api.get(`/admin/departments/${id}/stats`);
+                if (stats) {
+                    if (typeof stats.user_count !== 'undefined') userCount = stats.user_count;
+                    if (stats.dept_name) name = stats.dept_name;
+                    applyStatsUI(userCount, name);
+                }
+            } catch (e) {
+                console.warn('[Departments] Failed to fetch live department stats, using cached table counts:', e);
+            }
         },
 
         _showDelStep(step) {
-            ['delDeptStep1','delDeptStep2','delDeptStep3Move','delDeptStep3New'].forEach(id => {
-                document.getElementById(id).style.display = 'none';
+            ['delDeptStep1','delDeptStep2','delDeptStep3Move','delDeptStep3New','delDeptProgress'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
             });
-            document.getElementById('delDeptBackBtn').style.display    = step > 1 ? 'inline-flex' : 'none';
-            document.getElementById('delDeptConfirmBtn').style.display = 'none';
+            const backBtn = document.getElementById('delDeptBackBtn');
+            const confirmBtn = document.getElementById('delDeptConfirmBtn');
+            const footer = document.getElementById('delDeptModalFooter');
+
+            if (step === 'progress') {
+                document.getElementById('delDeptProgress').style.display = 'block';
+                if (footer) footer.style.display = 'none';
+                return;
+            }
+
+            if (footer) footer.style.display = 'flex';
+            if (backBtn) backBtn.style.display = step > 1 ? 'inline-flex' : 'none';
+            if (confirmBtn) confirmBtn.style.display = 'none';
+
             if (step === 1) document.getElementById('delDeptStep1').style.display = 'block';
             if (step === 2) document.getElementById('delDeptStep2').style.display = 'block';
             if (step === '3move') {
                 document.getElementById('delDeptStep3Move').style.display = 'block';
-                document.getElementById('delDeptConfirmBtn').style.display = 'inline-flex';
+                if (confirmBtn) confirmBtn.style.display = 'inline-flex';
             }
             if (step === '3new') {
                 document.getElementById('delDeptStep3New').style.display = 'block';
-                document.getElementById('delDeptConfirmBtn').style.display = 'inline-flex';
+                if (confirmBtn) confirmBtn.style.display = 'inline-flex';
             }
         },
 
@@ -632,6 +683,8 @@
 
         async confirmDelete() {
             const id = this._deleteId;
+            const uCount = this._deleteUserCount || 0;
+            const dName = this._deleteDeptName || 'Department';
             let body = { action: this._deleteAction || 'delete_users' };
 
             if (this._deleteSubAction === 'move') {
@@ -644,21 +697,87 @@
                 body = { action: 'new_dept', new_dept_name: nn };
             }
 
+            // Start Live Progress, Loading Bar & Timer
+            this._showDelStep('progress');
+            const pBar = document.getElementById('delDeptProgressBar');
+            const pMsg = document.getElementById('delDeptProgressMsg');
+            const pCount = document.getElementById('delDeptProgressCount');
+            const pTimer = document.getElementById('delDeptProgressTimer');
+            const pTitle = document.getElementById('delDeptProgressTitle');
+
+            if (pBar) {
+                pBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-danger';
+                pBar.style.width = '15%';
+            }
+            if (pTitle) pTitle.textContent = `Deleting "${dName}"...`;
+            if (pMsg) {
+                pMsg.textContent = body.action === 'delete_users' && uCount > 0
+                    ? `Disassociating and deleting ${uCount} member(s)...`
+                    : (body.action === 'move_to_dept' ? `Reassigning ${uCount} user(s) to target department...` : 'Removing department...');
+            }
+            if (pCount) pCount.textContent = uCount > 0 ? `0 / ${uCount} processed` : 'Processing...';
+
+            const startTime = performance.now();
+            const timerInterval = setInterval(() => {
+                const elapsedSec = ((performance.now() - startTime) / 1000).toFixed(1);
+                if (pTimer) pTimer.innerHTML = `<i data-lucide="clock" class="me-1" style="width:12px;height:12px;"></i>${elapsedSec}s`;
+                if (window.lucide) lucide.createIcons();
+            }, 100);
+
+            // Progressive counter simulation while backend processes batch deletion
+            let progressPct = 20;
+            const progressInterval = setInterval(() => {
+                if (progressPct < 90) {
+                    progressPct += Math.min(15, 90 - progressPct);
+                    if (pBar) pBar.style.width = progressPct + '%';
+                    if (uCount > 0 && pCount) {
+                        const simulated = Math.min(uCount, Math.round((progressPct / 100) * uCount));
+                        pCount.textContent = `Deleting users: ~${simulated} / ${uCount}`;
+                    }
+                }
+            }, 250);
+
             try {
-                await fetch(api.baseUrl + `/admin/departments/${id}`, {
+                const res = await fetch((api.baseUrl || '/api') + `/admin/departments/${id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + api.token, 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
-                }).then(async r => {
-                    const d = await r.json();
-                    if (!r.ok) throw new Error(d.message || 'Delete failed');
                 });
-                const modalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('deptDeleteModal'));
-                if (modalInst) modalInst.hide();
-                OctaQube.toast('Department deleted successfully.', 'success');
-                this.loadDepartments();
+                const d = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(d.message || 'Delete failed');
+
+                clearInterval(timerInterval);
+                clearInterval(progressInterval);
+                const finalElapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+                if (pBar) {
+                    pBar.className = 'progress-bar bg-success';
+                    pBar.style.width = '100%';
+                }
+                if (pTitle) pTitle.textContent = 'Deleted Successfully!';
+                if (pMsg) {
+                    pMsg.textContent = uCount > 0
+                        ? `Department and ${uCount} member(s) removed in ${finalElapsed}s.`
+                        : `Department deleted in ${finalElapsed}s.`;
+                }
+                if (pCount) pCount.textContent = `${uCount} / ${uCount} completed`;
+                if (pTimer) {
+                    pTimer.innerHTML = `<i data-lucide="check-circle" class="me-1 text-success" style="width:12px;height:12px;"></i>${finalElapsed}s`;
+                }
+                if (window.lucide) lucide.createIcons();
+
+                setTimeout(() => {
+                    const modalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('deptDeleteModal'));
+                    if (modalInst) modalInst.hide();
+                    OctaQube.toast(`Department deleted successfully in ${finalElapsed}s.`, 'success');
+                    this.loadDepartments();
+                }, 650);
+
             } catch (e) {
-                OctaQube.toast(e.message, 'error');
+                clearInterval(timerInterval);
+                clearInterval(progressInterval);
+                this._showDelStep(1);
+                OctaQube.toast(e.message || 'Failed to delete department', 'error');
             }
         }
     };

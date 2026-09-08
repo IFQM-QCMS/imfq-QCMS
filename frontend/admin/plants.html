@@ -6,7 +6,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.ef8bd5b8.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -14,8 +14,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plant Locations | OctaQube Enterprise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.ef8bd5b8.min.css">
-    <script src="/assets/dist/breadcrumbs.0d2669bd.min.js"></script>
+    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Radio-choice card styles for delete modal */
@@ -221,7 +221,7 @@
                                 </div>
                                 <div class="text-center">
                                     <div class="fw-bold" id="delPlantUserCount" style="font-size:1.4rem;">0</div>
-                                    <div class="text-xs text-secondary">Users</div>
+                                    <div class="text-xs text-secondary">Members</div>
                                 </div>
                             </div>
                             <div class="text-xs text-secondary mt-2" id="delPlantImpactNote"></div>
@@ -307,7 +307,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.56bf9f68.min.js"></script>
+    <script src="/assets/dist/core-bundle.0ad682ef.min.js"></script>
     <script>
     const plantManager = {
         allPlants: [],
@@ -555,22 +555,35 @@
             this._delPlantAction  = null;
             this._delPlantSub     = null;
 
-            // Fetch live stats
-            let deptCount = 0, userCount = 0;
-            try {
-                const stats = await api.get(`/admin/plants/${id}/stats`);
-                deptCount = stats.dept_count || 0;
-                userCount = stats.user_count || 0;
-                name = stats.plant_name || name;
-            } catch (_) {}
+            // Immediate baseline from loaded table data so counts are never 0 when data exists
+            const cachedPlant = this.allPlants.find(p => p.id === id);
+            let deptCount = cachedPlant?.department_count ?? 0;
+            let userCount = cachedPlant?.user_count ?? 0;
+            name = cachedPlant?.name || name;
 
-            document.getElementById('delPlantTitle').textContent = `Delete "${name}"`;
-            document.getElementById('delPlantDeptCount').textContent = deptCount;
-            document.getElementById('delPlantUserCount').textContent = userCount;
-            document.getElementById('delPlantImpactNote').textContent =
-                (deptCount === 0 && userCount === 0)
-                    ? 'No departments or users are linked — this plant can be safely deleted.'
-                    : `Deleting will affect ${deptCount} department(s) and ${userCount} user(s).`;
+            const applyStatsUI = (dCount, uCount, pName) => {
+                document.getElementById('delPlantTitle').textContent = `Delete "${pName}"`;
+                document.getElementById('delPlantDeptCount').textContent = dCount;
+                document.getElementById('delPlantUserCount').textContent = uCount;
+                document.getElementById('delPlantImpactNote').textContent =
+                    (dCount === 0 && uCount === 0)
+                        ? 'No departments or members are linked — this plant can be safely deleted.'
+                        : `Deleting will affect ${dCount} department(s) and ${uCount} member(s).`;
+
+                // If nothing linked → pre-select "Delete Everything" and show confirm straight away
+                if (dCount === 0 && uCount === 0) {
+                    document.querySelector('#delPlantStep1Options').style.display = 'none';
+                    if (document.querySelector('#delPlantStep1 p')) document.querySelector('#delPlantStep1 p').style.display = 'none';
+                    document.getElementById('delPlantConfirmBtn').style.display = 'inline-flex';
+                    this._delPlantAction = 'delete_all';
+                } else {
+                    document.querySelector('#delPlantStep1Options').style.display = 'flex';
+                    if (document.querySelector('#delPlantStep1 p')) document.querySelector('#delPlantStep1 p').style.display = 'block';
+                    document.getElementById('delPlantConfirmBtn').style.display = 'none';
+                }
+            };
+
+            applyStatsUI(deptCount, userCount, name);
 
             // Populate existing plants dropdown (exclude self)
             const sel = document.getElementById('delPlantTargetId');
@@ -578,7 +591,9 @@
             this.allPlants.filter(p => p.id !== id).forEach(p => {
                 const o = document.createElement('option');
                 o.value = p.id;
-                o.textContent = p.name;
+                const members = p.employee_count ?? p.user_count ?? 0;
+                const codeSuffix = p.code ? ` [${p.code}]` : '';
+                o.textContent = `${p.name}${codeSuffix} — ${members} member${members === 1 ? '' : 's'}`;
                 sel.appendChild(o);
             });
 
@@ -588,18 +603,24 @@
             document.querySelectorAll('input[name="delPlantSubChoice"]').forEach(r => r.checked = false);
             document.querySelectorAll('.del-choice-card').forEach(c => c.classList.remove('selected'));
 
-            // If nothing linked → pre-select "Delete Everything" and show confirm straight away
-            if (deptCount === 0 && userCount === 0) {
-                document.querySelector('#delPlantStep1Options').style.display = 'none';
-                document.querySelector('#delPlantStep1 p')?.style && (document.querySelector('#delPlantStep1 p').style.display = 'none');
-                document.getElementById('delPlantConfirmBtn').style.display = 'inline-flex';
-                this._delPlantAction = 'delete_all';
-            } else {
-                document.querySelector('#delPlantStep1Options').style.display = 'flex';
+            if (!this.delPlantModal) {
+                this.delPlantModal = new bootstrap.Modal(document.getElementById('plantDeleteModal'));
             }
-
-            new bootstrap.Modal(document.getElementById('plantDeleteModal')).show();
+            this.delPlantModal.show();
             if (window.lucide) lucide.createIcons();
+
+            // Fetch live stats from API in background to ensure freshest numbers
+            try {
+                const stats = await api.get(`/admin/plants/${id}/stats`);
+                if (stats) {
+                    if (typeof stats.dept_count !== 'undefined') deptCount = stats.dept_count;
+                    if (typeof stats.user_count !== 'undefined') userCount = stats.user_count;
+                    if (stats.plant_name) name = stats.plant_name;
+                    applyStatsUI(deptCount, userCount, name);
+                }
+            } catch (err) {
+                console.warn('[Plants] Failed to fetch live plant stats, using cached table counts:', err);
+            }
         },
 
         _showPlantStep(step) {
