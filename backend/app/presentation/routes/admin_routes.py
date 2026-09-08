@@ -341,61 +341,55 @@ def get_users():
     users = query.all()
     return jsonify([format_user(u) for u in users]), 200
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: get_user_detail (Lines 344-392)
-# Reason: Unused single-user fetch endpoint. Frontend gets user data via /users list.
-# ==============================================================================
-# @admin_bp.route('/users/<int:user_id>', methods=['GET'])
-# @admin_required
-# def get_user_detail(user_id):
-#     current_user_id = get_jwt_identity()
-#     current_user = db.session.get(User, current_user_id)
-#     if not current_user:
-#         return jsonify({"message": "Admin user not found"}), 404
-#     user = User.query.join(Role).filter(
-#         User.id == user_id, 
-#         User.org_id == current_user.org_id,
-#         Role.name != 'SuperAdmin'
-#     ).first_or_404()
+@admin_bp.route('/users/<int:user_id>', methods=['GET'])
+@admin_required
+def get_user_detail(user_id):
+    current_user_id = get_jwt_identity()
+    current_user = db.session.get(User, current_user_id)
+    if not current_user:
+        return jsonify({"message": "Admin user not found"}), 404
+    user = User.query.join(Role).filter(
+        User.id == user_id, 
+        User.org_id == current_user.org_id,
+        Role.name != 'SuperAdmin'
+    ).first_or_404()
 
-#     # Determine user's effective plant_id and plant_name
-#     effective_plant_id = user.plant_id
-#     if not effective_plant_id and user.dept and user.dept.plant_id:
-#         effective_plant_id = user.dept.plant_id
-#     if not effective_plant_id:
-#         def_plant = Plant.query.filter_by(org_id=user.org_id).first()
-#         if def_plant:
-#             effective_plant_id = def_plant.id
-#             if not user.plant_id:
-#                 user.plant_id = def_plant.id
-#                 try:
-#                     db.session.commit()
-#                 except Exception:
-#                     db.session.rollback()
+    # Determine user's effective plant_id and plant_name
+    effective_plant_id = user.plant_id
+    if not effective_plant_id and user.dept and user.dept.plant_id:
+        effective_plant_id = user.dept.plant_id
+    if not effective_plant_id:
+        def_plant = Plant.query.filter_by(org_id=user.org_id).first()
+        if def_plant:
+            effective_plant_id = def_plant.id
+            if not user.plant_id:
+                user.plant_id = def_plant.id
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
-#     plant_name = "N/A"
-#     if user.plant:
-#         plant_name = user.plant.name
-#     elif user.dept and user.dept.plant:
-#         plant_name = user.dept.plant.name
+    plant_name = "N/A"
+    if user.plant:
+        plant_name = user.plant.name
+    elif user.dept and user.dept.plant:
+        plant_name = user.dept.plant.name
 
-#     return jsonify({
-#         "id": user.id,
-#         "username": user.username,
-#         "full_name": user.full_name or user.username,
-#         "phone": user.phone or "",
-#         "email": user.email or "",
-#         "role": user.role.name,
-#         "department": user.dept.name if user.dept else "N/A",
-#         "department_id": user.department_id,
-#         "plant_id": effective_plant_id,
-#         "plant_name": plant_name,
-#         "is_active": user.is_active,
-#         "profile_picture": get_profile_picture_url(user),
-#         "custom_fields": user.custom_fields or {}
-#     }), 200
-# [END DEAD CODE: get_user_detail]
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name or user.username,
+        "phone": user.phone or "",
+        "email": user.email or "",
+        "role": user.role.name,
+        "department": user.dept.name if user.dept else "N/A",
+        "department_id": user.department_id,
+        "plant_id": effective_plant_id,
+        "plant_name": plant_name,
+        "is_active": user.is_active,
+        "profile_picture": get_profile_picture_url(user),
+        "custom_fields": user.custom_fields or {}
+    }), 200
 
 
 @admin_bp.route('/users', methods=['POST'])
@@ -1333,166 +1327,172 @@ def rollback_bulk_users():
         "deleted_count": deleted_count
     }), 200
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: update_user (Lines 1305-1458)
-# Reason: Dead user editing route. Frontend uses /users/bulk-action or super-admin management.
-# ==============================================================================
-# @admin_bp.route('/users/<int:user_id>', methods=['PUT', 'PATCH'])
-# @admin_required
-# def update_user(user_id):
-#     current_user_id = get_jwt_identity()
-#     current_user = db.session.get(User, current_user_id)
-#     if not current_user:
-#         return jsonify({"message": "User not found"}), 404
-#     user = User.query.join(Role).filter(
-#         User.id == user_id, 
-#         User.org_id == current_user.org_id,
-#         Role.name != 'SuperAdmin'
-#     ).first_or_404()
-#     data = request.get_json()
-#     if not data:
-#         return jsonify({"message": "No data provided"}), 200
+@admin_bp.route('/users/<int:user_id>', methods=['PUT', 'PATCH'])
+@admin_required
+def update_user(user_id):
+    current_user_id = get_jwt_identity()
+    current_user = db.session.get(User, current_user_id)
+    if not current_user:
+        return jsonify({"message": "User not found"}), 404
+    user = User.query.join(Role).filter(
+        User.id == user_id, 
+        User.org_id == current_user.org_id,
+        Role.name != 'SuperAdmin'
+    ).first_or_404()
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "No data provided"}), 200
 
-#     if data.get('username') or data.get('full_name'):
-#         val = str(data.get('username') or data.get('full_name')).strip()
-#         user.full_name = val
-#         if ' ' not in val and val:
-#             user.username = val
+    if data.get('username') or data.get('full_name'):
+        val = str(data.get('username') or data.get('full_name')).strip()
+        user.full_name = val
+        if ' ' not in val and val:
+            user.username = val
 
-#     if 'phone' in data or 'phone_number' in data:
-#         phone = (data.get('phone') or data.get('phone_number') or '').strip()
-#         if phone:
-#             phone_clean = phone.replace(' ', '').replace('-', '')
-#             import re
-#             if not re.match(r'^(\+?[0-9]{7,15})$', phone_clean):
-#                 return jsonify({"message": "Please enter a valid phone number (e.g. 9876543210 or +919876543210)"}), 400
-#             existing_phone = User.query.filter(
-#                 ((User.phone == phone) | (User.phone == phone_clean)),
-#                 User.id != user_id
-#             ).first()
-#             if existing_phone:
-#                 owner = existing_phone.full_name or existing_phone.username or existing_phone.email
-#                 return jsonify({"message": f"Phone number '{phone}' is already registered with {owner}. Each user must have a unique phone number."}), 400
-#             user.phone = phone
-#         else:
-#             user.phone = ''
+    if 'phone' in data or 'phone_number' in data:
+        phone = (data.get('phone') or data.get('phone_number') or '').strip()
+        if phone:
+            phone_clean = phone.replace(' ', '').replace('-', '')
+            import re
+            if not re.match(r'^(\+?[0-9]{7,15})$', phone_clean):
+                return jsonify({"message": "Please enter a valid phone number (e.g. 9876543210 or +919876543210)"}), 400
+            existing_phone = User.query.filter(
+                ((User.phone == phone) | (User.phone == phone_clean)),
+                User.id != user_id
+            ).first()
+            if existing_phone:
+                owner = existing_phone.full_name or existing_phone.username or existing_phone.email
+                return jsonify({"message": f"Phone number '{phone}' is already registered with {owner}. Each user must have a unique phone number."}), 400
+            user.phone = phone
+        else:
+            user.phone = ''
 
-#     if 'email' in data:
-#         email = (data.get('email') or '').strip()
-#         if email:
-#             import re
-#             if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-#                 return jsonify({"message": "Invalid email address format"}), 400
-#             from sqlalchemy import func as sqlfunc
-#             existing_email = User.query.filter(
-#                 sqlfunc.lower(User.email) == email.lower(),
-#                 User.id != user_id
-#             ).first()
-#             if existing_email:
-#                 owner = existing_email.full_name or existing_email.username or existing_email.email
-#                 return jsonify({"message": f"Email '{email}' is already in use by {owner}. Each user must have a unique email address."}), 400
-#             user.email = email
-#         else:
-#             user.email = None
+    if 'email' in data:
+        email = (data.get('email') or '').strip()
+        if email:
+            import re
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                return jsonify({"message": "Invalid email address format"}), 400
+            from sqlalchemy import func as sqlfunc
+            existing_email = User.query.filter(
+                sqlfunc.lower(User.email) == email.lower(),
+                User.id != user_id
+            ).first()
+            if existing_email:
+                owner = existing_email.full_name or existing_email.username or existing_email.email
+                return jsonify({"message": f"Email '{email}' is already in use by {owner}. Each user must have a unique email address."}), 400
+            user.email = email
+        else:
+            user.email = None
 
-#     if data.get('role'):
-#         role = Role.query.filter_by(name=data.get('role')).first()
-#         if role: user.role_id = role.id
+    if data.get('role'):
+        role = Role.query.filter_by(name=data.get('role')).first()
+        if role: user.role_id = role.id
 
-#     dept_input = data.get('department') or data.get('dept_name')
-#     if dept_input:
-#         if dept_input == 'N/A':
-#             user.department_id = None
-#         else:
-#             dept = None
-#             # Try as ID first if numeric
-#             if str(dept_input).isdigit():
-#                 dept = Department.query.filter_by(id=int(dept_input), org_id=current_user.org_id).first()
+    # Handle plant first so department lookup in plant can prioritize correctly
+    target_pid = None
+    if 'plant_id' in data or 'plant' in data or 'plant_location' in data:
+        pid = data.get('plant_id') or data.get('plant') or data.get('plant_location')
+        if pid and str(pid).isdigit():
+            target_pid = int(pid)
+            user.plant_id = target_pid
+        elif pid == '' or pid is None:
+            user.plant_id = None
 
-#             # Try as Name if not found
-#             if not dept:
-#                 dept = Department.query.filter_by(name=str(dept_input), org_id=current_user.org_id).first()
+    dept_input = data.get('department') or data.get('dept_name')
+    if dept_input is not None:
+        if dept_input == '' or dept_input == 'N/A':
+            user.department_id = None
+        else:
+            dept = None
+            # Try as ID first if numeric
+            if str(dept_input).isdigit():
+                dept = Department.query.filter_by(id=int(dept_input), org_id=current_user.org_id).first()
 
-#             if not dept and not str(dept_input).isdigit():
-#                 dept = Department(name=str(dept_input), org_id=current_user.org_id)
-#                 db.session.add(dept)
-#                 db.session.flush()
+            # Try as Name if not found
+            if not dept:
+                query = Department.query.filter_by(name=str(dept_input), org_id=current_user.org_id)
+                if user.plant_id:
+                    dept = query.filter_by(plant_id=user.plant_id).first()
+                if not dept:
+                    dept = query.first()
 
-#             if dept:
-#                 user.department_id = dept.id
-#                 if dept.plant_id and not ('plant_id' in data or 'plant' in data):
-#                     user.plant_id = dept.plant_id
+            if not dept and not str(dept_input).isdigit():
+                dept = Department(name=str(dept_input), org_id=current_user.org_id, plant_id=user.plant_id)
+                db.session.add(dept)
+                db.session.flush()
 
-#     if 'plant_id' in data or 'plant' in data or 'plant_location' in data:
-#         pid = data.get('plant_id') or data.get('plant') or data.get('plant_location')
-#         if pid and str(pid).isdigit():
-#             user.plant_id = int(pid)
+            if dept:
+                user.department_id = dept.id
+                if dept.plant_id and not user.plant_id:
+                    user.plant_id = dept.plant_id
 
-#     if 'is_active' in data:
-#         user.is_active = data.get('is_active')
-#         if not user.is_active:
-#             user.deactivated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-#         else:
-#             user.deactivated_at = None
-#             # Auto-resolve pending reactivation tickets for this user
-#             try:
-#                 SupportTicket.query.filter_by(user_id=user.id, category='User Access', status='Open').update({
-#                     'status': 'Resolved',
-#                     'resolved_at': datetime.now(timezone.utc).replace(tzinfo=None),
-#                     'resolution': 'Account reactivated by Organization Administrator.'
-#                 })
-#                 notif = Notification(
-#                     org_id=user.org_id,
-#                     user_id=user.id,
-#                     title="Account Reactivated",
-#                     message="Your account has been reactivated by your administrator. You now have full access to your dashboard.",
-#                     link="/dashboard / dashboard.html"
-#                 )
-#                 db.session.add(notif)
-#             except Exception as e:
-#                 print("Failed to auto-resolve tickets/notify user on reactivation:", e)
+    if not user.plant_id and user.dept and user.dept.plant_id:
+        user.plant_id = user.dept.plant_id
 
-#     if data.get('password'):
-#         user.password = data.get('password')
-#         user.is_temp_password = True
+    if 'is_active' in data:
+        user.is_active = data.get('is_active')
+        if not user.is_active:
+            user.deactivated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        else:
+            user.deactivated_at = None
+            # Auto-resolve pending reactivation tickets for this user
+            try:
+                SupportTicket.query.filter_by(user_id=user.id, category='User Access', status='Open').update({
+                    'status': 'Resolved',
+                    'resolved_at': datetime.now(timezone.utc).replace(tzinfo=None),
+                    'resolution': 'Account reactivated by Organization Administrator.'
+                })
+                notif = Notification(
+                    org_id=user.org_id,
+                    user_id=user.id,
+                    title="Account Reactivated",
+                    message="Your account has been reactivated by your administrator. You now have full access to your dashboard.",
+                    link="/dashboard/dashboard.html"
+                )
+                db.session.add(notif)
+            except Exception as e:
+                print("Failed to auto-resolve tickets/notify user on reactivation:", e)
 
-#     custom_field_defs = UserCustomField.query.filter_by(org_id=user.org_id).all()
-#     custom_values = dict(user.custom_fields or {})
+    if data.get('password'):
+        user.password = data.get('password')
+        user.is_temp_password = True
 
-#     for fd in custom_field_defs:
-#         if fd.field_key in ('username', 'role', 'department'):
-#             continue
-#         if fd.field_key in data:
-#             val_str = str(data[fd.field_key]).strip()
-#             if fd.is_required and not val_str:
-#                 return jsonify({"message": f"Compulsory field '{fd.display_name}' cannot be empty"}), 400
-#             err = validate_custom_field_value(fd.display_name, val_str, fd.data_type)
-#             if err:
-#                 return jsonify({"message": err}), 400
-#             custom_values[fd.field_key] = val_str
+    custom_field_defs = UserCustomField.query.filter_by(org_id=user.org_id).all()
+    custom_values = dict(user.custom_fields or {})
 
-#     user.custom_fields = custom_values
-#     from sqlalchemy.orm.attributes import flag_modified
-#     flag_modified(user, "custom_fields")
+    for fd in custom_field_defs:
+        if fd.field_key in ('username', 'role', 'department'):
+            continue
+        if fd.field_key in data:
+            val_str = str(data[fd.field_key]).strip()
+            if fd.is_required and not val_str:
+                return jsonify({"message": f"Compulsory field '{fd.display_name}' cannot be empty"}), 400
+            err = validate_custom_field_value(fd.display_name, val_str, fd.data_type)
+            if err:
+                return jsonify({"message": err}), 400
+            custom_values[fd.field_key] = val_str
 
-#     try:
-#         db.session.commit()
-#         log_action(current_user.id, "UPDATE_USER", current_user.org_id, "users", user.id, data)
-#         return jsonify({
-#             "message": "User updated successfully",
-#             "user": {
-#                 "id": user.id,
-#                 "username": user.username,
-#                 "full_name": user.full_name,
-#                 "role": user.role.name,
-#                 "department": user.dept.name if user.dept else "N/A"
-#             }
-#         }), 200
-#     except Exception as e:
-#         db.session.rollback()
-#         return internal_server_error(e, "Failed to update user.")
-# [END DEAD CODE: update_user]
+    user.custom_fields = custom_values
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(user, "custom_fields")
+
+    try:
+        db.session.commit()
+        log_action(current_user.id, "UPDATE_USER", current_user.org_id, "users", user.id, data)
+        return jsonify({
+            "message": "User updated successfully",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "full_name": user.full_name,
+                "role": user.role.name,
+                "department": user.dept.name if user.dept else "N/A"
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return internal_server_error(e, "Failed to update user.")
 
 
 
@@ -1778,39 +1778,33 @@ def batch_disassociate_and_delete_users(user_list, admin_user_id=None):
     User.query.filter(User.id.in_(uids)).delete(synchronize_session=False)
 
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: delete_user (Lines 1616-1642)
-# Reason: Dead user deletion route. Frontend deletes via /users/bulk-action.
-# ==============================================================================
-# @admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
-# @admin_required
-# def delete_user(user_id):
-#     current_user_id = int(get_jwt_identity())
-#     current_user = db.session.get(User, current_user_id)
+@admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def delete_user(user_id):
+    current_user_id = int(get_jwt_identity())
+    current_user = db.session.get(User, current_user_id)
 
-#     if user_id == current_user_id:
-#         return jsonify({"message": "You cannot delete your own account."}), 400
+    if user_id == current_user_id:
+        return jsonify({"message": "You cannot delete your own account."}), 400
 
-#     sa_role = Role.query.filter_by(name='SuperAdmin').first()
-#     sa_role_id = sa_role.id if sa_role else None
+    sa_role = Role.query.filter_by(name='SuperAdmin').first()
+    sa_role_id = sa_role.id if sa_role else None
 
-#     query = User.query.filter(
-#         User.id == user_id, 
-#         User.org_id == current_user.org_id
-#     )
-#     if sa_role_id:
-#         query = query.filter(User.role_id != sa_role_id)
-#     user = query.first_or_404()
+    query = User.query.filter(
+        User.id == user_id, 
+        User.org_id == current_user.org_id
+    )
+    if sa_role_id:
+        query = query.filter(User.role_id != sa_role_id)
+    user = query.first_or_404()
 
-#     try:
-#         disassociate_and_delete_user(user, admin_user_id=current_user_id)
-#         db.session.commit()
-#         return jsonify({"message": "User permanently deleted."}), 200
-#     except Exception as e:
-#         db.session.rollback()
-#         return internal_server_error(e, "Failed to delete user.")
-# [END DEAD CODE: delete_user]
+    try:
+        disassociate_and_delete_user(user, admin_user_id=current_user_id)
+        db.session.commit()
+        return jsonify({"message": "User permanently deleted."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return internal_server_error(e, "Failed to delete user.")
 
 
 
