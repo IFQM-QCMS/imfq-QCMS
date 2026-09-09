@@ -40,7 +40,7 @@ jobs:
         env:
           ENVIRONMENT: testing
           FLASK_ENV: testing
-          DATABASE_URL: sqlite:///:memory:
+          DATABASE_URL: 'sqlite:///:memory:'
           JWT_SECRET_KEY: ci-test-secret-key-at-least-32-chars-long-abc
         run: |
           cd backend
