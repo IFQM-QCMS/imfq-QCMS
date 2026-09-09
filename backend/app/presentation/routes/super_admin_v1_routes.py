@@ -471,8 +471,11 @@ def get_dashboard_stats():
     avg_monthly = period_new_total / max(1, len(ob_new))
     adoption_rate_pct = round((active_orgs / max(1, total_orgs)) * 100, 1)
     
-    peak_idx = ob_new.index(max(ob_new)) if ob_new else 0
-    peak_month_str = ob_labels[peak_idx] if ob_labels else 'N/A'
+    if ob_new and max(ob_new) > 0:
+        peak_idx = ob_new.index(max(ob_new))
+        peak_month_str = ob_labels[peak_idx] if ob_labels else '—'
+    else:
+        peak_month_str = '—'
 
     return jsonify({
         "status": "success",
