@@ -21,6 +21,10 @@ def process_document_for_rag(self, doc_id: int, org_id: int):
     try:
         from app.infrastructure.vector_db.vector_ingest import get_embedding_model
         model = get_embedding_model()
+        if not model:
+            logger.info(f"[Celery RAG] Embedding model unavailable. Skipping embedding generation for doc {doc_id}")
+            return {"status": "skipped", "reason": "Embedding model unavailable", "doc_id": doc_id}
+
         content = f"Title: {doc.title or ''}\n"
         content += f"Category: {doc.category or ''}\n"
         content += f"Problem: {doc.problem_summary or ''}\n"

@@ -38,4 +38,6 @@ migrations/
 scratch/
 node_modules/
 frontend/node_modules/
+instance/
+backend/instance/
 dist/

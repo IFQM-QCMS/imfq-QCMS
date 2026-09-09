@@ -19,6 +19,8 @@ def app():
     app.config.update({
         "TESTING": True,
     })
+    with app.app_context():
+        db.create_all()
     return app
 
 

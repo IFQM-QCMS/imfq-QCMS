@@ -62,7 +62,7 @@ class ProjectClosureService:
             tracker.status = 'Completed'
             tracker.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
-        db.session.flush()
+        db.session.commit()
 
         # 4. Auto-archive to Knowledge Repository
         try:
