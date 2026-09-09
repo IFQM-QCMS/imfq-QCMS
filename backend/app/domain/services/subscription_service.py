@@ -499,9 +499,9 @@ def is_org_expiring_soon(org):
     remaining_seconds = (exp_naive - now).total_seconds()
     remaining_days = remaining_seconds / 86400.0
 
-    # If remaining_days is <= 0 but status is Active/Trialing (expiring today or due now)
+    # If remaining_days <= 0, the org is already expired — not "expiring soon"
     if remaining_days <= 0:
-        return True
+        return False
 
     # Calculate total plan/trial duration in days
     total_days = None

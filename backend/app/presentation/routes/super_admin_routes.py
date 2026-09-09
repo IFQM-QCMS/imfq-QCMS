@@ -288,6 +288,8 @@ def list_companies():
             license_status_filter = 'Inactive 20d'
         elif s_lower in ('suspended', 'on hold', 'hold'):
             query = query.filter(Organization.subscription_status.in_(['Suspended', 'On Hold']))
+        elif s_lower in ('expired', 'expired subscription', 'expired subscriptions'):
+            license_status_filter = 'Expired'
         else:
             query = query.filter(Organization.subscription_status.ilike(status_filter))
     if industry_filter:
@@ -328,7 +330,12 @@ def list_companies():
         return not recent_login
 
     if license_status_filter == 'Expired':
-        query = query.filter(Organization.license_expiry_date < now)
+        query = query.filter(
+            db.or_(
+                Organization.license_expiry_date < now,
+                Organization.subscription_status.in_(['Expired', 'EXPIRED'])
+            )
+        )
     elif license_status_filter == 'Expiring Soon':
         from app.domain.services.subscription_service import is_org_expiring_soon
         non_deleted_orgs = Organization.query.filter(Organization.is_deleted == False, Organization.is_platform_org == False).all()
@@ -395,15 +402,24 @@ def list_companies():
             return 'Active'
         return st or 'Trialing'
 
+    def _is_expired_org(o):
+        """Org is expired if license_expiry_date is in the past OR subscription_status is Expired."""
+        exp = _to_naive_utc(o.license_expiry_date)
+        if exp and exp < now:
+            return True
+        if (o.subscription_status or '').strip() in ('Expired', 'EXPIRED'):
+            return True
+        return False
+
     kpi = {
         "total": len(all_orgs_list),
         "active": len([o for o in all_orgs_list if _get_effective_org_status(o) == 'Active']),
         "trialing": len([o for o in all_orgs_list if _get_effective_org_status(o) in ('Trialing', 'Trial', 'On Trial')]),
         "suspended": len([o for o in all_orgs_list if _get_effective_org_status(o) in ('Suspended', 'On Hold')]),
-        "expired": len([o for o in all_orgs_list if _get_effective_org_status(o) == 'Expired']),
+        "expired": len([o for o in all_orgs_list if _is_expired_org(o)]),
         "enterprise": len([o for o in all_orgs_list if _resolve_org_plan_type(o, plan_type_map).lower() == 'enterprise']),
         "white_label": len([o for o in all_orgs_list if o.is_white_label]),
-        "expiring_soon": len([o for o in all_orgs_list if is_org_expiring_soon(o)]),
+        "expiring_soon": len([o for o in all_orgs_list if is_org_expiring_soon(o) and not _is_expired_org(o)]),
         "inactive_20d": len([o for o in all_orgs_list if _is_inactive_20d(o)])
     }
 

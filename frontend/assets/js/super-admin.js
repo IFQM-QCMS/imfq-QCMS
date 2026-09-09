@@ -1703,7 +1703,7 @@ const SuperAdmin = {
                         <div class="text-muted" style="font-size:11px;margin-top:2px;text-transform:uppercase;font-weight:600;letter-spacing:0.03em;">INACTIVE (20D)</div>
                     </div>
 
-                    <div class="glass-card position-relative clickable hover-shadow" style="padding:0.85rem 0.4rem; text-align:center; min-height:125px; cursor:pointer;" onclick="SuperAdmin.switchView('organizations'); setTimeout(() => SuperAdmin.filterByKpi('status', 'Expired'), 100);" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" title="<div class='text-start p-1' style='font-size:11px;line-height:1.4;'><div class='fw-bold text-white mb-1'>❌ EXPIRED SUBSCRIPTIONS</div><div class='text-white-50 mb-1'><strong>Data:</strong> Client accounts whose trial period or SaaS subscription has elapsed.</div><div class='text-white-50 mb-1'><strong>Source:</strong> <code>license_expiry_date &lt; NOW()</code> or status Expired.</div><div style='color:#93c5fd;'>👉 Click to view expired tenants</div></div>">
+                    <div class="glass-card position-relative clickable hover-shadow" style="padding:0.85rem 0.4rem; text-align:center; min-height:125px; cursor:pointer;" onclick="SuperAdmin.switchView('organizations'); setTimeout(() => SuperAdmin.filterByKpi('license_status', 'Expired'), 100);" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" title="<div class='text-start p-1' style='font-size:11px;line-height:1.4;'><div class='fw-bold text-white mb-1'>❌ EXPIRED SUBSCRIPTIONS</div><div class='text-white-50 mb-1'><strong>Data:</strong> Client accounts whose trial period or SaaS subscription has elapsed.</div><div class='text-white-50 mb-1'><strong>Source:</strong> <code>license_expiry_date &lt; NOW()</code> or status Expired.</div><div style='color:#93c5fd;'>👉 Click to view expired tenants</div></div>">
                         <div class="position-absolute" style="top:6px; right:6px; z-index:10;">
                             <i data-lucide="info" class="text-muted" style="width:12px;height:12px;opacity:0.6;"></i>
                         </div>
@@ -2120,7 +2120,7 @@ const SuperAdmin = {
                 ${OctaQube.kpiCardWithTooltip('Inactive (20d)', kpi.inactive_20d || 0, 'user-x', 'slate', 'COUNT(organizations WHERE created_at < NOW() - 20d AND MAX(last_login) < NOW() - 20d)', 'Tenants registered >20 days ago with zero login activity across all users in last 20 days.', 'onclick="SuperAdmin.filterByKpi(\'license_status\', \'Inactive 20d\')"')}
                 ${OctaQube.kpiCardWithTooltip('On Hold', kpi.suspended, 'pause-circle', 'red', 'COUNT(organizations WHERE subscription_status=\'Suspended\')', 'Tenants temporarily suspended from platform access. Sourced from organizations table.', 'onclick="SuperAdmin.filterByKpi(\'status\', \'Suspended\')"')}
                 ${OctaQube.kpiCardWithTooltip('Enterprise', kpi.enterprise, 'crown', 'purple', 'COUNT(organizations WHERE subscription_plan=\'Enterprise\')', 'Client organizations enrolled in the Enterprise SaaS tier. Sourced from organizations table.', 'onclick="SuperAdmin.filterByKpi(\'plan\', \'Enterprise\')"')}
-                ${OctaQube.kpiCardWithTooltip('Expired Subscriptions', kpi.expired, 'x-circle', 'gray', 'COUNT(organizations WHERE subscription_status=\'Expired\' OR license_expiry_date < NOW())', 'Tenants whose trial or subscription has expired. Sourced from organizations table.', 'onclick="SuperAdmin.filterByKpi(\'status\', \'Expired\')"')}
+                ${OctaQube.kpiCardWithTooltip('Expired Subscriptions', kpi.expired, 'x-circle', 'gray', 'COUNT(organizations WHERE subscription_status=\'Expired\' OR license_expiry_date < NOW())', 'Tenants whose trial or subscription has expired. Sourced from organizations table.', 'onclick="SuperAdmin.filterByKpi(\'license_status\', \'Expired\')"')}
             `;
             // Force all cards onto a responsive grid with clean spacing
             grid.style.display = 'grid';
@@ -2168,9 +2168,13 @@ const SuperAdmin = {
         } else if (type === 'feature') {
             if (elFeature) elFeature.value = value;
         } else if (type === 'license_status') {
-            if (elStatus) elStatus.value = value;
+            if (elStatus) elStatus.value = '';  // clear status dropdown to avoid double-filter
             if (elLicStatus) elLicStatus.value = value;
-            if (titleEl) titleEl.textContent = `${value} Organizations`;
+            if (titleEl) {
+                if (value === 'Expired') titleEl.textContent = 'Expired Subscription Organizations';
+                else if (value === 'Expiring Soon') titleEl.textContent = 'Expiring Soon Organizations';
+                else titleEl.textContent = `${value} Organizations`;
+            }
         }
         this.currentPage = 1;
         this.loadOrganizations();
