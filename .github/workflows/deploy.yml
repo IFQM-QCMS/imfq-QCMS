@@ -84,10 +84,12 @@ jobs:
     needs: test-and-verify
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    env:
+      HOSTINGER_VPS_IP: ${{ secrets.HOSTINGER_VPS_IP }}
 
     steps:
       - name: "Deploy, Migrate & Verify on Production Host"
-        if: ${{ secrets.HOSTINGER_VPS_IP != '' }}
+        if: env.HOSTINGER_VPS_IP != ''
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOSTINGER_VPS_IP }}
