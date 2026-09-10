@@ -1666,7 +1666,7 @@ def get_project_details(id_or_uid):
     if not project:
         return jsonify({"msg": "Project not found"}), 404
     
-    if user.role.name != 'SuperAdmin' and project.org_id != user.org_id:
+    if (user.role.name if user.role else '') != 'SuperAdmin' and project.org_id != user.org_id:
         return jsonify({"msg": "Project not found"}), 404
 
     # Ensure project facilitator is a valid user with role 'Facilitator'
