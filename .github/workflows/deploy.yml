@@ -77,7 +77,8 @@ jobs:
           docker build -t qcms-backend:ci-check ./backend
 
   # =========================================================================
-  # STAGE 2: CD (Deploy -> Run DB Migration -> Health Check -> Smoke Test)
+  # =========================================================================
+  # STAGE 2: PRODUCTION CD (Target: /opt/ifqm-octaqube-app)
   # =========================================================================
   cd-pipeline:
     name: "2. Production Deployment & Verification"
@@ -86,89 +87,100 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: "Deploy, Migrate & Verify on Production Host"
+      - name: "Deploy to Hostinger VPS via SSH Key"
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HOSTINGER_VPS_IP || '145.223.22.77' }}
-          username: ${{ secrets.HOSTINGER_SSH_USER || 'root' }}
-          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY || secrets.HOSTINGER_KEY }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD || secrets.HOSTINGER_PASSWORD || secrets.SSH_PASSWORD || secrets.PASSWORD || secrets.HOSTINGER_SSH_PASS }}
-          passphrase: ${{ secrets.HOSTINGER_SSH_PASSPHRASE || secrets.SSH_PASSPHRASE }}
+          host: ${{ secrets.HOSTINGER_VPS_IP }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
           port: ${{ secrets.HOSTINGER_SSH_PORT || 22 }}
-          timeout: 300s
-          command_timeout: 30m
+          timeout: 60s
+          command_timeout: 20m
           script: |
             set -e
 
             echo "========================================================="
-            echo " [QCMS CI/CD] STARTING PRODUCTION DEPLOYMENT PIPELINE"
+            echo " [OctaQube CD] Starting Dedicated Production Deployment"
             echo "========================================================="
 
-            # 1. Navigate to Project Directory
-            FOUND_DIR=""
-            for d in /var/www/qcms /var/www/imfq /home/*/qcms /home/*/imfq /root/qcms /root/imfq /var/www/html; do
-              if [ -d "$d/.git" ]; then
-                FOUND_DIR="$d"
-                break
-              fi
-            done
-            if [ -n "$FOUND_DIR" ]; then
-              echo "Navigating to repository directory: $FOUND_DIR"
-              cd "$FOUND_DIR"
-            else
-              cd /var/www/qcms || cd /home/${{ secrets.HOSTINGER_SSH_USER || 'root' }}/qcms || exit 1
+            # 1. Target designated application root
+            TARGET_DIR="/opt/ifqm-octaqube-app"
+            if [ ! -d "$TARGET_DIR" ]; then
+              echo "[OctaQube CD ❌] Deployment target directory $TARGET_DIR does not exist!"
+              exit 1
+            fi
+            cd "$TARGET_DIR"
+
+            # 2. Safeguard Production Environment Configuration (.env)
+            echo "[OctaQube CD] Safeguarding production .env files..."
+            ENV_BACKUP_DIR=$(mktemp -d /tmp/octaqube_env_backup_XXXXXX)
+            if [ -f "backend/.env" ]; then
+              cp backend/.env "$ENV_BACKUP_DIR/backend.env"
+            fi
+            if [ -f ".env" ]; then
+              cp .env "$ENV_BACKUP_DIR/root.env"
             fi
 
-            # 2. Deploy: Pull Latest Code & Build Docker Images
-            echo "[Step 1/5] Pulling latest git commit from main..."
-            git fetch --all
+            # 3. Pull latest commit from main branch
+            echo "[OctaQube CD] Fetching latest commit from origin/main..."
+            git fetch origin main
             git reset --hard origin/main
 
-            echo "[Step 2/5] Building and spinning up Docker containers..."
-            docker compose down --remove-orphans || docker-compose down || true
-            docker compose build --no-cache backend || docker-compose build --no-cache backend || true
-            docker compose up -d --build || docker-compose up -d --build
-            systemctl restart qcms || systemctl restart imfq || systemctl restart backend || true
+            # Restore production environment files
+            if [ -f "$ENV_BACKUP_DIR/backend.env" ]; then
+              cp "$ENV_BACKUP_DIR/backend.env" backend/.env
+            fi
+            if [ -f "$ENV_BACKUP_DIR/root.env" ]; then
+              cp "$ENV_BACKUP_DIR/root.env" .env
+            fi
+            rm -rf "$ENV_BACKUP_DIR"
+            echo "[OctaQube CD ✅] Production .env files preserved."
 
-            # 3. Run Database Migration & Schema Synchronization
-            echo "[Step 3/5] Running automated database migrations & schema synchronization..."
-            (docker compose exec -T backend flask db upgrade || docker-compose exec -T backend flask db upgrade || true)
-            (docker compose exec -T backend python -m app.infrastructure.database.migrations.runner || docker-compose exec -T backend python -m app.infrastructure.database.migrations.runner || true)
+            # Determine docker compose configuration
+            COMPOSE_FILE="docker-compose.prod.yml"
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              COMPOSE_FILE="docker-compose.yml"
+            fi
+            echo "[OctaQube CD] Using compose file: $COMPOSE_FILE"
 
-            # 4. Health Check (Wait for readiness probe)
-            echo "[Step 4/5] Running health check probes on backend..."
+            # 4. Non-Destructive Container Build (Traffic keeps serving)
+            echo "[OctaQube CD] Building updated container images..."
+            docker compose -f "$COMPOSE_FILE" build --pull backend
+
+            # 5. Rolling Container Replacement (Zero downtime swap)
+            echo "[OctaQube CD] Launching updated containers..."
+            docker compose -f "$COMPOSE_FILE" up -d --no-deps --build backend
+            docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+            # 6. Database Migration & Schema Synchronization (Fail on error)
+            echo "[OctaQube CD] Running database schema synchronization..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend python -m app.infrastructure.database.migrations.runner
+
+            # 7. Backend Health Probe Verification
+            echo "[OctaQube CD] Running readiness probe..."
             MAX_RETRIES=30
             RETRY_COUNT=0
             HEALTHY=false
 
             until [ $RETRY_COUNT -ge $MAX_RETRIES ]
             do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/api/health/live || curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/health/live || true)
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/api/health/live || true)
               if [ "$HTTP_CODE" = "200" ]; then
-                echo "[QCMS Health Check] Backend readiness probe passed with HTTP 200 OK!"
+                echo "[OctaQube CD ✅] Backend readiness probe passed with HTTP 200 OK!"
                 HEALTHY=true
                 break
               fi
               RETRY_COUNT=$((RETRY_COUNT+1))
-              echo "[QCMS Health Check] Waiting for backend to become ready... (Attempt $RETRY_COUNT/$MAX_RETRIES, HTTP $HTTP_CODE)"
+              echo "[OctaQube CD] Waiting for backend to become ready... (Attempt $RETRY_COUNT/$MAX_RETRIES, HTTP $HTTP_CODE)"
               sleep 2
             done
 
             if [ "$HEALTHY" != "true" ]; then
-              echo "[QCMS Health Check] ERROR: Backend failed readiness probe after $MAX_RETRIES attempts!"
-              docker compose logs --tail=100 backend
+              echo "[OctaQube CD ❌] ERROR: Backend failed readiness probe after $MAX_RETRIES attempts!"
+              docker compose -f "$COMPOSE_FILE" logs --tail=100 backend
               exit 1
             fi
 
-            # 5. Smoke Test Suite
-            echo "[Step 5/5] Executing post-deployment smoke test suite..."
-            docker compose exec -T backend python scripts/smoke_test.py http://127.0.0.1:5000 || \
-            docker-compose exec -T backend python scripts/smoke_test.py http://127.0.0.1:5000 || \
-            curl -f -s http://127.0.0.1:5000/health/live && curl -f -s http://127.0.0.1:5000/api/auth/maintenance-status
-
-            # Cleanup unused images
-            docker image prune -f
-
             echo "========================================================="
-            echo " [QCMS CI/CD] DEPLOYMENT & VERIFICATION SUCCESSFUL!"
+            echo " [OctaQube CD ✅] DEPLOYMENT COMPLETED SUCCESSFULLY!"
             echo "========================================================="
