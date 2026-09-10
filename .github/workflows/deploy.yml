@@ -92,7 +92,9 @@ jobs:
         with:
           host: ${{ secrets.HOSTINGER_VPS_IP }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSPHRASE || secrets.HOSTINGER_SSH_PASSWORD }}
           key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.HOSTINGER_SSH_PASSPHRASE }}
           port: ${{ secrets.HOSTINGER_SSH_PORT || 22 }}
           timeout: 60s
           command_timeout: 20m
@@ -104,7 +106,7 @@ jobs:
             echo "========================================================="
 
             # 1. Target designated application root
-            TARGET_DIR="/opt/ifqm-octaqube-app"
+            TARGET_DIR="${{ secrets.PRODUCTION_PATH || '/opt/ifqm-octaqube-app' }}"
             if [ ! -d "$TARGET_DIR" ]; then
               echo "[OctaQube CD ❌] Deployment target directory $TARGET_DIR does not exist!"
               exit 1
