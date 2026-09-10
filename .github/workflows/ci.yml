@@ -18,19 +18,20 @@ jobs:
   frontend-ci:
     name: 🎨 Frontend Validation & Build
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: frontend
 
     steps:
       - name: 📥 Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 🟢 Set up Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: 📦 Install Frontend Dependencies
@@ -51,6 +52,7 @@ jobs:
   backend-ci:
     name: ⚙️ Backend Test Suite
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: backend
@@ -68,13 +70,13 @@ jobs:
 
     steps:
       - name: 📥 Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 🐍 Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-          cache: 'pip'
+          cache: pip
           cache-dependency-path: backend/requirements.txt
 
       - name: 📦 Install Python Dependencies
@@ -83,14 +85,33 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
-      - name: 🧪 Run Backend Pytest Suite
+      # ───────────────────────────────────────────────────────────────────────
+      # IMPORTANT:
+      # The application intentionally does not create database tables during
+      # normal startup. It provides a dedicated `flask init-db` command.
+      # Initialize the fresh CI SQLite database before running pytest.
+      # ───────────────────────────────────────────────────────────────────────
+      - name: 🗄️ Initialize CI Test Database
         env:
           FLASK_ENV: testing
+          ENVIRONMENT: testing
           TESTING: 'True'
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: ci-test-secret-key-qcms-enterprise-security
           JWT_SECRET_KEY: ci-test-jwt-secret-key-qcms-enterprise-security
-        run: pytest --maxfail=5 -v
+        run: |
+          flask --app app init-db
+
+      - name: 🧪 Run Backend Pytest Suite
+        env:
+          FLASK_ENV: testing
+          ENVIRONMENT: testing
+          TESTING: 'True'
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-test-secret-key-qcms-enterprise-security
+          JWT_SECRET_KEY: ci-test-jwt-secret-key-qcms-enterprise-security
+        run: |
+          pytest --maxfail=5 -v
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 3. SECURITY SCANNING: pip-audit, npm audit, Secrets & SAST
@@ -101,13 +122,13 @@ jobs:
 
     steps:
       - name: 📥 Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       # ── NPM Vulnerability Audit ─────────────────────────────────────────────
       - name: 🟢 Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -119,7 +140,7 @@ jobs:
 
       # ── Python pip-audit ────────────────────────────────────────────────────
       - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
@@ -131,9 +152,10 @@ jobs:
 
       # ── Secret Scanning (Gitleaks) ──────────────────────────────────────────
       - name: 🔑 Run Gitleaks Secret Scanner
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
         continue-on-error: false
 
       # ── Trivy Vulnerability & Misconfiguration Scanner ──────────────────────
@@ -151,8 +173,13 @@ jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   production-readiness:
     name: 🚀 Production Readiness Gate
-    needs: [frontend-ci, backend-ci, security-scanning]
+    needs:
+      - frontend-ci
+      - backend-ci
+      - security-scanning
+
     runs-on: ubuntu-latest
+
     steps:
       - name: ✅ Confirm Quality & Security Verification
         run: |
