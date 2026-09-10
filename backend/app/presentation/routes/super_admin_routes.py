@@ -469,19 +469,31 @@ def list_companies():
     for org in companies:
         try:
             try:
-                user_count = User.query.filter_by(org_id=org.id).count()
+                user_count = db.session.query(func.count(User.id)).filter(User.org_id == org.id).scalar() or 0
             except Exception:
-                user_count = len(org.users) if getattr(org, 'users', None) else 0
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                user_count = len(getattr(org, 'users', None) or [])
 
             try:
-                dept_count = Department.query.filter_by(org_id=org.id).count()
+                dept_count = db.session.query(func.count(Department.id)).filter(Department.org_id == org.id).scalar() or 0
             except Exception:
-                dept_count = len(org.departments) if getattr(org, 'departments', None) else 0
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                dept_count = len(getattr(org, 'departments', None) or [])
 
             try:
-                project_count = Project.query.filter_by(org_id=org.id).count()
+                project_count = db.session.query(func.count(Project.id)).filter(Project.org_id == org.id).scalar() or 0
             except Exception:
-                project_count = len(org.projects) if getattr(org, 'projects', None) else 0
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                project_count = len(getattr(org, 'projects', None) or [])
 
             # Days remaining (for active license or trial)
             trial_days = None
@@ -629,19 +641,31 @@ def get_company_details(org_id):
     try:
         org = Organization.query.get_or_404(org_id)
         try:
-            user_count = User.query.filter_by(org_id=org.id).count()
+            user_count = db.session.query(func.count(User.id)).filter(User.org_id == org.id).scalar() or 0
         except Exception:
-            user_count = len(org.users) if getattr(org, 'users', None) else 0
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            user_count = len(getattr(org, 'users', None) or [])
 
         try:
-            dept_count = Department.query.filter_by(org_id=org.id).count()
+            dept_count = db.session.query(func.count(Department.id)).filter(Department.org_id == org.id).scalar() or 0
         except Exception:
-            dept_count = len(org.departments) if getattr(org, 'departments', None) else 0
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            dept_count = len(getattr(org, 'departments', None) or [])
 
         try:
-            project_count = Project.query.filter_by(org_id=org.id).count()
+            project_count = db.session.query(func.count(Project.id)).filter(Project.org_id == org.id).scalar() or 0
         except Exception:
-            project_count = len(org.projects) if getattr(org, 'projects', None) else 0
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            project_count = len(getattr(org, 'projects', None) or [])
 
         # Find the admin user (first user or org admin)
         admin_last_login = None
