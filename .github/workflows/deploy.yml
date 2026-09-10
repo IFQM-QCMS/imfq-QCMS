@@ -92,7 +92,8 @@ jobs:
         with:
           host: ${{ secrets.HOSTINGER_VPS_IP }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSPHRASE || secrets.HOSTINGER_SSH_PASSWORD }}
+          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.HOSTINGER_SSH_PASSPHRASE }}
           port: ${{ secrets.HOSTINGER_SSH_PORT || 22 }}
           timeout: 60s
           command_timeout: 20m
