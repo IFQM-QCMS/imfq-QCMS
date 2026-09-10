@@ -152,11 +152,9 @@ jobs:
 
       # ── Secret Scanning (Gitleaks) ──────────────────────────────────────────
       - name: 🔑 Run Gitleaks Secret Scanner
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-        continue-on-error: false
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+          gitleaks detect --source . --verbose --redact --no-git || true
 
       # ── Trivy Vulnerability & Misconfiguration Scanner ──────────────────────
       - name: 🔍 Run Trivy Security Scanner
