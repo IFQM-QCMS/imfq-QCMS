@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.infrastructure.database.models.models import Project, User, ProjectMember, KPIMetric, ProjectStageTracker, ProjectWorkflow, Department, db
+from app.infrastructure.database.models.models import Project, User, ProjectMember, KPIMetric, ProjectStageTracker, ProjectWorkflow, Department, AuditLog, db
 from app.presentation.middleware.middleware import role_required
 from app.domain.services.subscription_service import SubscriptionManager
 from app.domain.services.feature_engine import feature_module_required

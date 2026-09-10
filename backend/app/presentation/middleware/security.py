@@ -72,7 +72,6 @@ def _get_security_settings() -> dict:
 def _cleanup_stale_state():
     """Remove entries older than 24 h from shared counters."""
     now = time.time()
-    global _request_counter
     with _lock:
         stale = [ip for ip, v in _blocked_ips.items() if now - v > _WINDOW_24H]
         for ip in stale:

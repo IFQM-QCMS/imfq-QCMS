@@ -10,7 +10,7 @@ import uuid
 import csv
 import io
 from datetime import datetime, timedelta, timezone
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request, Response, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func, or_, and_, text
 from app.infrastructure.database.models.models import (

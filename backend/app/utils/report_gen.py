@@ -1,5 +1,7 @@
 import io
+from datetime import datetime, timezone
 from fpdf import FPDF
+from app import db
 from app.domain.services.document_branding_service import DocumentBrandingService
 
 def generate_excel_report(projects, org_id=None):

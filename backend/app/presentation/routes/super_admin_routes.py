@@ -1,5 +1,7 @@
 import os
+import logging
 from flask import Blueprint, jsonify, request, current_app
+logger = logging.getLogger('qcms.super_admin')
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, set_access_cookies
 from app.infrastructure.database.models.models import db, Organization, User, SupportTicket, Subscription, SubscriptionPayment, SubscriptionInvoice, PlatformSettings, SuperAdminLog, Role, AuditLog, SaaSPlan
 from app.presentation.middleware.middleware import super_admin_required, sub_role_write_required, sub_role_required, get_sa_permissions, _get_sa_sub_role

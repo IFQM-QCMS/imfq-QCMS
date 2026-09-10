@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from app.infrastructure.database.models.models import (
     User, Project, Department,
     Stage5RootCause, Stage7Development, Stage8Implementation,
-    FacilitatorNote, AuditLog, db
+    FacilitatorNote, AuditLog, ProjectStageTracker, db
 )
 from functools import wraps
 
@@ -613,114 +613,6 @@ def approve_impact(project_id):
 def complete_closure(project_id):
     """Facilitator project closure restricted — only Reviewers can close projects."""
     return jsonify({"msg": "Unauthorized: Project closure can only be performed by a Reviewer."}), 403
-    
-    sop = SOP.query.filter_by(project_id=project_id, org_id=project.org_id).first()
-    if not sop:
-        return jsonify({"msg": "Project closure blocked: No SOP is created or linked for this project."}), 400
-
-    s8 = Stage8Implementation.query.filter_by(project_id=project_id).first()
-    if not s8:
-        s8 = Stage8Implementation(project_id=project_id, org_id=project.org_id)
-        db.session.add(s8)
-
-    # Update closure fields
-    if 'lessons_learned' in data:
-        s8.lessons_learned = data['lessons_learned']
-    if 'preventive_actions' in data:
-        s8.preventive_actions = data['preventive_actions']
-    if 'training_records' in data:
-        s8.training_records = data['training_records']
-
-    # Update the linked SOP with lessons learned and preventive actions
-    if 'lessons_learned' in data:
-        sop.lessons_learned = data['lessons_learned']
-    if 'preventive_actions' in data:
-        sop.preventive_actions = data['preventive_actions']
-
-    # Validate gates
-    lessons = s8.lessons_learned or ''
-    if isinstance(lessons, dict) or isinstance(lessons, list):
-        import json
-        lessons = json.dumps(lessons)
-    lessons = str(lessons).strip()
-
-    preventive = s8.preventive_actions or ''
-    if isinstance(preventive, dict) or isinstance(preventive, list):
-        import json
-        preventive = json.dumps(preventive)
-    preventive = str(preventive).strip()
-
-    if not lessons or lessons == 'null':
-        return jsonify({"msg": "Project closure blocked: Lessons learned must be entered in the SOP."}), 400
-    if not preventive or preventive == 'null':
-        return jsonify({"msg": "Project closure blocked: Preventive actions must be completed and entered in the SOP."}), 400
-
-    pending_training = SOPTraining.query.filter_by(sop_id=sop.id).filter(
-        (SOPTraining.training_completion_status == False) | (SOPTraining.acknowledgement_status == False)
-    ).first()
-    if pending_training:
-        user_info = db.session.get(User, pending_training.user_id)
-        user_name = user_info.full_name or user_info.username if user_info else f"ID {pending_training.user_id}"
-        return jsonify({"msg": f"Project closure blocked: Assigned training records are not fully completed (Pending for: {user_name})."}), 400
-
-    # Close the project workflow
-    project.status = 'Closed'
-    project.end_date = datetime.now(timezone.utc).replace(tzinfo=None).date()
-    
-    # Activate linked SOP
-    sop.status = 'Active'
-    sop.effective_date = datetime.now(timezone.utc).replace(tzinfo=None).date()
-    sop.review_date = datetime.now(timezone.utc).replace(tzinfo=None).date()
-
-    # Complete Stage 8 tracker
-    tracker = ProjectStageTracker.query.filter_by(project_id=project_id, stage_number=8).first()
-    if tracker:
-        tracker.status = 'Completed'
-        tracker.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-
-    # Facilitator sign-off
-    s8.facilitator_validation = True
-    s8.admin_closure = True
-    s8.final_approval = True
-    s8.final_approval_by = user.id
-    s8.final_approval_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    s8.final_comments = f"Final closure approved by Facilitator {user.username}."
-
-    # Flush session so all changes are visible in db nested transaction
-    db.session.flush()
-
-    # Auto-archive into knowledge repository
-    from app.presentation.routes.repository_routes import auto_archive_project_to_repository
-    try:
-        with db.session.begin_nested():
-            auto_archive_project_to_repository(project_id, user.org_id)
-    except Exception as archive_err:
-        print(f"[QCMS Facilitator] Auto-archiving failed: {archive_err}")
-
-    # Notify team
-    from app.presentation.routes.notification_routes import create_notification
-    notify_ids = set()
-    if project.team_leader_id: notify_ids.add(project.team_leader_id)
-    if project.reviewer_id: notify_ids.add(project.reviewer_id)
-    if project.creator_id: notify_ids.add(project.creator_id)
-    for uid in notify_ids:
-        if uid != user.id:
-            create_notification(
-                user.org_id, uid,
-                "Project Closed",
-                f"Project '{project.title}' has been officially closed by Facilitator.",
-                f"/projects/project-details.html?id={project_id}",
-                commit=False
-            )
-
-    log_action(user.org_id, user.id, "Stage 8 Closure Signed Off and Closed by Facilitator", project_id, str(data))
-    db.session.commit()
-
-    return jsonify({
-        "msg": "Facilitator closure sign-off complete. Project has been officially closed.",
-        "facilitator_validation": True,
-        "closed": True
-    }), 200
 
 
 # ─── 9. Facilitator Assistance Requests Feed ──────────────────────────

@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.orm.exc import StaleDataError
 from app.infrastructure.database.models.models import (
-    Project, db, AuditLog, ProjectReview, ProjectStageTracker, User,
+    Project, db, AuditLog, ProjectReview, ProjectStageTracker, ProjectWorkflow, User,
     Stage1ProblemDefinitionProjectInitiation, Stage2ObservationDataCollection, Stage3CauseIdentification,
     Stage4RootCauseAnalysisVerification, Stage5CountermeasurePlanningSolutionDevelopment, Stage6ImplementationChangeManagement,
     Stage7PerformanceVerificationBenefitsRealization, Stage8StandardizationKnowledgeSharingProjectClosure

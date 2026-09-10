@@ -14,6 +14,7 @@ from app.infrastructure.database.models.models import (
     OfflinePaymentProof, IntegrationConfig, Notification, SaaSPlan, SaaSPlanPricing
 )
 from app.presentation.middleware.middleware import super_admin_required
+from app.domain.services.document_branding_service import DocumentBrandingService
 from app.presentation.routes.error_helpers import internal_server_error
 
 billing_bp = Blueprint('billing', __name__)

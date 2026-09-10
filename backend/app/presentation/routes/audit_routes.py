@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 import sqlalchemy as sa
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app import db
 from app.infrastructure.database.models.models import (
     User, Role, Organization, AuditLog, SaaSUserSession, AuditRiskAlert, AuditExportLog
@@ -409,7 +409,8 @@ def get_audit_dashboard():
     export_growth = calc_growth(exp_curr, exp_prev)
     
     # Active Sessions (Auto-terminates >= 2 hours inactive sessions first)
-    cleanup_inactive_sessions(target_org_id if 'target_org_id' in locals() else user.org_id if (user and user.role and user.role.name != 'SuperAdmin') else None, inactivity_hours=2)
+    target_org_id = user.org_id if (user and user.role and user.role.name != 'SuperAdmin') else None
+    cleanup_inactive_sessions(target_org_id, inactivity_hours=2)
     active_sessions = SaaSUserSession.query.filter(sess_filter, SaaSUserSession.status == 'Active').count()
     sess_curr = SaaSUserSession.query.filter(sess_filter, SaaSUserSession.login_time >= p_curr_start).count()
     sess_prev = SaaSUserSession.query.filter(sess_filter, SaaSUserSession.login_time >= p_prev_start, SaaSUserSession.login_time < p_curr_start).count()

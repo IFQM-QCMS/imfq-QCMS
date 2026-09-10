@@ -324,7 +324,6 @@ class PaygBillingService:
 
     @classmethod
     def update_global_payg_rules(cls, new_rules):
-        global DEFAULT_PAYG_RULES
         if not isinstance(new_rules, dict):
             return cls.get_effective_payg_rules()
 
