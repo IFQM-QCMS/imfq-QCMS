@@ -56,7 +56,7 @@ jobs:
   cd-pipeline:
     name: "2. Production Deployment & Verification"
     needs: test-and-verify
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.HOSTINGER_VPS_IP != ''
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
     steps:
