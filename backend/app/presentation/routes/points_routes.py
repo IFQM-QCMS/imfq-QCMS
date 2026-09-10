@@ -175,11 +175,14 @@ def get_leaderboard():
     if org_id:
         query = query.filter(EmployeeLeaderboard.organization_id == org_id)
 
-    # Filter out only platform administration / superadmin accounts so all organizational contributors appear
-    query = query.filter(db.or_(
-        Role.id == None,
-        db.not_(Role.name.ilike('%superadmin%'))
-    ))
+    # Filter out organization admin, platform admin, superadmin, owner, and CEO accounts from rewards leaderboard
+    query = query.filter(
+        Role.id != None,
+        db.not_(Role.name.ilike('%admin%')),
+        db.not_(Role.name.ilike('%superadmin%')),
+        db.not_(Role.name.ilike('%owner%')),
+        db.not_(Role.name.ilike('%ceo%'))
+    )
 
     if plant_param:
         from app.infrastructure.database.models.models import Plant
@@ -271,10 +274,13 @@ def get_leaderboard():
     if org_id:
         all_org_query = all_org_query.filter(EmployeeLeaderboard.organization_id == org_id)
 
-    all_org_entries = all_org_query.filter(db.or_(
-        Role.id == None,
-        db.not_(Role.name.ilike('%superadmin%'))
-    )).order_by(
+    all_org_entries = all_org_query.filter(
+        Role.id != None,
+        db.not_(Role.name.ilike('%admin%')),
+        db.not_(Role.name.ilike('%superadmin%')),
+        db.not_(Role.name.ilike('%owner%')),
+        db.not_(Role.name.ilike('%ceo%'))
+    ).order_by(
         EmployeeLeaderboard.total_points.desc(),
         EmployeeLeaderboard.projects_completed.desc(),
         EmployeeLeaderboard.ideas_approved.desc(),
@@ -473,11 +479,13 @@ def export_leaderboard():
         .outerjoin(Role, User.role_id == Role.id)\
         .outerjoin(Department, User.department_id == Department.id)\
         .filter(EmployeeLeaderboard.organization_id == current_user.org_id)\
-        .filter(db.or_(
-            Role.name.in_(['Team Member', 'Team Leader', 'Facilitator', 'Reviewer']),
-            Role.id == None
-        ))\
-        .filter(db.not_(Role.name.in_(['Admin', 'admin', 'SuperAdmin', 'superadmin', 'CEO', 'ceo', 'Owner', 'owner', 'System Admin', 'Administrator'])))
+        .filter(Role.id != None)\
+        .filter(db.and_(
+            db.not_(Role.name.ilike('%admin%')),
+            db.not_(Role.name.ilike('%superadmin%')),
+            db.not_(Role.name.ilike('%owner%')),
+            db.not_(Role.name.ilike('%ceo%'))
+        ))
 
     if user_ids_param:
         try:

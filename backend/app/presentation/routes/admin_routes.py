@@ -520,7 +520,6 @@ def create_user():
         if str(plant_input).isdigit():
             user_plant_id = int(plant_input)
         else:
-            from app.infrastructure.database.models.models import Plant
             p_match = Plant.query.filter(
                 Plant.org_id == org_id,
                 db.or_(Plant.name.ilike(str(plant_input).strip()), Plant.code.ilike(str(plant_input).strip()))

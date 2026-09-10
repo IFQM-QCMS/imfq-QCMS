@@ -3,7 +3,7 @@ import logging
 from flask import Blueprint, jsonify, request, current_app
 logger = logging.getLogger('qcms.super_admin')
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, set_access_cookies
-from app.infrastructure.database.models.models import db, Organization, User, SupportTicket, Subscription, SubscriptionPayment, SubscriptionInvoice, PlatformSettings, SuperAdminLog, Role, AuditLog, SaaSPlan
+from app.infrastructure.database.models.models import db, Organization, User, SupportTicket, Subscription, SubscriptionPayment, SubscriptionInvoice, PlatformSettings, SuperAdminLog, Role, AuditLog, SaaSPlan, Department, Project
 from app.presentation.middleware.middleware import super_admin_required, sub_role_write_required, sub_role_required, get_sa_permissions, _get_sa_sub_role
 from app import bcrypt
 from datetime import datetime, timedelta, timezone
@@ -215,6 +215,55 @@ def _resolve_org_plan_type(org, plan_type_map=None):
 
     return p_name if p_name else 'Starter'
 
+
+def _safe_iso(dt):
+    """Safely format a date or datetime object to ISO string, returning string as-is or None."""
+    if not dt:
+        return None
+    if isinstance(dt, str):
+        return dt
+    try:
+        return dt.isoformat()
+    except Exception:
+        return str(dt)
+
+
+def _to_naive_utc(dt):
+    """Safely normalize any datetime, date, or ISO string to offset-naive UTC datetime."""
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except Exception:
+            return None
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+        try:
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        except Exception:
+            return dt.replace(tzinfo=None)
+    if hasattr(dt, 'year') and hasattr(dt, 'month') and hasattr(dt, 'day') and not hasattr(dt, 'hour'):
+        return datetime.combine(dt, datetime.min.time())
+    return dt
+
+
+def _safe_sec_settings(org):
+    """Safely extract security_settings dictionary from organization model."""
+    raw = getattr(org, 'security_settings', None)
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+    return {}
+
+
 @super_admin_bp.route('/companies', methods=['GET'])
 @jwt_required()
 @super_admin_required()
@@ -313,22 +362,12 @@ def list_companies():
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     cutoff_20d = now - timedelta(days=20)
     
-    def _to_naive_utc(dt):
-        if dt is None:
-            return None
-        if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
-            try:
-                from datetime import timezone
-                return dt.astimezone(timezone.utc).replace(tzinfo=None)
-            except Exception:
-                return dt.replace(tzinfo=None)
-        return dt
-
     def _is_inactive_20d(o):
-        c_at = _to_naive_utc(o.created_at)
+        c_at = _to_naive_utc(getattr(o, 'created_at', None))
         if not c_at or c_at >= cutoff_20d:
             return False
-        recent_login = any(_to_naive_utc(u.last_login) and _to_naive_utc(u.last_login) >= cutoff_20d for u in o.users)
+        users_list = getattr(o, 'users', []) or []
+        recent_login = any(_to_naive_utc(getattr(u, 'last_login', None)) and _to_naive_utc(getattr(u, 'last_login', None)) >= cutoff_20d for u in users_list)
         return not recent_login
 
     if license_status_filter == 'Expired':
@@ -428,72 +467,147 @@ def list_companies():
     # --- Serialize ---
     output = []
     for org in companies:
-        user_count = len(org.users)
-        dept_count = len(org.departments) if org.departments else 0
-        project_count = len(org.projects) if org.projects else 0
+        try:
+            try:
+                user_count = User.query.filter_by(org_id=org.id).count()
+            except Exception:
+                user_count = len(org.users) if getattr(org, 'users', None) else 0
 
-        # Days remaining (for active license or trial)
-        from app.domain.services.subscription_service import get_org_effective_expiry_and_start
-        expiry_dt, _ = get_org_effective_expiry_and_start(org)
-        trial_days = None
-        if expiry_dt:
-            exp_n = _to_naive_utc(expiry_dt)
-            rem_sec = (exp_n - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()
-            trial_days = max(int(math.ceil(rem_sec / 86400.0)), 0)
+            try:
+                dept_count = Department.query.filter_by(org_id=org.id).count()
+            except Exception:
+                dept_count = len(org.departments) if getattr(org, 'departments', None) else 0
 
-        admin_disp_name = org.admin_name
-        if not admin_disp_name or admin_disp_name.strip() in ['', '—']:
-            if org.email and '@' in org.email:
-                admin_disp_name = org.email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
-            else:
-                admin_disp_name = 'Org Admin'
+            try:
+                project_count = Project.query.filter_by(org_id=org.id).count()
+            except Exception:
+                project_count = len(org.projects) if getattr(org, 'projects', None) else 0
 
-        p_type = _resolve_org_plan_type(org, plan_type_map)
-        from app.domain.services.subscription_service import SubscriptionManager
-        plan_limits = SubscriptionManager.get_organization_plan_limits(org.id)
-        actual_plan = org.subscription_plan or plan_limits.get('plan_name') or p_type
-        resolved_max_users = plan_limits.get('max_users') if plan_limits.get('max_users') is not None else (org.max_users or 50)
-        eff_status = _get_effective_org_status(org)
+            # Days remaining (for active license or trial)
+            trial_days = None
+            expiry_dt = None
+            try:
+                from app.domain.services.subscription_service import get_org_effective_expiry_and_start
+                expiry_dt, _ = get_org_effective_expiry_and_start(org)
+                if expiry_dt:
+                    exp_n = _to_naive_utc(expiry_dt)
+                    if exp_n:
+                        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+                        rem_sec = (exp_n - now_naive).total_seconds()
+                        trial_days = max(int(math.ceil(rem_sec / 86400.0)), 0)
+            except Exception as exp_err:
+                logger.warning(f"Error resolving expiry for org {org.id}: {exp_err}")
 
-        output.append({
-            "id": org.id,
-            "name": org.name,
-            "org_code": org.org_code or '—',
-            "industry": org.industry or '—',
-            "admin_name": admin_disp_name,
-            "email": org.email,
-            "phone": org.phone or '—',
-            "plan": actual_plan,
-            "plan_type": actual_plan,
-            "plan_name": actual_plan,
-            "plan_category": p_type,
-            "status": eff_status,
-            "user_count": user_count,
-            "max_users": resolved_max_users,
-            "dept_count": dept_count,
-            "project_count": project_count,
-            "is_white_label": org.is_white_label,
-            "api_access": org.api_access,
-            "multi_plant": org.multi_plant,
-            "trial_ends_at": expiry_dt.isoformat() if expiry_dt else (org.trial_ends_at.isoformat() if org.trial_ends_at else None),
-            "trial_days_left": trial_days,
-            "created_at": org.created_at.isoformat() if org.created_at else datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
-            "city": org.city or '—',
-            "state": org.state or '—',
-            "country": org.country or '—',
-            "gst_number": org.gst_number or '—',
-            "pan_number": org.pan_number or '—',
-            "website": org.website or '—',
-            "license_number": org.license_number or '—',
-            "storage_limit_mb": org.storage_limit_mb or 10240.0,
-            "storage_used_mb": org.storage_used_mb or 0.0,
-            "total_trial_requests": (getattr(org, 'security_settings', {}) or {}).get('total_trial_requests', (getattr(org, 'security_settings', {}) or {}).get('auto_approved_trial_extensions', org.trial_extension_count or 0) + (getattr(org, 'security_settings', {}) or {}).get('manual_approved_trial_extensions', 0)),
-            "auto_approved_trial_extensions": (getattr(org, 'security_settings', {}) or {}).get('auto_approved_trial_extensions', org.trial_extension_count or 0),
-            "manual_approved_trial_extensions": (getattr(org, 'security_settings', {}) or {}).get('manual_approved_trial_extensions', 0),
-            "trial_extension_count": org.trial_extension_count or 0,
-            "enabled_modules": org.enabled_modules or ['7-qc-tools'],
-            "is_deleted": org.is_deleted
-        })
+            admin_disp_name = org.admin_name
+            if not admin_disp_name or admin_disp_name.strip() in ['', '—']:
+                if org.email and '@' in org.email:
+                    admin_disp_name = org.email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+                else:
+                    admin_disp_name = 'Org Admin'
+
+            try:
+                p_type = _resolve_org_plan_type(org, plan_type_map)
+            except Exception:
+                p_type = org.subscription_plan or 'Starter'
+
+            try:
+                from app.domain.services.subscription_service import SubscriptionManager
+                plan_limits = SubscriptionManager.get_organization_plan_limits(org.id) or {}
+            except Exception:
+                plan_limits = {}
+
+            actual_plan = org.subscription_plan or plan_limits.get('plan_name') or p_type
+            resolved_max_users = plan_limits.get('max_users') if plan_limits.get('max_users') is not None else (org.max_users or 50)
+            eff_status = _get_effective_org_status(org)
+
+            sec_settings = _safe_sec_settings(org)
+            auto_approved = sec_settings.get('auto_approved_trial_extensions', getattr(org, 'trial_extension_count', 0) or 0)
+            manual_approved = sec_settings.get('manual_approved_trial_extensions', 0)
+            total_requests = sec_settings.get('total_trial_requests', auto_approved + manual_approved)
+
+            trial_ends_iso = _safe_iso(expiry_dt) or _safe_iso(getattr(org, 'trial_ends_at', None))
+            created_at_iso = _safe_iso(getattr(org, 'created_at', None)) or datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+
+            output.append({
+                "id": org.id,
+                "name": org.name or "Organization",
+                "org_code": org.org_code or '—',
+                "industry": org.industry or '—',
+                "admin_name": admin_disp_name,
+                "email": org.email,
+                "phone": org.phone or '—',
+                "plan": actual_plan,
+                "plan_type": actual_plan,
+                "plan_name": actual_plan,
+                "plan_category": p_type,
+                "status": eff_status,
+                "user_count": user_count,
+                "max_users": resolved_max_users,
+                "dept_count": dept_count,
+                "project_count": project_count,
+                "is_white_label": getattr(org, 'is_white_label', False),
+                "api_access": getattr(org, 'api_access', False),
+                "multi_plant": getattr(org, 'multi_plant', False),
+                "trial_ends_at": trial_ends_iso,
+                "trial_days_left": trial_days,
+                "created_at": created_at_iso,
+                "city": org.city or '—',
+                "state": org.state or '—',
+                "country": org.country or '—',
+                "gst_number": org.gst_number or '—',
+                "pan_number": org.pan_number or '—',
+                "website": org.website or '—',
+                "license_number": org.license_number or '—',
+                "storage_limit_mb": getattr(org, 'storage_limit_mb', 10240.0) or 10240.0,
+                "storage_used_mb": getattr(org, 'storage_used_mb', 0.0) or 0.0,
+                "total_trial_requests": total_requests,
+                "auto_approved_trial_extensions": auto_approved,
+                "manual_approved_trial_extensions": manual_approved,
+                "trial_extension_count": getattr(org, 'trial_extension_count', 0) or 0,
+                "enabled_modules": getattr(org, 'enabled_modules', ['7-qc-tools']) or ['7-qc-tools'],
+                "is_deleted": getattr(org, 'is_deleted', False)
+            })
+        except Exception as item_err:
+            logger.warning(f"Error serializing organization {getattr(org, 'id', None)}: {item_err}", exc_info=True)
+            output.append({
+                "id": org.id,
+                "name": getattr(org, 'name', 'Organization') or "Organization",
+                "org_code": getattr(org, 'org_code', None) or f"ORG-{org.id:03d}",
+                "industry": getattr(org, 'industry', '—') or "—",
+                "admin_name": getattr(org, 'admin_name', 'Org Admin') or "Org Admin",
+                "email": getattr(org, 'email', None),
+                "phone": getattr(org, 'phone', '—') or "—",
+                "plan": getattr(org, 'subscription_plan', 'Starter') or "Starter",
+                "plan_type": getattr(org, 'subscription_plan', 'Starter') or "Starter",
+                "plan_name": getattr(org, 'subscription_plan', 'Starter') or "Starter",
+                "plan_category": getattr(org, 'subscription_plan', 'Starter') or "Starter",
+                "status": getattr(org, 'subscription_status', 'Active') or "Active",
+                "user_count": 0,
+                "max_users": getattr(org, 'max_users', 50) or 50,
+                "dept_count": 0,
+                "project_count": 0,
+                "is_white_label": getattr(org, 'is_white_label', False),
+                "api_access": getattr(org, 'api_access', False),
+                "multi_plant": getattr(org, 'multi_plant', False),
+                "trial_ends_at": _safe_iso(getattr(org, 'trial_ends_at', None)),
+                "trial_days_left": None,
+                "created_at": _safe_iso(getattr(org, 'created_at', None)) or datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                "city": getattr(org, 'city', '—') or "—",
+                "state": getattr(org, 'state', '—') or "—",
+                "country": getattr(org, 'country', '—') or "—",
+                "gst_number": getattr(org, 'gst_number', '—') or "—",
+                "pan_number": getattr(org, 'pan_number', '—') or "—",
+                "website": getattr(org, 'website', '—') or "—",
+                "license_number": getattr(org, 'license_number', '—') or "—",
+                "storage_limit_mb": getattr(org, 'storage_limit_mb', 10240.0) or 10240.0,
+                "storage_used_mb": getattr(org, 'storage_used_mb', 0.0) or 0.0,
+                "total_trial_requests": 0,
+                "auto_approved_trial_extensions": 0,
+                "manual_approved_trial_extensions": 0,
+                "trial_extension_count": 0,
+                "enabled_modules": getattr(org, 'enabled_modules', ['7-qc-tools']) or ['7-qc-tools'],
+                "is_deleted": getattr(org, 'is_deleted', False)
+            })
 
     return jsonify({
         "status": "success",
@@ -512,79 +626,109 @@ def list_companies():
 @super_admin_required()
 def get_company_details(org_id):
     """Detailed company profile with usage stats"""
-    org = Organization.query.get_or_404(org_id)
-    user_count = len(org.users)
-    dept_count = len(org.departments) if org.departments else 0
-    project_count = len(org.projects) if org.projects else 0
+    try:
+        org = Organization.query.get_or_404(org_id)
+        try:
+            user_count = User.query.filter_by(org_id=org.id).count()
+        except Exception:
+            user_count = len(org.users) if getattr(org, 'users', None) else 0
 
-    # Find the admin user (first user or org admin)
-    admin_user = User.query.filter_by(org_id=org.id).join(Role).filter(Role.name == 'Admin').first()
-    admin_last_login = None
-    if admin_user and hasattr(admin_user, 'last_login') and admin_user.last_login:
-        admin_last_login = admin_user.last_login.isoformat()
+        try:
+            dept_count = Department.query.filter_by(org_id=org.id).count()
+        except Exception:
+            dept_count = len(org.departments) if getattr(org, 'departments', None) else 0
 
-    # Days remaining (for active license or trial)
-    from app.domain.services.subscription_service import get_org_effective_expiry_and_start
-    expiry_dt, _ = get_org_effective_expiry_and_start(org)
-    trial_days = None
-    if expiry_dt:
-        rem_sec = (expiry_dt - datetime.now(timezone.utc).replace(tzinfo=None)).total_seconds()
-        trial_days = max(int(math.ceil(rem_sec / 86400.0)), 0)
+        try:
+            project_count = Project.query.filter_by(org_id=org.id).count()
+        except Exception:
+            project_count = len(org.projects) if getattr(org, 'projects', None) else 0
 
-    sec_settings = getattr(org, 'security_settings', {}) or {}
-    auto_approved = sec_settings.get('auto_approved_trial_extensions', org.trial_extension_count or 0)
-    manual_approved = sec_settings.get('manual_approved_trial_extensions', 0)
-    total_requests = sec_settings.get('total_trial_requests', auto_approved + manual_approved)
+        # Find the admin user (first user or org admin)
+        admin_last_login = None
+        try:
+            admin_user = User.query.filter_by(org_id=org.id).join(Role).filter(Role.name == 'Admin').first()
+            if admin_user and hasattr(admin_user, 'last_login') and admin_user.last_login:
+                admin_last_login = _safe_iso(admin_user.last_login)
+        except Exception:
+            pass
 
-    return jsonify({
-        "status": "success",
-        "data": {
-            "id": org.id,
-            "name": org.name,
-            "org_code": org.org_code or '—',
-            "industry": org.industry or '—',
-            "admin_name": org.admin_name or '—',
-            "email": org.email,
-            "phone": org.phone or '—',
-            "address": org.address or '—',
-            "city": org.city or '—',
-            "state": org.state or '—',
-            "country": org.country or '—',
-            "zip_code": org.zip_code or '—',
-            "timezone": org.timezone or 'UTC',
-            "currency": org.currency or 'USD',
-            "subscription_plan": org.subscription_plan,
-            "plan_type": _resolve_org_plan_type(org),
-            "plan_name": org.subscription_plan,
-            "subscription_status": org.subscription_status,
-            "max_users": org.max_users,
-            "is_white_label": org.is_white_label,
-            "api_access": org.api_access,
-            "multi_plant": org.multi_plant,
-            "trial_ends_at": org.trial_ends_at.isoformat() if org.trial_ends_at else None,
-            "subscription_expiry": expiry_dt.isoformat() if expiry_dt else (org.trial_ends_at.isoformat() if org.trial_ends_at else None),
-            "trial_days_left": trial_days,
-            "created_at": org.created_at.isoformat(),
-            "user_count": user_count,
-            "dept_count": dept_count,
-            "project_count": project_count,
-            "admin_last_login": admin_last_login,
-            "primary_color": org.primary_color,
-            "compliance_standards": org.compliance_standards or [],
-            "gst_number": org.gst_number or '—',
-            "pan_number": org.pan_number or '—',
-            "website": org.website or '—',
-            "license_number": org.license_number or '—',
-            "storage_limit_mb": org.storage_limit_mb or 10240.0,
-            "storage_used_mb": org.storage_used_mb or 0.0,
-            "total_trial_requests": total_requests,
-            "auto_approved_trial_extensions": auto_approved,
-            "manual_approved_trial_extensions": manual_approved,
-            "trial_extension_count": org.trial_extension_count or 0,
-            "enabled_modules": org.enabled_modules or ['7-qc-tools'],
-            "is_deleted": org.is_deleted
-        }
-    })
+        # Days remaining (for active license or trial)
+        trial_days = None
+        expiry_dt = None
+        try:
+            from app.domain.services.subscription_service import get_org_effective_expiry_and_start
+            expiry_dt, _ = get_org_effective_expiry_and_start(org)
+            if expiry_dt:
+                exp_n = _to_naive_utc(expiry_dt)
+                if exp_n:
+                    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+                    rem_sec = (exp_n - now_naive).total_seconds()
+                    trial_days = max(int(math.ceil(rem_sec / 86400.0)), 0)
+        except Exception as exp_err:
+            logger.warning(f"Error calculating remaining days for org {org_id}: {exp_err}")
+
+        sec_settings = _safe_sec_settings(org)
+        auto_approved = sec_settings.get('auto_approved_trial_extensions', getattr(org, 'trial_extension_count', 0) or 0)
+        manual_approved = sec_settings.get('manual_approved_trial_extensions', 0)
+        total_requests = sec_settings.get('total_trial_requests', auto_approved + manual_approved)
+
+        try:
+            p_type = _resolve_org_plan_type(org)
+        except Exception:
+            p_type = org.subscription_plan or 'Starter'
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "id": org.id,
+                "name": org.name,
+                "org_code": org.org_code or '—',
+                "industry": org.industry or '—',
+                "admin_name": org.admin_name or '—',
+                "email": org.email,
+                "phone": org.phone or '—',
+                "address": org.address or '—',
+                "city": org.city or '—',
+                "state": org.state or '—',
+                "country": org.country or '—',
+                "zip_code": org.zip_code or '—',
+                "timezone": org.timezone or 'UTC',
+                "currency": org.currency or 'USD',
+                "subscription_plan": org.subscription_plan,
+                "plan_type": p_type,
+                "plan_name": org.subscription_plan,
+                "subscription_status": org.subscription_status,
+                "max_users": org.max_users,
+                "is_white_label": getattr(org, 'is_white_label', False),
+                "api_access": getattr(org, 'api_access', False),
+                "multi_plant": getattr(org, 'multi_plant', False),
+                "trial_ends_at": _safe_iso(getattr(org, 'trial_ends_at', None)),
+                "subscription_expiry": _safe_iso(expiry_dt) or _safe_iso(getattr(org, 'trial_ends_at', None)),
+                "trial_days_left": trial_days,
+                "created_at": _safe_iso(getattr(org, 'created_at', None)),
+                "user_count": user_count,
+                "dept_count": dept_count,
+                "project_count": project_count,
+                "admin_last_login": admin_last_login,
+                "primary_color": org.primary_color,
+                "compliance_standards": getattr(org, 'compliance_standards', []) or [],
+                "gst_number": org.gst_number or '—',
+                "pan_number": org.pan_number or '—',
+                "website": org.website or '—',
+                "license_number": org.license_number or '—',
+                "storage_limit_mb": getattr(org, 'storage_limit_mb', 10240.0) or 10240.0,
+                "storage_used_mb": getattr(org, 'storage_used_mb', 0.0) or 0.0,
+                "total_trial_requests": total_requests,
+                "auto_approved_trial_extensions": auto_approved,
+                "manual_approved_trial_extensions": manual_approved,
+                "trial_extension_count": getattr(org, 'trial_extension_count', 0) or 0,
+                "enabled_modules": getattr(org, 'enabled_modules', ['7-qc-tools']) or ['7-qc-tools'],
+                "is_deleted": getattr(org, 'is_deleted', False)
+            }
+        })
+    except Exception as e:
+        logger.error(f"[get_company_details] Error fetching org {org_id}: {e}", exc_info=True)
+        return internal_server_error(e, "Failed to load company details.")
 
 @super_admin_bp.route('/companies/verify-udyam', methods=['POST'])
 @jwt_required()
@@ -3428,19 +3572,23 @@ def delete_admin_login(admin_id):
 @super_admin_bp.route('/storage/breakdown', methods=['GET'])
 @jwt_required()
 def get_storage_breakdown_sa():
-    from app.presentation.routes.super_admin_v1_routes import get_super_admin_user
-    user = get_super_admin_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        from app.presentation.routes.super_admin_v1_routes import get_super_admin_user
+        user = get_super_admin_user()
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 403
 
-    from app.domain.services.storage_calculator_service import calculate_org_storage_realtime
-    org_id = request.args.get('org_id', type=int)
-    data = calculate_org_storage_realtime(org_id=org_id)
-    return jsonify({
-        "status": "success",
-        "data": data,
-        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-    })
+        from app.domain.services.storage_calculator_service import calculate_org_storage_realtime
+        org_id = request.args.get('org_id', type=int)
+        data = calculate_org_storage_realtime(org_id=org_id)
+        return jsonify({
+            "status": "success",
+            "data": data,
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        })
+    except Exception as e:
+        logger.error(f"[get_storage_breakdown_sa] Error: {e}", exc_info=True)
+        return internal_server_error(e, "Failed to load storage metrics.")
 
 @super_admin_bp.route('/storage/update-limit', methods=['POST'])
 @jwt_required()

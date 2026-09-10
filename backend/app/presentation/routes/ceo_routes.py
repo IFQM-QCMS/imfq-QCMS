@@ -29,7 +29,7 @@ def get_top_contributors():
             return jsonify({"status": "error", "message": "Org ID not found"}), 404
 
         from app.domain.services.point_engine_service import PointEngineService
-        from app.infrastructure.database.models.models import EmployeeLeaderboard
+        from app.infrastructure.database.models.models import EmployeeLeaderboard, Role
         PointEngineService.seed_initial_points_if_needed(org_id)
 
         page = request.args.get('page', type=int, default=1)
@@ -37,7 +37,15 @@ def get_top_contributors():
 
         base_query = db.session.query(EmployeeLeaderboard)\
             .join(User, User.id == EmployeeLeaderboard.employee_id)\
+            .outerjoin(Role, User.role_id == Role.id)\
             .filter(EmployeeLeaderboard.organization_id == org_id)\
+            .filter(
+                Role.id != None,
+                db.not_(Role.name.ilike('%admin%')),
+                db.not_(Role.name.ilike('%superadmin%')),
+                db.not_(Role.name.ilike('%owner%')),
+                db.not_(Role.name.ilike('%ceo%'))
+            )\
             .order_by(
                 EmployeeLeaderboard.total_points.desc(),
                 EmployeeLeaderboard.projects_completed.desc(),

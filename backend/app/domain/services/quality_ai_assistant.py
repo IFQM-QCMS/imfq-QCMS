@@ -546,12 +546,20 @@ class QualityAIAssistant:
 
         # E. Leaderboard & Rewards Query
         if any(p in lq for p in ['leaderboard', 'top employee', 'points rank', 'rewards', 'who has highest point']):
-            from app.infrastructure.database.models.models import EmployeeLeaderboard
+            from app.infrastructure.database.models.models import EmployeeLeaderboard, Role
             leaderboard = (
                 db.session.query(User.name, User.username, Department.name.label('dept_name'), EmployeeLeaderboard.total_points, EmployeeLeaderboard.badge)
-                .join(EmployeeLeaderboard, EmployeeLeaderboard.user_id == User.id)
+                .join(EmployeeLeaderboard, EmployeeLeaderboard.employee_id == User.id)
                 .outerjoin(Department, Department.id == User.department_id)
+                .outerjoin(Role, User.role_id == Role.id)
                 .filter(User.org_id == org_id)
+                .filter(
+                    Role.id != None,
+                    db.not_(Role.name.ilike('%admin%')),
+                    db.not_(Role.name.ilike('%superadmin%')),
+                    db.not_(Role.name.ilike('%owner%')),
+                    db.not_(Role.name.ilike('%ceo%'))
+                )
                 .order_by(EmployeeLeaderboard.total_points.desc())
                 .limit(5)
                 .all()

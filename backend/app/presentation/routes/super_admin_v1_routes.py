@@ -1206,18 +1206,21 @@ def delete_org_v1(org_id):
 @super_admin_v1_bp.route('/storage/breakdown', methods=['GET'])
 @jwt_required()
 def get_storage_breakdown():
-    user = get_super_admin_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        user = get_super_admin_user()
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 403
 
-    from app.domain.services.storage_calculator_service import calculate_org_storage_realtime
-    org_id = request.args.get('org_id', type=int)
-    data = calculate_org_storage_realtime(org_id=org_id)
-    return jsonify({
-        "status": "success",
-        "data": data,
-        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-    })
+        from app.domain.services.storage_calculator_service import calculate_org_storage_realtime
+        org_id = request.args.get('org_id', type=int)
+        data = calculate_org_storage_realtime(org_id=org_id)
+        return jsonify({
+            "status": "success",
+            "data": data,
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        })
+    except Exception as e:
+        return internal_server_error(e, "Failed to load storage metrics.")
 
 @super_admin_v1_bp.route('/storage/update-limit', methods=['POST'])
 @jwt_required()

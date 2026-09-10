@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from app import db
 from app.infrastructure.database.models.models import (
-    User, Organization, EmployeePoints, EmployeeLeaderboard, Project, KnowledgeRepository
+    User, Organization, EmployeePoints, EmployeeLeaderboard, Project, KnowledgeRepository, Role
 )
 
 
@@ -278,6 +278,22 @@ class PointEngineService:
         by scanning real activity in Project, Stage trackers, SOPs, and Knowledge Repository.
         Guarantees NO fake numbers — only real historical actions!
         """
+        # Prune any existing admin / superadmin / owner / ceo rows from EmployeeLeaderboard
+        admin_users_query = db.session.query(User.id).join(Role, User.role_id == Role.id).filter(
+            db.or_(
+                Role.name.ilike('%admin%'),
+                Role.name.ilike('%superadmin%'),
+                Role.name.ilike('%owner%'),
+                Role.name.ilike('%ceo%')
+            )
+        )
+        if org_id:
+            admin_users_query = admin_users_query.filter(User.org_id == org_id)
+        admin_uids = [r[0] for r in admin_users_query.all()]
+        if admin_uids:
+            EmployeeLeaderboard.query.filter(EmployeeLeaderboard.employee_id.in_(admin_uids)).delete(synchronize_session=False)
+            db.session.commit()
+
         if org_id:
             # Skip expensive rescanning if organization already has leaderboard rows
             if EmployeeLeaderboard.query.filter_by(organization_id=org_id).first():
@@ -288,13 +304,13 @@ class PointEngineService:
                 return
             users = User.query.all()
 
-        EXCLUDED_ROLES = {'superadmin', 'system admin', 'system administrator'}
+        EXCLUDED_ROLES = {'superadmin', 'system admin', 'system administrator', 'admin', 'organization admin', 'owner', 'ceo', 'administrator'}
         for u in users:
             if not u.org_id:
                 continue
 
             role_name = (u.role.name if u.role else '').strip().lower()
-            if role_name in EXCLUDED_ROLES:
+            if role_name in EXCLUDED_ROLES or 'admin' in role_name or 'owner' in role_name or 'ceo' in role_name:
                 continue
 
             effective_org_id = u.org_id

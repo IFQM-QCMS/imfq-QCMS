@@ -450,6 +450,7 @@
                             <select class="ds-input ds-select py-1 px-3 text-xs" id="roleFilter" style="width:auto;" onchange="rewardsApp && rewardsApp.loadLeaderboard(1)">
                                 <option value="">All Roles</option>
                                 <option value="Team Member">Team Members</option>
+                                <option value="Team Leader">Team Leaders</option>
                                 <option value="Facilitator">Facilitators</option>
                                 <option value="Reviewer">Reviewers</option>
                             </select>
@@ -868,7 +869,16 @@
                 if (this.currentScope === 'overall') {
                     // Render Top 3 Podium
                     if (!this.podiumData || !this.podiumData.length) {
-                        container.innerHTML = '<div class="text-center py-3 text-muted text-xs">No podium entries available.</div>';
+                        container.innerHTML = `
+                            <div class="glass-card p-4 text-center my-3 mx-auto" style="max-width: 520px; border-radius: 16px;">
+                                <div class="icon-circle bg-primary-10 p-3 rounded-circle text-primary mx-auto mb-2 d-inline-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                    <i data-lucide="award" style="width:22px;height:22px;"></i>
+                                </div>
+                                <h6 class="fw-bold mb-1 text-main">No Podium Entries Yet</h6>
+                                <p class="text-xs text-muted mb-0">Organization administrators are excluded from employee rewards. Quality Circle team member rankings will display here as points are earned.</p>
+                            </div>
+                        `;
+                        if (window.lucide) lucide.createIcons();
                         return;
                     }
 
@@ -1154,8 +1164,14 @@
                         data = await res.json();
                     }
 
-                    this.leaderboardData = data.leaderboard || [];
-                    this.podiumData = data.podium || [];
+                    const EXCLUDED_LEADERBOARD_ROLES = ['admin', 'superadmin', 'ceo', 'owner', 'system admin', 'administrator', 'organization admin'];
+                    const isExcludedRole = (r) => {
+                        if (!r) return false;
+                        const s = String(r).trim().toLowerCase();
+                        return EXCLUDED_LEADERBOARD_ROLES.some(ex => s.includes(ex));
+                    };
+                    this.leaderboardData = (data.leaderboard || []).filter(e => !isExcludedRole(e.role));
+                    this.podiumData = (data.podium || []).filter(e => !isExcludedRole(e.role));
                     this.championsSummary = data.champions_summary || {};
                     this.pagination = data.pagination || { total: this.leaderboardData.length, page: 1, per_page: currentPerPage, pages: 1 };
 
@@ -1176,7 +1192,16 @@
                 const tbody = document.getElementById('leaderboardTbody');
 
                 if (!this.leaderboardData || !this.leaderboardData.length) {
-                    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">No employees found matching selected criteria.</td></tr>`;
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="text-center py-5 text-muted">
+                                <i data-lucide="award" class="mb-2 text-muted" style="width:32px;height:32px;opacity:0.5;"></i>
+                                <div class="fw-semibold text-main text-sm">No Team Members on Leaderboard Yet</div>
+                                <div class="text-xxs text-secondary mt-1">Organization administrators are excluded from employee rewards rankings. Member rankings appear as teams contribute.</div>
+                            </td>
+                        </tr>
+                    `;
+                    if (window.lucide) lucide.createIcons();
                     return;
                 }
 
