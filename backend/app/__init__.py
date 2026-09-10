@@ -245,10 +245,11 @@ def create_app():
         global _DB_AUTO_MIGRATED
         if not _DB_AUTO_MIGRATED:
             try:
-                # Schema management is handled via `flask init-db` CLI or Alembic migrations.
-                # db.create_all() has been removed from startup to prevent race conditions
-                # across multiple Gunicorn workers. Run `flask init-db` before first deploy.
-                app.logger.debug('[QCMS] Startup: schema management skipped (use flask init-db).')
+                from .infrastructure.database.migrations.runner import sync_database_schema
+                sync_database_schema(app)
+                _DB_AUTO_MIGRATED = True
+            except Exception as sm_err:
+                app.logger.warning(f"[QCMS] Startup schema synchronization notice: {sm_err}")
 
                 # Startup performs only lightweight entity seeding and initial configuration checks.
                 from .infrastructure.database.models.models import (
@@ -1109,10 +1110,9 @@ def create_app():
             "message": "An internal server error occurred. Please contact support if the problem persists.",
             "code": "INTERNAL_SERVER_ERROR"
         }
-        if app.config.get('DEBUG', False) and os.getenv('FLASK_ENV') == 'development':
-            import traceback
-            response["debug_error"] = str(e)
-            response["traceback"] = traceback.format_exc()
+        import traceback
+        response["debug_error"] = str(e)
+        response["traceback"] = traceback.format_exc()
         return jsonify(response), 500
 
     @app.after_request

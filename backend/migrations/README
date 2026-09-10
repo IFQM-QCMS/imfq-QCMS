@@ -1,0 +1,9 @@
+QCMS Database Migrations (Flask-Migrate / Alembic)
+
+Commands:
+  flask db migrate -m 'describe change'   # auto-generate migration
+  flask db upgrade                         # apply pending migrations
+  flask db downgrade                       # roll back one migration
+  flask db history                         # show migration history
+  flask db current                         # show current revision
+  flask init-db                            # create tables (first deploy)

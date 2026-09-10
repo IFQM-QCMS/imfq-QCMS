@@ -117,12 +117,10 @@ jobs:
             docker compose down --remove-orphans || docker-compose down || true
             docker compose up -d --build || docker-compose up -d --build
 
-            # 3. Run Database Migration
-            echo "[Step 3/5] Running automated database migrations..."
-            docker compose exec -T backend flask db upgrade || \
-            docker-compose exec -T backend flask db upgrade || \
-            docker compose exec -T backend python -m flask --app app db upgrade || \
-            docker compose exec -T backend python -m app.infrastructure.database.migrations.runner
+            # 3. Run Database Migration & Schema Synchronization
+            echo "[Step 3/5] Running automated database migrations & schema synchronization..."
+            (docker compose exec -T backend flask db upgrade || docker-compose exec -T backend flask db upgrade || true)
+            (docker compose exec -T backend python -m app.infrastructure.database.migrations.runner || docker-compose exec -T backend python -m app.infrastructure.database.migrations.runner || true)
 
             # 4. Health Check (Wait for readiness probe)
             echo "[Step 4/5] Running health check probes on backend..."

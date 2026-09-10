@@ -32,6 +32,8 @@ backend/sql_output.txt
 backend/cleanup_log.txt
 backend/*.pyc
 migrations/
+!backend/app/infrastructure/database/migrations/
+!backend/migrations/
 
 !.env.example
 !backend/.env.example

@@ -245,8 +245,9 @@ def get_dashboard_stats():
     # 4b. Inactive 20d Organizations
     cutoff_20d = now - timedelta(days=20)
     all_non_deleted_orgs = Organization.query.filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False
+        db.or_(Organization.is_deleted == False, Organization.is_deleted.is_(None)),
+        db.or_(Organization.is_platform_org == False, Organization.is_platform_org.is_(None)),
+        Organization.name != 'QCMS Admin Org'
     ).all()
     recent_active_org_ids = set(r[0] for r in User.query.with_entities(User.org_id).filter(User.last_login >= cutoff_20d).all())
     inactive_20d_orgs = len([
@@ -256,8 +257,9 @@ def get_dashboard_stats():
 
     # 5. Total Users (registered tenant users only)
     total_users = User.query.join(Organization, User.org_id == Organization.id).filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False
+        db.or_(Organization.is_deleted == False, Organization.is_deleted.is_(None)),
+        db.or_(Organization.is_platform_org == False, Organization.is_platform_org.is_(None)),
+        Organization.name != 'QCMS Admin Org'
     ).count()
 
     # 6. Storage Used (Real-time calculation across customer tenant organizations)

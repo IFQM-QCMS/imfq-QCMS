@@ -35,7 +35,10 @@ super_admin_bp = Blueprint('super_admin', __name__)
 # ─── Tenant filter helper ────────────────────────────────────────────────────
 def _tenant_filter(query):
     """Apply is_platform_org=False filter to exclude SuperAdmin's internal org."""
-    return query.filter(Organization.is_platform_org == False, Organization.name != 'QCMS Admin Org')
+    return query.filter(
+        db.or_(Organization.is_platform_org == False, Organization.is_platform_org.is_(None)),
+        Organization.name != 'QCMS Admin Org'
+    )
 
 
 @super_admin_bp.route('/public/landing-content', methods=['GET'])
@@ -296,7 +299,7 @@ def list_companies():
 
     # --- Apply Filters ---
     if not show_deleted:
-        query = query.filter(Organization.is_deleted == False)
+        query = query.filter(db.or_(Organization.is_deleted == False, Organization.is_deleted.is_(None)))
 
     if search:
         search_term = f'%{search}%'
@@ -379,11 +382,19 @@ def list_companies():
         )
     elif license_status_filter == 'Expiring Soon':
         from app.domain.services.subscription_service import is_org_expiring_soon
-        non_deleted_orgs = Organization.query.filter(Organization.is_deleted == False, Organization.is_platform_org == False).all()
+        non_deleted_orgs = Organization.query.filter(
+            db.or_(Organization.is_deleted == False, Organization.is_deleted.is_(None)),
+            db.or_(Organization.is_platform_org == False, Organization.is_platform_org.is_(None)),
+            Organization.name != 'QCMS Admin Org'
+        ).all()
         matching_ids = [org.id for org in non_deleted_orgs if is_org_expiring_soon(org)]
         query = query.filter(Organization.id.in_(matching_ids if matching_ids else [-1]))
     elif license_status_filter in ('Inactive 20d', 'Inactive', 'Inactive (20d)', 'inactive_20d'):
-        non_deleted_orgs = Organization.query.filter(Organization.is_deleted == False, Organization.is_platform_org == False).all()
+        non_deleted_orgs = Organization.query.filter(
+            db.or_(Organization.is_deleted == False, Organization.is_deleted.is_(None)),
+            db.or_(Organization.is_platform_org == False, Organization.is_platform_org.is_(None)),
+            Organization.name != 'QCMS Admin Org'
+        ).all()
         matching_ids = [org.id for org in non_deleted_orgs if _is_inactive_20d(org)]
         query = query.filter(Organization.id.in_(matching_ids if matching_ids else [-1]))
     elif license_status_filter == 'Valid':
@@ -416,7 +427,11 @@ def list_companies():
 
     # --- KPI Summary (always computed from non-deleted orgs, ignoring filters) ---
     from app.domain.services.subscription_service import is_org_expiring_soon
-    all_orgs = Organization.query.filter(Organization.is_deleted == False, Organization.is_platform_org == False)
+    all_orgs = Organization.query.filter(
+        db.or_(Organization.is_deleted == False, Organization.is_deleted.is_(None)),
+        db.or_(Organization.is_platform_org == False, Organization.is_platform_org.is_(None)),
+        Organization.name != 'QCMS Admin Org'
+    )
     all_orgs_list = all_orgs.all()
 
     saas_plans = SaaSPlan.query.all()
