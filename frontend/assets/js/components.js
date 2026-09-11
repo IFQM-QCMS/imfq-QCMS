@@ -371,6 +371,12 @@ const OctaQube = {
     },
 
     getSaSubRole() {
+        if (window.SuperAdmin && window.SuperAdmin.saSubRole) {
+            return window.SuperAdmin.saSubRole;
+        }
+        const cachedSub = sessionStorage.getItem('sa_sub_role') || localStorage.getItem('sa_sub_role');
+        if (cachedSub) return cachedSub;
+
         if (!this.user) {
             try {
                 const stored = sessionStorage.getItem('user') || localStorage.getItem('user');
@@ -392,6 +398,10 @@ const OctaQube = {
     },
 
     canSaRead(section) {
+        if (window.SuperAdmin && window.SuperAdmin._permissions) {
+            const p = window.SuperAdmin._permissions[section];
+            if (p !== undefined) return Boolean(p.can_read);
+        }
         const subRole = this.getSaSubRole();
         if (subRole === 'Owner') return true;
 
@@ -890,6 +900,15 @@ const OctaQube = {
                     user[field] = profile[field];
                     changed = true;
                 }
+            }
+
+            if (profile.sa_sub_role && user.sa_sub_role !== profile.sa_sub_role) {
+                user.sa_sub_role = profile.sa_sub_role;
+                if (!user.custom_fields) user.custom_fields = {};
+                user.custom_fields.super_admin_role = profile.sa_sub_role;
+                sessionStorage.setItem('sa_sub_role', profile.sa_sub_role);
+                localStorage.setItem('sa_sub_role', profile.sa_sub_role);
+                changed = true;
             }
 
             if (changed) {

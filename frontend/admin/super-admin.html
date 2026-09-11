@@ -4934,9 +4934,14 @@
                                                 <div class="d-flex align-items-center justify-content-between mb-3">
                                                     <div>
                                                         <div class="fw-bold text-sm text-main"><i data-lucide="image" class="me-1 text-primary" style="width:16px;height:16px;"></i> Platform Logo & Branding Image</div>
-                                                        <div class="text-xs text-muted">Upload custom logo displayed on sidebar header, reports, and invoices.</div>
+                                                        <div class="text-xs text-muted">Upload custom logo displayed on sidebar header, reports, and invoices. Fully synced with Platform Settings.</div>
                                                     </div>
-                                                    <span class="badge bg-primary-subtle text-primary text-xxs" id="sa-di-logo-status-badge">Default Logo</span>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <a href="javascript:void(0)" onclick="if(window.SuperAdmin){ SuperAdmin.switchView('settings'); setTimeout(() => { if(window.PlatformSettings) PlatformSettings.switchTab('branding'); }, 100); }" class="text-xxs text-primary text-decoration-none fw-semibold">
+                                                            <i data-lucide="external-link" style="width:11px;height:11px;" class="me-1"></i>Open in Settings &rarr; Branding
+                                                        </a>
+                                                        <span class="badge bg-primary-subtle text-primary text-xxs" id="sa-di-logo-status-badge">Default Logo</span>
+                                                    </div>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-3">
                                                     <div class="p-2 border rounded-3 text-center" style="width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.02); cursor: pointer;" onclick="document.getElementById('sa-di-logo-input').click()" title="Click to upload custom platform logo">
@@ -4948,12 +4953,15 @@
                                                     </div>
                                                     <div class="d-flex flex-column gap-2">
                                                         <input type="file" id="sa-di-logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="d-none" onchange="DocIdentityManagerSA.uploadPlatformLogo(this)">
-                                                        <div>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="ds-btn ds-btn-primary ds-btn-sm" onclick="document.getElementById('sa-di-logo-input').click()">
+                                                                <i data-lucide="upload" style="width:13px;height:13px;" class="me-1"></i> Upload Logo
+                                                            </button>
                                                             <button type="button" class="ds-btn ds-btn-outline ds-btn-sm text-danger border-danger" onclick="DocIdentityManagerSA.removePlatformLogo()">
                                                                 <i data-lucide="trash-2" style="width:13px;height:13px;" class="me-1"></i> Remove Logo
                                                             </button>
                                                         </div>
-                                                        <div class="text-xxs text-muted">Recommended: PNG, SVG, or WEBP with transparent background (Max 5MB).</div>
+                                                        <div class="text-xxs text-muted">Recommended: PNG, SVG, or WEBP with transparent background (Max 5MB). Changes reflect across all views instantly.</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -6515,74 +6523,15 @@
         </div>
     </div>
 
-    <!-- Edit Super Admin Account Modal -->
-    <div class="modal fade" id="editSuperAdminModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content glass-card border-0" style="border-radius: 16px; background: var(--ds-bg-card);">
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-bold text-main d-flex align-items-center gap-2">
-                        <i data-lucide="shield-check" class="text-primary" style="width:20px;height:20px;"></i>
-                        Edit Super Admin Account
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="editAdminForm" onsubmit="event.preventDefault(); PlatformSettings.saveAdminAccount();">
-                    <input type="hidden" id="editAdminId">
-                    <div class="modal-body text-xs">
-                        <p class="text-secondary mb-3">Update administrator privileges, sub-role, or login credentials.</p>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs fw-semibold text-secondary mb-1">Username / Name</label>
-                            <input type="text" id="editAdminUsername" class="ds-input py-2 px-3 text-xs w-100" readonly style="opacity: 0.7;">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs fw-semibold text-secondary mb-1">Email Address (Login ID)</label>
-                            <input type="email" id="editAdminEmail" class="ds-input py-2 px-3 text-xs w-100" placeholder="admin@octaqube.com" required oninput="PlatformSettings.validateEmailInput(this)">
-                            <div id="editAdminEmailError" class="text-xxs text-danger mt-1" style="display:none;">Please enter a valid email in format username@domain.extension (e.g. admin@octaqube.com)</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs fw-semibold text-secondary mb-1">Super Admin Sub-Role <span class="text-danger">*</span></label>
-                            <select id="editAdminSubRole" class="ds-input ds-select py-2 px-3 text-xs w-100">
-                                <option value="Owner">Owner (Full Platform Privileges)</option>
-                                <option value="Platform Operations">Platform Operations</option>
-                                <option value="Billing">Billing & Subscriptions</option>
-                                <option value="Support">Support Desk Engineer</option>
-                                <option value="Product">Product & Content Manager</option>
-                                <option value="Read Only">Read Only Auditor</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-2">
-                            <label class="text-xs fw-semibold text-secondary mb-1">Reset Password <span class="text-muted font-normal">(Leave blank to keep unchanged)</span></label>
-                            <div class="position-relative">
-                                <input type="password" id="editAdminPassword" class="ds-input py-2 px-3 text-xs w-100" style="padding-right: 40px !important;" placeholder="New password (optional)">
-                                <button type="button" class="btn btn-link position-absolute top-50 translate-middle-y border-0 bg-transparent text-secondary p-0 d-flex align-items-center justify-content-center" onclick="PlatformSettings.togglePasswordVisibility('editAdminPassword', this)" title="Toggle password visibility" style="right: 12px; width: 24px; height: 24px; box-shadow: none; z-index: 5; cursor: pointer;">
-                                    <i data-lucide="eye" style="width:16px;height:16px;"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-top-0 pt-0">
-                        <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="ds-btn ds-btn-primary ds-btn-sm px-3">
-                            <i data-lucide="check" class="me-1" style="width:13px;"></i> Save Changes
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/core-bundle.d8baef71.min.js"></script>
+    <script src="/assets/dist/core-bundle.7da0d8d3.min.js"></script>
     <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.b5563980.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
-    <script src="/assets/dist/platform-settings.f2bdf6f8.min.js"></script>
-    <script src="/assets/dist/super-admin.1358b5ef.min.js"></script>
+    <script src="/assets/dist/platform-settings.2e5459f8.min.js"></script>
+    <script src="/assets/dist/super-admin.57f5b782.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
@@ -6924,10 +6873,18 @@
                     this.setValue('sa-di-phone-general', ctx.general_phone);
                     this.setValue('sa-di-phone-emergency', ctx.emergency_phone || ctx.emergency_contact);
 
-                    // Logo preview & badge
+                    // Logo preview & badge - check localStorage brand assets first, then ctx.logo_url
+                    let currentLogo = ctx.logo_url;
+                    try {
+                        const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+                        if (savedAssets['main-logo'] || savedAssets['logo']) {
+                            currentLogo = savedAssets['main-logo'] || savedAssets['logo'];
+                        }
+                    } catch (_) {}
+
                     const logoBadge = document.getElementById('sa-di-logo-status-badge');
-                    if (ctx.logo_url && !ctx.logo_url.includes('/assets/img/logo.png') && ctx.logo_url !== 'null' && ctx.logo_url !== 'None') {
-                        this.showLogoImage(ctx.logo_url);
+                    if (currentLogo && !currentLogo.includes('/assets/img/logo.png') && currentLogo !== 'null' && currentLogo !== 'None') {
+                        this.showLogoImage(currentLogo);
                         if (logoBadge) {
                             logoBadge.textContent = 'Custom Logo Active';
                             logoBadge.className = 'badge bg-success-subtle text-success text-xxs';
@@ -7159,12 +7116,52 @@
                 const result = await res.json();
                 if (result.status === 'success') {
                     _diShowNotify(result.message || 'Logo uploaded successfully!', 'success');
+                    const logoUrl = result.logo_url;
                     try {
                         const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
-                        savedAssets['main-logo'] = result.logo_url;
-                        savedAssets['logo'] = result.logo_url;
+                        savedAssets['main-logo'] = logoUrl;
+                        savedAssets['logo'] = logoUrl;
                         localStorage.setItem('octaqube_brand_assets', JSON.stringify(savedAssets));
+
+                        // Sync with Settings -> Branding preview
+                        const psPreview = document.getElementById('ps-preview-main-logo');
+                        if (psPreview) {
+                            psPreview.innerHTML = `<img src="${logoUrl}" style="max-height:60px; max-width:100%; object-fit:contain;" alt="main-logo">`;
+                        }
+
+                        // Also update user cache
+                        const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                        if (uStr) {
+                            const uObj = JSON.parse(uStr);
+                            uObj.platform_logo_url = logoUrl;
+                            const uJson = JSON.stringify(uObj);
+                            if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
+                            if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
+                            if (window.OctaQube && OctaQube.user) OctaQube.user.platform_logo_url = logoUrl;
+                        }
                     } catch (_) {}
+
+                    // Update all sidebar brand icons / images immediately
+                    document.querySelectorAll('.sidebar-brand').forEach(sb => {
+                        let img = sb.querySelector('img');
+                        if (img) {
+                            img.src = logoUrl;
+                        } else {
+                            const iconBox = sb.querySelector('.brand-icon');
+                            if (iconBox) {
+                                const newImg = document.createElement('img');
+                                newImg.src = logoUrl;
+                                newImg.alt = 'Logo';
+                                newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
+                                iconBox.replaceWith(newImg);
+                            }
+                        }
+                    });
+
+                    if (window.OctaQube && typeof OctaQube.applyBranding === 'function') {
+                        OctaQube.applyBranding();
+                    }
+
                     if (result.branding_context) {
                         window.DocIdentityManagerSA.applyBrandingToUI(result.branding_context);
                     }
@@ -7190,8 +7187,36 @@
                         const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
                         delete savedAssets['main-logo'];
                         delete savedAssets['logo'];
+                        delete savedAssets['dark-logo'];
                         localStorage.setItem('octaqube_brand_assets', JSON.stringify(savedAssets));
+
+                        // Reset Settings -> Branding preview
+                        const psPreview = document.getElementById('ps-preview-main-logo');
+                        if (psPreview) {
+                            psPreview.innerHTML = `<i data-lucide="shield-check" class="text-primary" style="width:36px;height:36px;"></i>`;
+                        }
+
+                        const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                        if (uStr) {
+                            const uObj = JSON.parse(uStr);
+                            uObj.platform_logo_url = null;
+                            const uJson = JSON.stringify(uObj);
+                            if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
+                            if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
+                            if (window.OctaQube && OctaQube.user) OctaQube.user.platform_logo_url = null;
+                        }
                     } catch (_) {}
+
+                    // Reset sidebar icons
+                    document.querySelectorAll('.sidebar-brand img').forEach(img => {
+                        const iconBox = document.createElement('div');
+                        iconBox.className = 'brand-icon';
+                        iconBox.style.cssText = 'background: var(--ds-accent);';
+                        iconBox.innerHTML = '<i data-lucide="shield-check" style="color:white;"></i>';
+                        img.replaceWith(iconBox);
+                    });
+                    if (window.lucide) lucide.createIcons();
+
                     if (result.branding_context) {
                         window.DocIdentityManagerSA.applyBrandingToUI(result.branding_context);
                     }

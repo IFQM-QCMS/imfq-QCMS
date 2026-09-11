@@ -2127,6 +2127,24 @@ const PlatformSettings = {
                 localStorage.setItem('octaqube_brand_assets', JSON.stringify(assets));
 
                 if (type === 'main-logo' || type === 'logo' || type === 'dark-logo') {
+                    // Sync with Doc Identity & Branding preview elements
+                    const diLogo = document.getElementById('sa-di-logo-preview');
+                    const diPlaceholder = document.getElementById('sa-di-logo-placeholder');
+                    const diBadge = document.getElementById('sa-di-logo-status-badge');
+                    if (diLogo) {
+                        diLogo.src = dataUrl;
+                        diLogo.style.setProperty('display', 'block', 'important');
+                        diLogo.classList.remove('d-none');
+                    }
+                    if (diPlaceholder) {
+                        diPlaceholder.style.setProperty('display', 'none', 'important');
+                        diPlaceholder.classList.add('d-none');
+                    }
+                    if (diBadge) {
+                        diBadge.textContent = 'Custom Logo Active';
+                        diBadge.className = 'badge bg-success-subtle text-success text-xxs';
+                    }
+
                     // Update all sidebar brand icons / images immediately
                     document.querySelectorAll('.sidebar-brand').forEach(sb => {
                         let img = sb.querySelector('img');
@@ -2189,11 +2207,113 @@ const PlatformSettings = {
                     OctaQube.applyBranding();
                 }
 
+                // Automatically persist branding to backend
+                try {
+                    this.saveBranding();
+                } catch (_) {}
+
+                // If it's a main-logo or logo, also upload file to backend server storage
+                if (type === 'main-logo' || type === 'logo') {
+                    try {
+                        const fd = new FormData();
+                        fd.append('logo_file', file);
+                        const token = (window.api && window.api.token) || localStorage.getItem('token') || sessionStorage.getItem('token');
+                        fetch('/api/document-identity/upload-logo', {
+                            method: 'POST',
+                            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                            body: fd
+                        }).then(r => r.json()).then(res => {
+                            if (res.status === 'success' && res.logo_url) {
+                                const a = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+                                a['main-logo'] = res.logo_url;
+                                a['logo'] = res.logo_url;
+                                localStorage.setItem('octaqube_brand_assets', JSON.stringify(a));
+                            }
+                        }).catch(() => {});
+                    } catch (_) {}
+                }
+
                 OctaQube.toast(`Uploaded and updated ${type.replace('-', ' ')} in real time!`, 'success');
             };
             reader.readAsDataURL(file);
         };
         fileInput.click();
+    },
+
+    removeAsset(type) {
+        if (!confirm(`Are you sure you want to reset the ${type.replace('-', ' ')} to default?`)) return;
+        const assets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+        delete assets[type];
+        if (type === 'main-logo' || type === 'logo') {
+            delete assets['main-logo'];
+            delete assets['logo'];
+            delete assets['dark-logo'];
+        }
+        localStorage.setItem('octaqube_brand_assets', JSON.stringify(assets));
+
+        // Reset Settings -> Branding preview
+        const containerId = `ps-preview-${type}`;
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `<i data-lucide="${type === 'favicon' ? 'sparkles' : 'shield-check'}" class="text-primary" style="width:36px;height:36px;"></i>`;
+        }
+
+        // Reset Doc Identity & Branding preview
+        if (type === 'main-logo' || type === 'logo') {
+            const diLogo = document.getElementById('sa-di-logo-preview');
+            const diPlaceholder = document.getElementById('sa-di-logo-placeholder');
+            const diBadge = document.getElementById('sa-di-logo-status-badge');
+            if (diLogo) {
+                diLogo.style.setProperty('display', 'none', 'important');
+                diLogo.classList.add('d-none');
+                diLogo.src = '';
+            }
+            if (diPlaceholder) {
+                diPlaceholder.style.setProperty('display', 'flex', 'important');
+                diPlaceholder.classList.remove('d-none');
+            }
+            if (diBadge) {
+                diBadge.textContent = 'Default Logo';
+                diBadge.className = 'badge bg-primary-subtle text-primary text-xxs';
+            }
+
+            // Reset sidebar icons
+            document.querySelectorAll('.sidebar-brand img').forEach(img => {
+                const iconBox = document.createElement('div');
+                iconBox.className = 'brand-icon';
+                iconBox.style.cssText = 'background: var(--ds-accent);';
+                iconBox.innerHTML = '<i data-lucide="shield-check" style="color:white;"></i>';
+                img.replaceWith(iconBox);
+            });
+        }
+
+        try {
+            const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+            if (uStr) {
+                const uObj = JSON.parse(uStr);
+                if (type === 'main-logo' || type === 'logo') uObj.platform_logo_url = null;
+                if (type === 'favicon') uObj.platform_favicon_url = null;
+                const uJson = JSON.stringify(uObj);
+                if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
+                if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
+                if (window.OctaQube && OctaQube.user) {
+                    if (type === 'main-logo' || type === 'logo') OctaQube.user.platform_logo_url = null;
+                    if (type === 'favicon') OctaQube.user.platform_favicon_url = null;
+                }
+            }
+        } catch (_) {}
+
+        if (window.lucide) lucide.createIcons();
+        this.saveBranding();
+
+        // Also call backend remove endpoint if available
+        try {
+            if (window.api && typeof window.api.post === 'function') {
+                window.api.post('/document-identity/remove-logo', {});
+            }
+        } catch (_) {}
+
+        OctaQube.toast(`Reset ${type.replace('-', ' ')} to default!`, 'info');
     },
 
     restoreSavedBranding() {

@@ -162,7 +162,18 @@ class DocumentBrandingService:
             ),
 
             # Assets
-            "logo_url": (assets.logo_url if assets and assets.logo_url else "/assets/img/logo.png"),
+            "logo_url": (
+                (assets.logo_url if assets and assets.logo_url and assets.logo_url != '/assets/img/logo.png' else None)
+                or (
+                    (lambda: (
+                        (lambda s: s.branding_settings.get('logo_url') or (s.branding_settings.get('assets', {}).get('main-logo')) if s and s.branding_settings else None)(
+                            __import__('app.infrastructure.database.models.billing', fromlist=['PlatformSettings']).PlatformSettings.query.first()
+                        )
+                    ))() if not org_id else None
+                )
+                or (org_obj.logo_url if org_obj and getattr(org_obj, 'logo_url', None) else None)
+                or (assets.logo_url if assets and assets.logo_url else "/assets/img/logo.png")
+            ),
             "print_logo_url": (assets.print_logo_url if assets and assets.print_logo_url else "/assets/img/logo-print.png"),
             "pdf_logo_url": (assets.pdf_logo_url if assets and assets.pdf_logo_url else "/assets/img/logo-pdf.png"),
             "watermark_logo_url": (assets.watermark_logo_url if assets and assets.watermark_logo_url else "/assets/img/watermark.png")

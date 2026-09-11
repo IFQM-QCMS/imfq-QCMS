@@ -104,6 +104,29 @@ const SuperAdmin = {
             if (res && res.status === 'success' && res.data) {
                 this.saSubRole = res.data.sub_role || this.saSubRole || 'Owner';
                 this._permissions = res.data.permissions;
+
+                // Sync with local session & storage so all components know the exact sub-role
+                try {
+                    sessionStorage.setItem('sa_sub_role', this.saSubRole);
+                    localStorage.setItem('sa_sub_role', this.saSubRole);
+                    const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                    if (uStr) {
+                        const u = JSON.parse(uStr);
+                        u.sa_sub_role = this.saSubRole;
+                        if (!u.custom_fields) u.custom_fields = {};
+                        u.custom_fields.super_admin_role = this.saSubRole;
+                        const uJson = JSON.stringify(u);
+                        sessionStorage.setItem('user', uJson);
+                        localStorage.setItem('user', uJson);
+                        if (window.OctaQube) window.OctaQube.user = u;
+                    }
+                } catch (_) {}
+
+                // Re-render sidebar dynamically showing ONLY options allowed for this sub-role
+                if (window.OctaQube && typeof window.OctaQube.renderSidebar === 'function') {
+                    window.OctaQube.renderSidebar();
+                }
+
                 this.applySubRoleRestrictions();
             }
         } catch (e) {
@@ -145,8 +168,7 @@ const SuperAdmin = {
             badgeTarget.style.display = '';
         }
 
-        // --- Sidebar link visibility ---
-        // Map view IDs to their section key in the permission map
+        // --- Sidebar link visibility: Purge forbidden links from DOM entirely ---
         const VIEW_SECTION_MAP = {
             'organizations':   'organizations',
             'subscriptions':   'subscriptions',
@@ -188,8 +210,7 @@ const SuperAdmin = {
                 }
             }
             if (section && !this.canRead(section)) {
-                link.classList.add('d-none');
-                link.style.setProperty('display', 'none', 'important');
+                link.remove();
             }
         });
 
@@ -236,10 +257,13 @@ const SuperAdmin = {
         let view = params.get('view') || 'overview';
         const tab = params.get('tab');
         
-        // Check if view is allowed
+        // Check if view is allowed for this admin's sub-role
         const checkSection = (view === 'overview' || !view) ? 'overview' : view;
         if (!this.canRead(checkSection)) {
-            view = 'overview';
+            const priorityViews = ['overview', 'organizations', 'support', 'announcements', 'billing', 'plans', 'analytics', 'user-manual'];
+            view = priorityViews.find(v => this.canRead(v)) || 'overview';
+            const cleanUrl = view === 'overview' ? '/admin/super-admin.html' : `/admin/super-admin.html?view=${view}`;
+            window.history.replaceState(null, '', cleanUrl);
         }
 
         this.switchView(view);
@@ -259,14 +283,12 @@ const SuperAdmin = {
         if (this.saSubRole && this.saSubRole !== 'Owner') {
             const section = (viewId === 'overview' || !viewId) ? 'overview' : viewId;
             if (!this.canRead(section)) {
-                if (window.OctaQube && OctaQube.toast) {
-                    OctaQube.toast(
-                        `Your sub-role "${this.saSubRole}" does not have access to this section.`,
-                        'warning'
-                    );
-                }
-                if (this.canRead('overview') && viewId !== 'overview') {
-                    this.switchView('overview');
+                const priorityViews = ['overview', 'organizations', 'support', 'announcements', 'billing', 'plans', 'analytics', 'user-manual'];
+                const fallback = priorityViews.find(v => this.canRead(v)) || 'overview';
+                if (viewId !== fallback) {
+                    const cleanUrl = fallback === 'overview' ? '/admin/super-admin.html' : `/admin/super-admin.html?view=${fallback}`;
+                    window.history.replaceState(null, '', cleanUrl);
+                    this.switchView(fallback);
                 }
                 return; // Block navigation
             }
@@ -456,6 +478,11 @@ const SuperAdmin = {
                 
                 e.preventDefault();
                 e.stopPropagation();
+
+                const checkSec = (viewId === 'overview' || !viewId) ? 'overview' : viewId;
+                if (!this.canRead(checkSec)) {
+                    return; // Block click silently, do not change URL
+                }
                 
                 const searchStr = href.includes('?') ? href.substring(href.indexOf('?')) : '';
                 if (window.location.search !== searchStr) {

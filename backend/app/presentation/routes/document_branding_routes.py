@@ -240,6 +240,21 @@ def upload_platform_logo():
         # SuperAdmin logo uploads are platform-level only and must NOT touch any org's logo_url
         if org_id and user.organization:
             user.organization.logo_url = relative_url
+        elif org_id is None:
+            # Sync to global PlatformSettings so Settings -> Branding sees the exact same logo
+            try:
+                from app.infrastructure.database.models.billing import PlatformSettings
+                sys_settings = PlatformSettings.query.first()
+                if sys_settings:
+                    bs = dict(sys_settings.branding_settings or {})
+                    bs['logo_url'] = relative_url
+                    if 'assets' not in bs or not isinstance(bs['assets'], dict):
+                        bs['assets'] = {}
+                    bs['assets']['main-logo'] = relative_url
+                    bs['assets']['logo'] = relative_url
+                    sys_settings.branding_settings = bs
+            except Exception:
+                pass
 
         db.session.commit()
         DocumentBrandingService.invalidate_cache(org_id)
@@ -274,6 +289,19 @@ def remove_platform_logo():
 
         if org_id and user.organization:
             user.organization.logo_url = None
+        elif org_id is None:
+            try:
+                from app.infrastructure.database.models.billing import PlatformSettings
+                sys_settings = PlatformSettings.query.first()
+                if sys_settings:
+                    bs = dict(sys_settings.branding_settings or {})
+                    bs.pop('logo_url', None)
+                    if isinstance(bs.get('assets'), dict):
+                        bs['assets'].pop('main-logo', None)
+                        bs['assets'].pop('logo', None)
+                    sys_settings.branding_settings = bs
+            except Exception:
+                pass
 
         db.session.commit()
         DocumentBrandingService.invalidate_cache(org_id)
