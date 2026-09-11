@@ -1068,11 +1068,7 @@ const OctaQube = {
             document.body.classList.remove('is-mobile-layout');
             document.body.classList.add('is-desktop-layout');
             // Auto close mobile drawer if resized to desktop
-            const sidebar = document.getElementById('app-sidebar');
-            const backdrop = document.getElementById('sidebar-backdrop');
-            if (sidebar) sidebar.classList.remove('show');
-            if (backdrop) backdrop.classList.remove('show');
-            document.body.classList.remove('sidebar-mobile-open');
+            this.closeSidebar();
         }
         if (this.user && !this.isPublicOrAuthPage()) {
             this.renderMobileBottomNav();
@@ -1497,22 +1493,15 @@ const OctaQube = {
             document.addEventListener('click', (e) => {
                 const sidebarLink = e.target.closest('#app-sidebar a, #app-sidebar .sidebar-link, #app-sidebar button');
                 if (sidebarLink && window.innerWidth <= 1024) {
-                    const sb = document.getElementById('app-sidebar');
-                    const bd = document.getElementById('sidebar-backdrop');
-                    if (sb) sb.classList.remove('show');
-                    if (bd) bd.classList.remove('show');
-                    document.body.classList.remove('sidebar-mobile-open');
+                    OctaQube.closeSidebar();
                 }
-            });
+            }, true); // Capture phase ensures retreat triggers even if link has stopPropagation
         }
 
         if (backdrop) {
             const closeDrawer = (e) => {
                 if (e && e.cancelable) e.preventDefault();
-                const sb = document.getElementById('app-sidebar');
-                if (sb) sb.classList.remove('show');
-                backdrop.classList.remove('show');
-                document.body.classList.remove('sidebar-mobile-open');
+                this.closeSidebar();
             };
             backdrop.onclick = closeDrawer;
             backdrop.ontouchstart = closeDrawer;
@@ -1542,9 +1531,7 @@ const OctaQube = {
 
                 // Only trigger if horizontal swipe to left is dominant (> 75px) and vertical movement is minimal (< 25px)
                 if (deltaX < -75 && deltaY < 25) {
-                    sidebar.classList.remove('show');
-                    if (backdrop) backdrop.classList.remove('show');
-                    document.body.classList.remove('sidebar-mobile-open');
+                    this.closeSidebar();
                     isSwiping = false;
                 }
             }, { passive: true });
@@ -1555,11 +1542,26 @@ const OctaQube = {
         }
     },
 
-    toggleSidebar(event) {
-        if (event) {
-            if (typeof event.stopPropagation === 'function') event.stopPropagation();
-            if (typeof event.preventDefault === 'function') event.preventDefault();
+    closeSidebar() {
+        const sidebar = document.getElementById('app-sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (sidebar) {
+            sidebar.classList.remove('show');
+            sidebar.style.removeProperty('transform');
+            sidebar.style.removeProperty('visibility');
+            sidebar.style.removeProperty('z-index');
+            sidebar.style.removeProperty('opacity');
         }
+        if (backdrop) {
+            backdrop.classList.remove('show');
+            backdrop.style.removeProperty('visibility');
+            backdrop.style.removeProperty('z-index');
+            backdrop.style.removeProperty('opacity');
+        }
+        document.body.classList.remove('sidebar-mobile-open');
+    },
+
+    openSidebar() {
         let backdrop = document.getElementById('sidebar-backdrop');
         if (!backdrop) {
             backdrop = document.createElement('div');
@@ -1567,15 +1569,12 @@ const OctaQube = {
             backdrop.className = 'sidebar-backdrop';
             document.body.appendChild(backdrop);
         }
-        const closeDrawer = (e) => {
+        const closeFn = (e) => {
             if (e && e.cancelable) e.preventDefault();
-            const sb = document.getElementById('app-sidebar');
-            if (sb) sb.classList.remove('show');
-            if (backdrop) backdrop.classList.remove('show');
-            document.body.classList.remove('sidebar-mobile-open');
+            this.closeSidebar();
         };
-        backdrop.onclick = closeDrawer;
-        backdrop.ontouchstart = closeDrawer;
+        backdrop.onclick = closeFn;
+        backdrop.ontouchstart = closeFn;
 
         const sidebar = document.getElementById('app-sidebar');
         if (sidebar && sidebar.parentElement !== document.body) {
@@ -1587,27 +1586,33 @@ const OctaQube = {
             }
         }
 
+        if (sidebar) {
+            sidebar.classList.add('show');
+            sidebar.style.setProperty('z-index', '200010', 'important');
+            sidebar.style.setProperty('visibility', 'visible', 'important');
+            sidebar.style.setProperty('transform', 'translateX(0)', 'important');
+        }
+        if (backdrop) {
+            backdrop.classList.add('show');
+            backdrop.style.setProperty('z-index', '200000', 'important');
+            backdrop.style.setProperty('visibility', 'visible', 'important');
+        }
+        document.body.classList.add('sidebar-mobile-open');
+    },
+
+    toggleSidebar(event) {
+        if (event) {
+            if (typeof event.stopPropagation === 'function') event.stopPropagation();
+            if (typeof event.preventDefault === 'function') event.preventDefault();
+        }
         if (window.innerWidth <= 1024) {
-            const isCurrentlyOpen = sidebar ? sidebar.classList.contains('show') : false;
-            const willOpen = !isCurrentlyOpen;
-            if (sidebar) {
-                sidebar.classList.toggle('show', willOpen);
-                if (willOpen) {
-                    sidebar.style.setProperty('z-index', '200010', 'important');
-                    sidebar.style.setProperty('visibility', 'visible', 'important');
-                    sidebar.style.setProperty('transform', 'translateX(0)', 'important');
-                } else {
-                    sidebar.style.removeProperty('transform');
-                }
+            const sidebar = document.getElementById('app-sidebar');
+            const isCurrentlyOpen = (sidebar && (sidebar.classList.contains('show') || document.body.classList.contains('sidebar-mobile-open')));
+            if (isCurrentlyOpen) {
+                this.closeSidebar();
+            } else {
+                this.openSidebar();
             }
-            if (backdrop) {
-                backdrop.classList.toggle('show', willOpen);
-                if (willOpen) {
-                    backdrop.style.setProperty('z-index', '200000', 'important');
-                    backdrop.style.setProperty('visibility', 'visible', 'important');
-                }
-            }
-            document.body.classList.toggle('sidebar-mobile-open', willOpen);
         } else {
             document.body.classList.toggle('sidebar-collapsed');
             localStorage.setItem('octaqube-sidebar-collapsed', document.body.classList.contains('sidebar-collapsed'));

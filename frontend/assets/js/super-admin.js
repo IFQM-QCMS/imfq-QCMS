@@ -297,10 +297,26 @@ const SuperAdmin = {
         this.activeView = viewId;
         
         // Retreat mobile sidebar overlay on screen switch
-        const sidebar = document.getElementById('app-sidebar');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        if (sidebar) sidebar.classList.remove('show');
-        if (backdrop) backdrop.classList.remove('show');
+        if (window.OctaQube && typeof window.OctaQube.closeSidebar === 'function') {
+            window.OctaQube.closeSidebar();
+        } else {
+            const sidebar = document.getElementById('app-sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (sidebar) {
+                sidebar.classList.remove('show');
+                sidebar.style.removeProperty('transform');
+                sidebar.style.removeProperty('visibility');
+                sidebar.style.removeProperty('z-index');
+                sidebar.style.removeProperty('opacity');
+            }
+            if (backdrop) {
+                backdrop.classList.remove('show');
+                backdrop.style.removeProperty('visibility');
+                backdrop.style.removeProperty('z-index');
+                backdrop.style.removeProperty('opacity');
+            }
+            document.body.classList.remove('sidebar-mobile-open');
+        }
 
         if (window.innerWidth <= 1024) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -478,6 +494,13 @@ const SuperAdmin = {
                 
                 e.preventDefault();
                 e.stopPropagation();
+
+                // Retreat mobile sidebar drawer immediately
+                if (window.innerWidth <= 1024) {
+                    if (window.OctaQube && typeof window.OctaQube.closeSidebar === 'function') {
+                        window.OctaQube.closeSidebar();
+                    }
+                }
 
                 const checkSec = (viewId === 'overview' || !viewId) ? 'overview' : viewId;
                 if (!this.canRead(checkSec)) {
