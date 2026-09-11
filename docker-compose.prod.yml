@@ -78,6 +78,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: qcms-frontend
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - qcms-internal
       - ifqm-new-sites

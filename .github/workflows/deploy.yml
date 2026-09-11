@@ -157,7 +157,13 @@ jobs:
             echo "[OctaQube CD] Running database schema synchronization..."
             docker compose -f "$COMPOSE_FILE" exec -T backend python -m app.infrastructure.database.migrations.runner
 
-            # 7. Backend Health Probe Verification
+            # 7. Frontend Refresh & Nginx Cache Invalidation
+            echo "[OctaQube CD] Reloading frontend web server and flushing cache..."
+            docker compose -f "$COMPOSE_FILE" restart frontend 2>/dev/null || true
+            docker exec qcms-frontend nginx -s reload 2>/dev/null || docker exec qcms_frontend nginx -s reload 2>/dev/null || true
+            systemctl reload nginx 2>/dev/null || true
+
+            # 8. Backend Health Probe Verification
             echo "[OctaQube CD] Running readiness probe..."
             MAX_RETRIES=30
             RETRY_COUNT=0
