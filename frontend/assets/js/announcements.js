@@ -4274,18 +4274,18 @@ const AnnouncementsModule = {
                             </div>
                         </div>
                         <div class="modal-body p-3 bg-light text-center" style="min-height: 480px;">
-                            <div class="p-2.5 rounded border bg-white text-start text-xs mb-3 shadow-sm mx-auto" style="max-width: 600px;">
-                                <div class="d-flex align-items-center gap-2 mb-1">
-                                    <span class="text-muted text-xxs text-uppercase fw-bold" style="width:60px;">From:</span>
+                            <div class="p-2 rounded border bg-white text-start text-xs mb-3 shadow-sm mx-auto" style="max-width: 600px;">
+                                <div class="d-flex align-items-start gap-2 mb-1">
+                                    <span class="text-muted text-xxs text-uppercase fw-bold" style="width:68px;min-width:68px;flex-shrink:0;padding-top:1px;">From:</span>
                                     <span class="fw-semibold text-main">${OctaQube.escapeHtml(rule.sender_name)} &lt;${OctaQube.escapeHtml(rule.sender_email)}&gt;</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 mb-1">
-                                    <span class="text-muted text-xxs text-uppercase fw-bold" style="width:60px;">Subject:</span>
+                                <div class="d-flex align-items-start gap-2 mb-1">
+                                    <span class="text-muted text-xxs text-uppercase fw-bold" style="width:68px;min-width:68px;flex-shrink:0;padding-top:1px;">Subject:</span>
                                     <span class="fw-bold text-main font-monospace">${OctaQube.escapeHtml(rule.subject)}</span>
                                 </div>
                                 ${rule.preheader ? `
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="text-muted text-xxs text-uppercase fw-bold" style="width:60px;">Preheader:</span>
+                                <div class="d-flex align-items-start gap-2">
+                                    <span class="text-muted text-xxs text-uppercase fw-bold" style="width:68px;min-width:68px;flex-shrink:0;padding-top:1px;">Preheader:</span>
                                     <span class="text-secondary">${OctaQube.escapeHtml(rule.preheader)}</span>
                                 </div>` : ''}
                             </div>

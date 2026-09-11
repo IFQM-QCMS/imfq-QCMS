@@ -364,13 +364,18 @@ def get_dashboard_stats():
             trend_mrr.append(val_rounded)
             trend_arr.append(round(val_rounded * 12, 2))
     else:
-        num_months = 6 if range_str == '6m' else (now.month if range_str == 'ytd' else 12)
-        for i in range(num_months - 1, -1, -1):
-            m_year = now.year
-            m_month = now.month - i
-            while m_month <= 0:
-                m_month += 12
-                m_year -= 1
+        start_year = 2026
+        start_month = 9
+        if range_str in ['6m', '6months', 'last 6 months']:
+            num_months = 6
+        elif range_str in ['ytd', 'year to date']:
+            num_months = 12 - start_month + 1 if now.year == 2026 else now.month
+        else:
+            num_months = 12
+
+        for i in range(num_months):
+            m_year = start_year + (start_month - 1 + i) // 12
+            m_month = (start_month - 1 + i) % 12 + 1
             m_date = datetime(m_year, m_month, 1)
             trend_labels.append(m_date.strftime('%b %y'))
             next_m_month = m_month + 1
@@ -404,35 +409,33 @@ def get_dashboard_stats():
             trend_arr.append(round(val_rounded * 12, 2))
 
     # 13. Month-wise Organization Onboarding & Adoption Trend
+    # Software came online in September 2026: timeline starts from Sep 26 and displays forward
     ob_labels = []
     ob_new = []
     ob_cumulative = []
     ob_adopted = []
 
-    if range_str in ['all', 'all time', 'alltime']:
-        earliest_org = Organization.query.filter(
-            Organization.is_deleted == False,
-            Organization.is_platform_org == False
-        ).order_by(Organization.created_at.asc()).first()
-        if earliest_org and earliest_org.created_at:
-            earliest_dt = _to_naive_utc(earliest_org.created_at)
-            months_diff = (now.year - earliest_dt.year) * 12 + (now.month - earliest_dt.month) + 1
-            ob_num_months = max(6, min(36, months_diff))
-        else:
-            ob_num_months = 12
-    elif range_str in ['6m', '6months', 'last 6 months']:
+    start_year = 2026
+    start_month = 9
+
+    if range_str in ['6m', '6months', 'last 6 months']:
         ob_num_months = 6
     elif range_str in ['ytd', 'year to date']:
-        ob_num_months = now.month
+        if now.year == 2026:
+            ob_num_months = 12 - start_month + 1
+        else:
+            start_year = now.year
+            start_month = 1
+            ob_num_months = now.month
+    elif range_str in ['all', 'all time', 'alltime']:
+        months_since_launch = (now.year - start_year) * 12 + (now.month - start_month) + 1
+        ob_num_months = max(12, min(36, months_since_launch))
     else:
         ob_num_months = 12
 
-    for i in range(ob_num_months - 1, -1, -1):
-        m_year = now.year
-        m_month = now.month - i
-        while m_month <= 0:
-            m_month += 12
-            m_year -= 1
+    for i in range(ob_num_months):
+        m_year = start_year + (start_month - 1 + i) // 12
+        m_month = (start_month - 1 + i) % 12 + 1
         m_date = datetime(m_year, m_month, 1)
         next_m_month = m_month + 1
         next_m_year = m_year
@@ -470,7 +473,8 @@ def get_dashboard_stats():
         ob_adopted.append(adp_cnt)
 
     period_new_total = sum(ob_new)
-    avg_monthly = period_new_total / max(1, len(ob_new))
+    elapsed_months = max(1, len([1 for i in range(ob_num_months) if datetime(start_year + (start_month - 1 + i) // 12, (start_month - 1 + i) % 12 + 1, 1) <= now]))
+    avg_monthly = period_new_total / elapsed_months
     adoption_rate_pct = round((active_orgs / max(1, total_orgs)) * 100, 1)
     
     if ob_new and max(ob_new) > 0:
@@ -706,15 +710,13 @@ def calculate_org_realized_project_value(range_str='all', include_projects=True)
 
     # Generate timeline labels and points (sorted chronologically)
     sorted_months = sorted(monthly_impact_map.keys())
-    # Ensure at least 6 months are shown in the trend chart
+    # Ensure at least 6 months are shown in the trend chart starting from software launch (Sep 2026)
     if len(sorted_months) < 6:
-        # Fill missing trailing months
-        for i in range(5, -1, -1):
-            m_year = now.year
-            m_month = now.month - i
-            while m_month <= 0:
-                m_month += 12
-                m_year -= 1
+        start_year = 2026
+        start_month = 9
+        for i in range(6):
+            m_year = start_year + (start_month - 1 + i) // 12
+            m_month = (start_month - 1 + i) % 12 + 1
             m_dt = datetime(m_year, m_month, 1)
             sk = m_dt.strftime('%Y-%m')
             if sk not in monthly_impact_map:
