@@ -17,44 +17,77 @@ SA_SUPPORT         = 'Support'
 SA_PRODUCT         = 'Product'
 SA_READ_ONLY       = 'Read Only'
 
+SUB_ROLE_NORMALIZATION = {
+    'owner': SA_OWNER,
+    'owner (full platform privileges)': SA_OWNER,
+    'platform operations': SA_PLATFORM_OPS,
+    'platform ops': SA_PLATFORM_OPS,
+    'billing': SA_BILLING,
+    'billing & subscriptions': SA_BILLING,
+    'subscriptions': SA_BILLING,
+    'support': SA_SUPPORT,
+    'support desk engineer': SA_SUPPORT,
+    'product': SA_PRODUCT,
+    'product & content manager': SA_PRODUCT,
+    'read only': SA_READ_ONLY,
+    'read-only': SA_READ_ONLY,
+    'read only auditor': SA_READ_ONLY,
+    'auditor': SA_READ_ONLY,
+}
+
 # Map: section → which sub-roles can WRITE (POST/PUT/DELETE)
 # Owner always has write access everywhere; this map only applies to restricted roles.
 SA_WRITE_PERMISSIONS = {
-    'organizations':  [SA_PLATFORM_OPS],
-    'subscriptions':  [SA_BILLING],
-    'licenses':       [SA_PLATFORM_OPS, SA_BILLING],
-    'admins':         [SA_PLATFORM_OPS],
-    'users':          [SA_PLATFORM_OPS],
-    'plans':          [SA_BILLING, SA_PRODUCT],
-    'modules':        [SA_BILLING, SA_PRODUCT],
-    'analytics':      [SA_PLATFORM_OPS, SA_BILLING],
-    'support':        [SA_PLATFORM_OPS, SA_SUPPORT],
-    'billing':        [SA_BILLING],
-    'announcements':  [SA_PLATFORM_OPS, SA_PRODUCT],
-    'logs':           [SA_PLATFORM_OPS],
-    'integrations':   [SA_PLATFORM_OPS],
-    'settings':       [SA_PLATFORM_OPS],
-    'admin-logins':   [],   # Owner only
+    'overview':        [],
+    'organizations':   [SA_PLATFORM_OPS],
+    'subscriptions':   [SA_BILLING],
+    'licenses':        [SA_PLATFORM_OPS, SA_BILLING],
+    'admins':          [SA_PLATFORM_OPS],
+    'users':           [SA_PLATFORM_OPS],
+    'plans':           [SA_BILLING, SA_PRODUCT],
+    'modules':         [SA_BILLING, SA_PRODUCT],
+    'analytics':       [SA_PLATFORM_OPS, SA_BILLING],
+    'support':         [SA_PLATFORM_OPS, SA_SUPPORT],
+    'billing':         [SA_BILLING],
+    'announcements':   [SA_PLATFORM_OPS, SA_PRODUCT],
+    'logs':            [SA_PLATFORM_OPS],
+    'integrations':    [SA_PLATFORM_OPS],
+    'doc-identity':    [SA_PLATFORM_OPS, SA_PRODUCT],
+    'storage':         [SA_PLATFORM_OPS],
+    'stage-templates': [SA_PLATFORM_OPS, SA_PRODUCT],
+    'stage-weightage': [SA_PLATFORM_OPS, SA_PRODUCT],
+    'recycle-bin':     [SA_PLATFORM_OPS],
+    'recycleBin':      [SA_PLATFORM_OPS],
+    'user-manual':     [SA_PLATFORM_OPS, SA_PRODUCT],
+    'settings':        [SA_PLATFORM_OPS],
+    'admin-logins':    [],   # Owner only
 }
 
 # Map: section → which sub-roles can even READ (navigate to)
 SA_READ_PERMISSIONS = {
-    'overview':       [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_PRODUCT, SA_READ_ONLY],
-    'organizations':  [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_READ_ONLY],
-    'subscriptions':  [SA_BILLING, SA_READ_ONLY, SA_PLATFORM_OPS],
-    'licenses':       [SA_PLATFORM_OPS, SA_BILLING, SA_READ_ONLY],
-    'admins':         [SA_PLATFORM_OPS, SA_SUPPORT, SA_READ_ONLY],
-    'users':          [SA_PLATFORM_OPS, SA_SUPPORT, SA_READ_ONLY],
-    'plans':          [SA_BILLING, SA_PRODUCT, SA_READ_ONLY, SA_PLATFORM_OPS],
-    'modules':        [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_PRODUCT, SA_READ_ONLY],
-    'analytics':      [SA_PLATFORM_OPS, SA_BILLING, SA_READ_ONLY, SA_PRODUCT],
-    'support':        [SA_PLATFORM_OPS, SA_SUPPORT, SA_READ_ONLY],
-    'billing':        [SA_BILLING, SA_READ_ONLY, SA_PLATFORM_OPS],
-    'announcements':  [SA_PLATFORM_OPS, SA_PRODUCT, SA_READ_ONLY, SA_SUPPORT],
-    'logs':           [SA_PLATFORM_OPS, SA_READ_ONLY],
-    'integrations':   [SA_PLATFORM_OPS, SA_READ_ONLY],
-    'settings':       [SA_PLATFORM_OPS, SA_READ_ONLY],
-    'admin-logins':   [SA_READ_ONLY],
+    'overview':        [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_PRODUCT, SA_READ_ONLY],
+    'organizations':   [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_READ_ONLY],
+    'subscriptions':   [SA_BILLING, SA_READ_ONLY, SA_PLATFORM_OPS],
+    'licenses':        [SA_PLATFORM_OPS, SA_BILLING, SA_READ_ONLY],
+    'admins':          [SA_PLATFORM_OPS, SA_SUPPORT, SA_READ_ONLY],
+    'users':           [SA_PLATFORM_OPS, SA_SUPPORT, SA_READ_ONLY],
+    'plans':           [SA_BILLING, SA_PRODUCT, SA_READ_ONLY, SA_PLATFORM_OPS],
+    'modules':         [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_PRODUCT, SA_READ_ONLY],
+    'analytics':       [SA_PLATFORM_OPS, SA_BILLING, SA_READ_ONLY],
+    'support':         [SA_PLATFORM_OPS, SA_SUPPORT, SA_READ_ONLY],
+    'billing':         [SA_BILLING, SA_READ_ONLY],
+    'announcements':   [SA_PLATFORM_OPS, SA_PRODUCT, SA_READ_ONLY, SA_SUPPORT],
+    'logs':            [SA_PLATFORM_OPS, SA_READ_ONLY],
+    'integrations':    [SA_PLATFORM_OPS, SA_READ_ONLY],
+    'doc-identity':    [SA_PLATFORM_OPS, SA_PRODUCT, SA_READ_ONLY],
+    'storage':         [SA_PLATFORM_OPS, SA_READ_ONLY],
+    'stage-templates': [SA_PLATFORM_OPS, SA_PRODUCT, SA_READ_ONLY],
+    'stage-weightage': [SA_PLATFORM_OPS, SA_PRODUCT, SA_READ_ONLY],
+    'recycle-bin':     [SA_PLATFORM_OPS, SA_READ_ONLY],
+    'recycleBin':      [SA_PLATFORM_OPS, SA_READ_ONLY],
+    'user-manual':     [SA_PLATFORM_OPS, SA_BILLING, SA_SUPPORT, SA_PRODUCT, SA_READ_ONLY],
+    'settings':        [SA_PLATFORM_OPS, SA_READ_ONLY],
+    'admin-logins':    [SA_READ_ONLY],  # Auditor can view, only Owner can write
 }
 
 
@@ -68,16 +101,20 @@ def _is_super_admin(user):
 
 
 def _get_sa_sub_role(user):
-    """Return the Super Admin sub-role string, or 'Owner' if none is set."""
+    """Return the normalized Super Admin sub-role string, or 'Owner' if none is set."""
     if not user:
         return SA_OWNER
     cf = user.custom_fields if isinstance(user.custom_fields, dict) else {}
-    return cf.get('super_admin_role', SA_OWNER)
+    raw = cf.get('super_admin_role', SA_OWNER)
+    if not raw:
+        return SA_OWNER
+    return SUB_ROLE_NORMALIZATION.get(str(raw).strip().lower(), str(raw).strip())
 
 
 def get_sa_permissions(sub_role):
     """Return a dict of {section: {can_read, can_write}} for the given sub-role."""
-    if sub_role == SA_OWNER:
+    norm_role = SUB_ROLE_NORMALIZATION.get(str(sub_role).strip().lower(), str(sub_role).strip()) if sub_role else SA_OWNER
+    if norm_role == SA_OWNER:
         # Owner has full access everywhere
         all_sections = set(SA_READ_PERMISSIONS.keys()) | set(SA_WRITE_PERMISSIONS.keys())
         return {s: {'can_read': True, 'can_write': True} for s in all_sections}
@@ -85,8 +122,8 @@ def get_sa_permissions(sub_role):
     perms = {}
     all_sections = set(SA_READ_PERMISSIONS.keys()) | set(SA_WRITE_PERMISSIONS.keys())
     for section in all_sections:
-        can_read = sub_role in SA_READ_PERMISSIONS.get(section, [])
-        can_write = sub_role in SA_WRITE_PERMISSIONS.get(section, [])
+        can_read = norm_role in SA_READ_PERMISSIONS.get(section, [])
+        can_write = norm_role in SA_WRITE_PERMISSIONS.get(section, [])
         perms[section] = {'can_read': can_read, 'can_write': can_write}
     return perms
 

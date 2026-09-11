@@ -12,6 +12,7 @@ import re
 from werkzeug.utils import secure_filename
 from app.utils.avatar_utils import get_profile_picture_url
 from app.presentation.routes.error_helpers import internal_server_error
+from app.presentation.middleware.middleware import _is_super_admin, _get_sa_sub_role
 
 def _to_naive_utc(dt):
     if dt is None:
@@ -1183,11 +1184,11 @@ def login():
     # Scoped access token
     # Include sa_sub_role in claims so the frontend can enforce sub-role
     # restrictions immediately without an extra API call.
+    from app.presentation.middleware.middleware import _is_super_admin, _get_sa_sub_role
     role_name = user.role.name if user.role else 'SuperAdmin'
     sa_sub_role = None
-    if user.role and user.role.name == 'SuperAdmin':
-        cf = user.custom_fields if isinstance(user.custom_fields, dict) else {}
-        sa_sub_role = cf.get('super_admin_role', 'Owner')
+    if _is_super_admin(user):
+        sa_sub_role = _get_sa_sub_role(user)
 
     remember_me = bool(data.get('remember_me') or data.get('rememberMe'))
     token_expiry = timedelta(days=30) if remember_me else timedelta(days=1)
@@ -1285,6 +1286,8 @@ def login():
         "org_name": user.organization.name if user.organization else None,
         "role": user.role.name if user.role else 'SuperAdmin',
         "role_name": user.role.name if user.role else 'SuperAdmin',
+        "sa_sub_role": sa_sub_role,
+        "custom_fields": user.custom_fields or {},
         "role_permissions": merged_perms,
         "subscription_plan": user.organization.subscription_plan if user.organization else 'Starter',
         "subscription_status": user.organization.subscription_status if user.organization else 'Active',
@@ -1355,6 +1358,8 @@ def get_profile():
         "email": user.email,
         "role": user.role.name if user.role else 'SuperAdmin',
         "role_name": user.role.name if user.role else 'SuperAdmin',
+        "sa_sub_role": _get_sa_sub_role(user) if is_super_admin else None,
+        "custom_fields": user.custom_fields or {},
         "role_permissions": merged_perms,
         "department": d_name,
         "department_name": d_name,

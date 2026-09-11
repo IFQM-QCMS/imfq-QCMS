@@ -9,7 +9,8 @@ New:    Subscription, SubscriptionInvoice
 import uuid
 import csv
 import io
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
+from decimal import Decimal
 from flask import Blueprint, jsonify, request, Response, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func, or_, and_, text
@@ -26,6 +27,20 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.presentation.routes.error_helpers import internal_server_error
 
 subscription_bp = Blueprint('subscriptions', __name__)
+
+def _json_safe(obj):
+    """Recursively convert Decimal, date/datetime, and nested structures to JSON-serializable primitives."""
+    if obj is None:
+        return None
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_json_safe(x) for x in obj]
+    return obj
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PLAN CATALOGUE  (single source of truth for pricing & limits)
@@ -327,21 +342,28 @@ def _serialize_invoice(inv):
 
 def _log(user, action, target_type=None, target_id=None, old_val=None, new_val=None):
     try:
+        ip = request.remote_addr if request else None
+        ua = request.headers.get('User-Agent', '') if request else ''
+    except Exception:
+        ip = None
+        ua = ''
+    try:
         log = SuperAdminLog(
             admin_id=user.id,
             action=action,
             target_type=target_type,
             target_id=target_id,
-            ip_address=request.remote_addr,
-            details={
+            ip_address=ip,
+            details=_json_safe({
                 'old': old_val,
                 'new': new_val,
-                'user_agent': request.headers.get('User-Agent', '')
-            }
+                'user_agent': ua
+            })
         )
         db.session.add(log)
         db.session.commit()
     except Exception as e:
+        db.session.rollback()
         print(f"[SUBSCRIPTION] Audit log failed: {e}")
 
 
@@ -2555,11 +2577,11 @@ def create_plan():
     db.session.add(analytics)
 
     # Snapshot Version 1
-    snapshot = {
+    snapshot = _json_safe({
         'name': plan.name, 'code': plan.code, 'description': plan.description,
-        'pricing': [{'billing_cycle': p.get('billing_cycle'), 'price': p.get('price')} for p in pricing_data],
+        'pricing': [{'billing_cycle': p.get('billing_cycle'), 'price': float(p.get('price', 0.0) or 0.0)} for p in pricing_data],
         'limits': lim, 'modules': modules_data
-    }
+    })
     version = SaaSPlanVersion(
         plan_id=plan.id,
         version=1,
@@ -2585,15 +2607,15 @@ def update_plan(plan_id):
     plan = SaaSPlan.query.get_or_404(plan_id)
     data = request.get_json(silent=True) or {}
 
-    old_snapshot = {
+    old_snapshot = _json_safe({
         'name': plan.name, 'code': plan.code, 'description': plan.description,
-        'pricing': [{'billing_cycle': p.billing_cycle, 'price': p.price} for p in plan.pricing],
+        'pricing': [{'billing_cycle': p.billing_cycle, 'price': float(p.price) if p.price is not None else 0.0} for p in (plan.pricing or [])],
         'limits': {
             'max_users': plan.limits.max_users if plan.limits else 100,
             'storage_limit_gb': plan.limits.storage_limit_gb if plan.limits else 10.0
         },
-        'modules': [m.module_name for m in plan.modules if m.is_enabled]
-    }
+        'modules': [m.module_name for m in (plan.modules or []) if getattr(m, 'is_enabled', True)]
+    })
 
     # Update metadata
     if 'name' in data:
@@ -2680,39 +2702,53 @@ def update_plan(plan_id):
             db.session.add(pricing)
 
     # Update Limits
-    if 'limits' in data and plan.limits:
+    if 'limits' in data:
         lim = data['limits']
-        plan.limits.max_users = int(lim.get('max_users', plan.limits.max_users))
-        plan.limits.max_locations = int(lim.get('max_locations', getattr(plan.limits, 'max_locations', 5)))
-        plan.limits.max_departments = int(lim.get('max_departments', getattr(plan.limits, 'max_departments', 10)))
-        plan.limits.max_projects = int(lim.get('max_projects', plan.limits.max_projects))
-        plan.limits.storage_limit_gb = float(lim.get('storage_limit_gb', plan.limits.storage_limit_gb))
-        plan.limits.api_limit = int(lim.get('api_limit', plan.limits.api_limit))
+        if not plan.limits:
+            plan.limits = SaaSPlanLimits(plan_id=plan.id)
+            db.session.add(plan.limits)
+        plan.limits.max_users = int(lim.get('max_users', plan.limits.max_users or 100) or 100)
+        plan.limits.max_locations = int(lim.get('max_locations', getattr(plan.limits, 'max_locations', 5) or 5) or 5)
+        plan.limits.max_departments = int(lim.get('max_departments', getattr(plan.limits, 'max_departments', 10) or 10) or 10)
+        plan.limits.max_projects = int(lim.get('max_projects', plan.limits.max_projects or 25) or 25)
+        plan.limits.storage_limit_gb = float(lim.get('storage_limit_gb', plan.limits.storage_limit_gb or 10.0) or 10.0)
+        plan.limits.api_limit = int(lim.get('api_limit', plan.limits.api_limit or 10000) or 10000)
 
     # Apply to existing subscribers
     apply_to_existing = bool(data.get('apply_to_existing', True))
     synced_org_count = 0
     if apply_to_existing:
-        orgs_to_sync = Organization.query.filter(
-            (Organization.is_deleted == False) &
-            (Organization.is_platform_org == False) &
-            (
-                (func.lower(func.trim(Organization.subscription_plan)) == plan.name.strip().lower()) |
-                (func.lower(func.trim(Organization.subscription_plan)) == plan.code.strip().lower()) |
-                (func.lower(func.trim(Organization.subscription_plan)) == old_snapshot['name'].strip().lower()) |
-                (func.lower(func.trim(Organization.subscription_plan)) == old_snapshot['code'].strip().lower())
-            )
-        ).all()
-        synced_org_count = len(orgs_to_sync)
+        plan_name_val = (plan.name or '').strip().lower()
+        plan_code_val = (plan.code or '').strip().lower()
+        old_name_val = (old_snapshot.get('name') or '').strip().lower()
+        old_code_val = (old_snapshot.get('code') or '').strip().lower()
 
-        new_storage_mb = plan.limits.storage_limit_gb * 1024.0 if plan.limits else 10240.0
-        new_max_users = plan.limits.max_users if plan.limits else 100
+        name_filters = []
+        if plan_name_val:
+            name_filters.append(func.lower(func.trim(Organization.subscription_plan)) == plan_name_val)
+        if plan_code_val:
+            name_filters.append(func.lower(func.trim(Organization.subscription_plan)) == plan_code_val)
+        if old_name_val and old_name_val not in (plan_name_val, plan_code_val):
+            name_filters.append(func.lower(func.trim(Organization.subscription_plan)) == old_name_val)
+        if old_code_val and old_code_val not in (plan_name_val, plan_code_val):
+            name_filters.append(func.lower(func.trim(Organization.subscription_plan)) == old_code_val)
 
-        for o in orgs_to_sync:
-            o.storage_limit_mb = new_storage_mb
-            o.max_users = new_max_users
-            if 'name' in data and data['name']:
-                o.subscription_plan = data['name']
+        if name_filters:
+            orgs_to_sync = Organization.query.filter(
+                (Organization.is_deleted == False) &
+                (Organization.is_platform_org == False) &
+                or_(*name_filters)
+            ).all()
+            synced_org_count = len(orgs_to_sync)
+
+            new_storage_mb = plan.limits.storage_limit_gb * 1024.0 if plan.limits else 10240.0
+            new_max_users = plan.limits.max_users if plan.limits else 100
+
+            for o in orgs_to_sync:
+                o.storage_limit_mb = new_storage_mb
+                o.max_users = new_max_users
+                if 'name' in data and data['name']:
+                    o.subscription_plan = data['name']
 
     # Update Modules
     if 'modules' in data:
@@ -2732,12 +2768,12 @@ def update_plan(plan_id):
 
     # Increment Version Snapshot
     plan.version = (plan.version or 0) + 1
-    new_snapshot = {
+    new_snapshot = _json_safe({
         'name': plan.name, 'code': plan.code, 'description': plan.description,
         'pricing': data.get('pricing', old_snapshot['pricing']),
         'limits': data.get('limits', old_snapshot['limits']),
         'modules': data.get('modules', old_snapshot['modules'])
-    }
+    })
     version = SaaSPlanVersion(
         plan_id=plan.id,
         version=plan.version,
@@ -2754,6 +2790,15 @@ def update_plan(plan_id):
         resp_msg = f"Plan updated to Version {plan.version} successfully and applied immediately to {synced_org_count} existing active subscriber organization(s)."
     else:
         resp_msg = f"Plan template updated to Version {plan.version} for future subscribers. Existing active subscribers remain on their current terms."
+
+    return jsonify({
+        'status': 'success',
+        'message': resp_msg,
+        'data': {
+            'id': plan.id,
+            'version': plan.version
+        }
+    }), 200
 
 
 

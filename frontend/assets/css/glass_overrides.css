@@ -1405,6 +1405,30 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     .ps-nav-desc {
         display: none !important;
     }
+
+    .ps-nav-item .ps-nav-title {
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.2 !important;
+        font-size: 11px !important;
+    }
+
+    .ps-workspace,
+    .ps-content-card,
+    .ps-tab-pane,
+    #settingsView {
+        padding-bottom: 5rem !important;
+    }
+
+    .ps-tab-pane .form-switch,
+    .ps-tab-pane .form-check {
+        flex-shrink: 0 !important;
+        margin-left: 12px !important;
+    }
+
+    .ps-tab-pane .p-3.rounded-3 {
+        gap: 12px !important;
+    }
 }
 
 /* 3. Sleek Mobile KPI Grid Cards (< 768px) */
@@ -1474,44 +1498,55 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     .lic-kpi-card,
     .mod-kpi-card,
     .plan-kpi-card,
-    .bill-kpi-card {
-        min-height: 80px !important;
-        height: 100% !important;
-        padding: 0 !important;
-        border-radius: 10px !important;
+    .bill-kpi-card,
+    .audit-kpi-card {
+        min-height: 110px !important;
+        height: auto !important;
+        padding: 12px 10px !important;
+        border-radius: 12px !important;
         display: flex !important;
         flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
         box-sizing: border-box !important;
         min-width: 0 !important;
         max-width: 100% !important;
         overflow: hidden !important;
+        position: relative !important;
     }
 
     .kpi-card-body,
     #kpiGrid .ds-card-body,
     .kpi-grid .ds-card-body {
-        padding: 10px 10px !important;
+        padding: 8px 6px !important;
         box-sizing: border-box !important;
         width: 100% !important;
         min-width: 0 !important;
+        text-align: center !important;
     }
 
-    /* Compact KPI Icons */
+    /* Compact Centered KPI Icons */
     #superKpiGrid .glass-card div[style*="width:36px"],
     #superKpiGrid .glass-card div[style*="width:40px"],
     #orgKpiGrid .glass-card div[style*="width:36px"],
     #orgKpiGrid .glass-card div[style*="width:40px"],
     .kpi-icon-box,
     .kpi-icon,
+    .plan-kpi-icon,
+    .audit-kpi-icon,
     .sub-kpi-card .kpi-icon,
     .lic-kpi-card .kpi-icon,
-    .mod-kpi-card .kpi-icon {
-        width: 28px !important;
-        height: 28px !important;
-        border-radius: 7px !important;
+    .mod-kpi-card .kpi-icon,
+    .bill-kpi-card .kpi-icon {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 8px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        margin: 0 auto 6px auto !important;
+        flex-shrink: 0 !important;
     }
 
     #superKpiGrid .glass-card div[style*="width:36px"] i,
@@ -1520,44 +1555,110 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     #orgKpiGrid .glass-card div[style*="width:40px"] i,
     .kpi-icon-box i,
     .kpi-icon i,
-    .sub-kpi-card .kpi-icon i {
-        width: 14px !important;
-        height: 14px !important;
+    .plan-kpi-icon i,
+    .audit-kpi-icon i,
+    .sub-kpi-card .kpi-icon i,
+    .lic-kpi-card .kpi-icon i,
+    .mod-kpi-card .kpi-icon i,
+    .bill-kpi-card .kpi-icon i {
+        width: 16px !important;
+        height: 16px !important;
     }
 
-    /* Compact KPI Value Numbers */
+    /* Compact Centered KPI Value Numbers */
     .kpi-value,
+    .plan-kpi-value,
+    .audit-kpi-value,
+    .bill-kpi-card .kpi-value,
     #superKpiGrid .text-xl,
     #superKpiGrid .text-2xl,
     #orgKpiGrid .text-xl,
     #orgKpiGrid .text-2xl {
-        font-size: 1.15rem !important;
+        font-size: 1.25rem !important;
         font-weight: 700 !important;
         line-height: 1.15 !important;
-        margin-bottom: 1px !important;
+        margin-bottom: 2px !important;
+        text-align: center !important;
+        width: 100% !important;
     }
 
-    /* Compact KPI Labels */
+    /* Compact Centered KPI Labels */
     .kpi-label,
+    .plan-kpi-label,
+    .audit-kpi-label,
+    .bill-kpi-card .kpi-label,
     #superKpiGrid .text-muted,
     #orgKpiGrid .text-muted,
     #superKpiGrid .text-xs,
     #orgKpiGrid .text-xs {
         font-size: 10px !important;
+        font-weight: 600 !important;
         line-height: 1.2 !important;
-        margin-top: 1px !important;
+        margin-top: 2px !important;
+        margin-bottom: 0 !important;
         white-space: normal !important;
         word-break: break-word !important;
         overflow-wrap: break-word !important;
         max-width: 100% !important;
-        letter-spacing: 0.02em !important;
+        width: 100% !important;
+        text-align: center !important;
+        letter-spacing: 0.03em !important;
+        padding: 0 4px !important;
+    }
+
+    /* Unified Flex Order & Accents for Centered KPI Cards */
+    .plan-kpi-icon,
+    .audit-kpi-icon,
+    .sub-kpi-card .kpi-icon,
+    .lic-kpi-card .kpi-icon,
+    .mod-kpi-card .kpi-icon,
+    .bill-kpi-card .kpi-icon,
+    .ea-kpi-card .kpi-icon,
+    .anc-kpi-card .kpi-icon {
+        order: 1 !important;
+    }
+
+    .plan-kpi-value,
+    .audit-kpi-value,
+    .sub-kpi-card .kpi-value,
+    .lic-kpi-card .kpi-value,
+    .mod-kpi-card .kpi-value,
+    .bill-kpi-card .kpi-value,
+    .ea-kpi-card .kpi-value,
+    .anc-kpi-card .kpi-value {
+        order: 2 !important;
+    }
+
+    .plan-kpi-label,
+    .audit-kpi-label,
+    .sub-kpi-card .kpi-label,
+    .lic-kpi-card .kpi-label,
+    .mod-kpi-card .kpi-label,
+    .bill-kpi-card .kpi-label,
+    .ea-kpi-card .kpi-label,
+    .anc-kpi-card .kpi-label {
+        order: 3 !important;
+    }
+
+    .plan-kpi-accent,
+    .audit-kpi-accent,
+    .sub-kpi-card .kpi-accent,
+    .lic-kpi-card .kpi-accent,
+    .bill-kpi-card .bill-kpi-accent,
+    .ea-kpi-card .kpi-accent,
+    .anc-kpi-card .kpi-accent {
+        position: absolute !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 3px !important;
     }
 
     /* Info Icon positioning inside compact cards */
     #superKpiGrid .position-absolute,
     #orgKpiGrid .position-absolute {
-        top: 4px !important;
-        right: 4px !important;
+        top: 6px !important;
+        right: 6px !important;
     }
 }
 

@@ -7,7 +7,7 @@
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="preload" href="/assets/dist/core.9e680c70.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.322f73cd.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.c69f3a06.min.js" as="script">
     <script src="/assets/dist/auth-guard.c69f3a06.min.js"></script>
 
@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Control | OctaQube SaaS Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/dist/core.9e680c70.min.css">
+    <link rel="stylesheet" href="/assets/dist/core.322f73cd.min.css">
     <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -137,7 +137,7 @@
             background: var(--audit-card-bg);
             border: 1px solid var(--audit-card-border);
             border-radius: 12px;
-            padding: 10px 12px;
+            padding: 12px 10px;
             position: relative;
             overflow: hidden;
             cursor: pointer;
@@ -145,6 +145,12 @@
             user-select: none;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 105px;
         }
         .audit-kpi-card:hover {
             transform: translateY(-3px);
@@ -152,13 +158,14 @@
             box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
         }
         .audit-kpi-icon {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 6px;
+            margin: 0 auto 6px auto;
+            flex-shrink: 0;
         }
         .audit-kpi-value {
             font-size: 20px;
@@ -166,15 +173,18 @@
             color: var(--audit-text-main);
             line-height: 1.1;
             margin-bottom: 2px;
+            text-align: center;
+            width: 100%;
         }
         .audit-kpi-label {
             font-size: 11px;
             color: var(--audit-text-secondary);
             font-weight: 600;
             line-height: 1.2;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: break-word;
+            text-align: center;
+            width: 100%;
         }
         .audit-kpi-growth {
             font-size: 11px;
@@ -3676,11 +3686,11 @@
                     <style>
                     #plansView .plan-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.2rem}
                     @media(max-width:992px){#plansView .plan-kpi-grid{grid-template-columns:repeat(2,1fr)}}
-                    #plansView .plan-kpi-card{background:var(--ds-surface);border:1px solid var(--ds-border-color);border-radius:12px;padding:1rem 1.1rem;position:relative;overflow:hidden;cursor:pointer;transition:all .18s ease-index}
+                    #plansView .plan-kpi-card{background:var(--ds-surface);border:1px solid var(--ds-border-color);border-radius:12px;padding:1.1rem 1rem;position:relative;overflow:hidden;cursor:pointer;transition:all .18s ease;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:115px}
                     #plansView .plan-kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.08)}
-                    #plansView .plan-kpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem}
-                    #plansView .plan-kpi-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ds-text-secondary);margin-bottom:.15rem}
-                    #plansView .plan-kpi-value{font-size:1.35rem;font-weight:700;color:var(--ds-text-main);line-height:1}
+                    #plansView .plan-kpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin:0 auto .5rem auto;flex-shrink:0}
+                    #plansView .plan-kpi-value{font-size:1.35rem;font-weight:700;color:var(--ds-text-main);line-height:1.1;margin-bottom:4px;text-align:center;width:100%}
+                    #plansView .plan-kpi-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ds-text-secondary);margin-bottom:0;text-align:center;width:100%}
                     #plansView .plan-kpi-accent{position:absolute;bottom:0;left:0;right:0;height:3px}
                     #plansView .plan-status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600}
                     #plansView .plan-status-badge::before{content:'';width:6px;height:6px;border-radius:50%}
@@ -6567,12 +6577,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/core-bundle.44de60f6.min.js"></script>
+    <script src="/assets/dist/core-bundle.d8baef71.min.js"></script>
     <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.b5563980.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
-    <script src="/assets/dist/platform-settings.87cc66aa.min.js"></script>
-    <script src="/assets/dist/super-admin.9d4afbc1.min.js"></script>
+    <script src="/assets/dist/platform-settings.f2bdf6f8.min.js"></script>
+    <script src="/assets/dist/super-admin.1358b5ef.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
@@ -7149,6 +7159,12 @@
                 const result = await res.json();
                 if (result.status === 'success') {
                     _diShowNotify(result.message || 'Logo uploaded successfully!', 'success');
+                    try {
+                        const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+                        savedAssets['main-logo'] = result.logo_url;
+                        savedAssets['logo'] = result.logo_url;
+                        localStorage.setItem('octaqube_brand_assets', JSON.stringify(savedAssets));
+                    } catch (_) {}
                     if (result.branding_context) {
                         window.DocIdentityManagerSA.applyBrandingToUI(result.branding_context);
                     }
@@ -7159,6 +7175,8 @@
             } catch (err) {
                 console.error('[DocIdentityManagerSA] Logo upload error:', err);
                 _diShowNotify('Logo upload failed: Network or server error.', 'error');
+            } finally {
+                inputEl.value = '';
             }
         },
         async removePlatformLogo() {
@@ -7168,6 +7186,12 @@
                 const result = await res.json();
                 if (result.status === 'success') {
                     _diShowNotify(result.message || 'Logo reset to default!', 'success');
+                    try {
+                        const savedAssets = JSON.parse(localStorage.getItem('octaqube_brand_assets') || '{}');
+                        delete savedAssets['main-logo'];
+                        delete savedAssets['logo'];
+                        localStorage.setItem('octaqube_brand_assets', JSON.stringify(savedAssets));
+                    } catch (_) {}
                     if (result.branding_context) {
                         window.DocIdentityManagerSA.applyBrandingToUI(result.branding_context);
                     }

@@ -3375,6 +3375,7 @@ def get_system_health():
 @super_admin_bp.route('/admin-logins', methods=['GET'])
 @jwt_required()
 @super_admin_required()
+@sub_role_required('admin-logins')
 def list_admin_logins():
     """Returns list of all Super Admin accounts and credentials info"""
     sa_role = Role.query.filter_by(name='SuperAdmin').first()
@@ -3385,7 +3386,7 @@ def list_admin_logins():
     for u in users:
         is_sa = (u.role_id == sa_role_id) or (u.role and u.role.name == 'SuperAdmin') or (isinstance(u.custom_fields, dict) and bool(u.custom_fields.get('super_admin_role')))
         if is_sa:
-            sub_role = (u.custom_fields or {}).get('super_admin_role', 'Owner') if isinstance(u.custom_fields, dict) else 'Owner'
+            sub_role = _get_sa_sub_role(u)
             admin_list.append({
                 "id": u.id,
                 "username": u.username,
@@ -3408,44 +3409,35 @@ def list_admin_logins():
 def update_own_admin_credentials():
     """Allows current logged-in Super Admin to update their own Email and Password"""
     current_user_id = get_jwt_identity()
-    user = db.session.get(User, current_user_id)
+    user = db.session.get(User, int(current_user_id))
     if not user:
-        return jsonify({"status": "error", "message": "User account not found"}), 404
+        return jsonify({"status": "error", "message": "User not found"}), 404
         
     data = request.get_json() or {}
-    new_email = data.get('new_email', '').strip()
-    current_password = data.get('current_password', '').strip()
-    new_password = data.get('new_password', '').strip()
+    email = data.get('email', '').strip()
+    password = data.get('password', '').strip()
     
-    if not current_password:
-        return jsonify({"status": "error", "message": "Current password is required to verify identity"}), 400
-        
-    if not user.check_password(current_password):
-        return jsonify({"status": "error", "message": "Current password verification failed"}), 400
-        
-    # Update Email
-    if new_email and new_email.lower() != user.email.lower():
+    if email and email.lower() != user.email.lower():
         try:
-            new_email = validate_email(new_email, "Super Admin Email")
+            email = validate_email(email, "Email")
         except ValidationError as ve:
             return jsonify({"status": "error", "message": "Invalid email format. Email must be in username@domain.extension format (e.g. name@domain.com)."}), 400
-        existing = User.query.filter(User.email.ilike(new_email), User.id != user.id).first()
+            
+        existing = User.query.filter(User.email.ilike(email), User.id != user.id).first()
         if existing:
-            return jsonify({"status": "error", "message": "Email is already registered to another user"}), 400
-        user.email = new_email
+            return jsonify({"status": "error", "message": "Email is already taken by another account"}), 400
+        user.email = email
         
-    # Update Password
-    if new_password:
-        if len(new_password) < 6:
-            return jsonify({"status": "error", "message": "New password must be at least 6 characters"}), 400
-        user.password = new_password
+    if password:
+        if len(password) < 6:
+            return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
+        user.password = password
         
     db.session.commit()
     return jsonify({
         "status": "success",
-        "message": "Super Admin credentials updated successfully!",
-        "user": {
-            "id": user.id,
+        "message": "Credentials updated successfully",
+        "data": {
             "username": user.username,
             "email": user.email
         }
@@ -3455,13 +3447,16 @@ def update_own_admin_credentials():
 @super_admin_bp.route('/admin-logins', methods=['POST'])
 @jwt_required()
 @super_admin_required()
+@sub_role_write_required('admin-logins')
 def create_new_admin_login():
     """Creates a new Super Admin login account"""
     data = request.get_json() or {}
     username = data.get('username', '').strip()
     email = data.get('email', '').strip()
     password = data.get('password', '').strip()
-    sub_role = data.get('sub_role', 'Owner').strip()
+    raw_sub_role = data.get('sub_role', 'Owner').strip()
+    from app.presentation.middleware.middleware import SUB_ROLE_NORMALIZATION
+    sub_role = SUB_ROLE_NORMALIZATION.get(raw_sub_role.lower(), raw_sub_role)
     
     if not username or not email or not password:
         return jsonify({"status": "error", "message": "Username, email, and initial password are required"}), 400
@@ -3518,6 +3513,7 @@ def create_new_admin_login():
 @super_admin_bp.route('/admin-logins/<int:admin_id>', methods=['PUT'])
 @jwt_required()
 @super_admin_required()
+@sub_role_write_required('admin-logins')
 def update_admin_login(admin_id):
     """Updates an existing Super Admin account details or password"""
     target = db.session.get(User, admin_id)
@@ -3527,7 +3523,7 @@ def update_admin_login(admin_id):
     data = request.get_json() or {}
     email = data.get('email', '').strip()
     password = data.get('password', '').strip()
-    sub_role = data.get('sub_role', '').strip()
+    raw_sub_role = data.get('sub_role', '').strip()
     
     if email and email.lower() != target.email.lower():
         try:
@@ -3544,7 +3540,9 @@ def update_admin_login(admin_id):
             return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
         target.password = password
         
-    if sub_role:
+    if raw_sub_role:
+        from app.presentation.middleware.middleware import SUB_ROLE_NORMALIZATION
+        sub_role = SUB_ROLE_NORMALIZATION.get(raw_sub_role.lower(), raw_sub_role)
         cf = dict(target.custom_fields or {})
         cf['super_admin_role'] = sub_role
         target.custom_fields = cf
@@ -3559,6 +3557,7 @@ def update_admin_login(admin_id):
 @super_admin_bp.route('/admin-logins/<int:admin_id>', methods=['DELETE'])
 @jwt_required()
 @super_admin_required()
+@sub_role_write_required('admin-logins')
 def delete_admin_login(admin_id):
     """Deletes or removes a Super Admin account"""
     current_user_id = get_jwt_identity()

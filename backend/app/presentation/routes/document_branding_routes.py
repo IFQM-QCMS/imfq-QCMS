@@ -17,9 +17,14 @@ def _get_user_and_org_id():
         if isinstance(identity, dict):
             u_id = identity.get('id') or identity.get('user_id')
         else:
-            u_id = int(identity)
+            u_id = int(identity) if identity is not None else None
         user = db.session.get(User, int(u_id)) if u_id else None
-        org_id = user.org_id if (user and hasattr(user, 'role') and user.role and user.role.name != 'SuperAdmin') else None
+        is_sa = False
+        if user:
+            role_name = (user.role.name if user.role else '').strip().lower()
+            if role_name in ('superadmin', 'super admin', 'super_admin') or getattr(user, 'is_super_admin', False) or (user.org_id is None and role_name in ('admin', 'administrator')):
+                is_sa = True
+        org_id = None if is_sa else (user.org_id if user else None)
         return user, org_id
     except Exception:
         db.session.rollback()
@@ -184,89 +189,106 @@ def upload_platform_logo():
     import os, time
     from werkzeug.utils import secure_filename
     from flask import current_app
+    from app.infrastructure.storage import storage
 
-    user_id = get_jwt_identity()
-    user = db.session.get(User, int(user_id))
-    org_id = user.org_id if user and user.role.name != 'SuperAdmin' else None
+    try:
+        user, org_id = _get_user_and_org_id()
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User authentication required or session expired.'}), 401
 
-    if 'logo_file' not in request.files:
-        return jsonify({'status': 'error', 'message': 'No file uploaded'}), 400
+        if 'logo_file' not in request.files:
+            return jsonify({'status': 'error', 'message': 'No file uploaded'}), 400
 
-    file = request.files['logo_file']
-    if not file or file.filename == '':
-        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+        file = request.files['logo_file']
+        if not file or file.filename == '':
+            return jsonify({'status': 'error', 'message': 'No file selected'}), 400
 
-    allowed_exts = {'png', 'jpg', 'jpeg', 'svg', 'webp', 'gif'}
-    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-    if ext not in allowed_exts:
-        return jsonify({'status': 'error', 'message': 'Invalid file type. Allowed: PNG, JPG, JPEG, SVG, WEBP'}), 400
+        allowed_exts = {'png', 'jpg', 'jpeg', 'svg', 'webp', 'gif'}
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in allowed_exts:
+            return jsonify({'status': 'error', 'message': 'Invalid file type. Allowed: PNG, JPG, JPEG, SVG, WEBP'}), 400
 
-    filename = f"logo_{int(time.time())}_{secure_filename(file.filename)}"
+        filename = f"logo_{int(time.time())}_{secure_filename(file.filename)}"
 
-    # Save to backend & frontend uploads directory
-    upload_dir_backend = os.path.join(current_app.root_path, '..', '..', 'frontend', 'uploads', 'branding')
-    os.makedirs(upload_dir_backend, exist_ok=True)
-    file_path = os.path.join(upload_dir_backend, filename)
-    file.save(file_path)
+        # Save using centralized storage provider (handles Azure Blob, Supabase, or local filesystem volume)
+        result = storage.save_file(file, filename=filename, subfolder="branding")
+        relative_url = result.get('url') or f"/uploads/branding/{result.get('filename', filename)}"
 
-    relative_url = f"/uploads/branding/{filename}"
+        # Convenience copy to frontend/uploads/branding if local frontend directory exists (for local non-docker dev)
+        try:
+            frontend_dir = os.path.abspath(os.path.join(current_app.root_path, '..', '..', 'frontend', 'uploads', 'branding'))
+            if os.path.isdir(os.path.dirname(os.path.dirname(frontend_dir))):
+                os.makedirs(frontend_dir, exist_ok=True)
+                local_src = result.get('local_path')
+                if local_src and os.path.isfile(local_src):
+                    import shutil
+                    shutil.copy(local_src, os.path.join(frontend_dir, os.path.basename(local_src)))
+        except Exception:
+            pass
 
-    # Update BrandingAssetsConfig
-    assets = BrandingAssetsConfig.query.filter_by(org_id=org_id).first()
-    if not assets:
-        assets = BrandingAssetsConfig(org_id=org_id)
-        db.session.add(assets)
+        # Update BrandingAssetsConfig
+        assets = BrandingAssetsConfig.query.filter_by(org_id=org_id).first()
+        if not assets:
+            assets = BrandingAssetsConfig(org_id=org_id)
+            db.session.add(assets)
 
-    assets.logo_url = relative_url
-    assets.print_logo_url = relative_url
-    assets.pdf_logo_url = relative_url
+        assets.logo_url = relative_url
+        assets.print_logo_url = relative_url
+        assets.pdf_logo_url = relative_url
 
-    # Only update the org's logo_url when an org-level user uploads —
-    # SuperAdmin logo uploads are platform-level only and must NOT touch any org's logo_url
-    if org_id and user.organization:
-        user.organization.logo_url = relative_url
+        # Only update the org's logo_url when an org-level user uploads —
+        # SuperAdmin logo uploads are platform-level only and must NOT touch any org's logo_url
+        if org_id and user.organization:
+            user.organization.logo_url = relative_url
 
-    db.session.commit()
-    DocumentBrandingService.invalidate_cache()
+        db.session.commit()
+        DocumentBrandingService.invalidate_cache(org_id)
 
-    ctx = DocumentBrandingService.get_branding_context(org_id)
+        ctx = DocumentBrandingService.get_branding_context(org_id)
 
-    return jsonify({
-        "status": "success",
-        "message": "Platform logo uploaded successfully!",
-        "logo_url": relative_url,
-        "branding_context": ctx
-    }), 200
+        return jsonify({
+            "status": "success",
+            "message": "Platform logo uploaded successfully!",
+            "logo_url": relative_url,
+            "branding_context": ctx
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return internal_server_error(e, "Platform logo upload failed.")
 
 
 @document_branding_bp.route('/remove-logo', methods=['POST'])
 @jwt_required()
 def remove_platform_logo():
     """Reset platform / organization logo back to default."""
-    user_id = get_jwt_identity()
-    user = db.session.get(User, int(user_id))
-    org_id = user.org_id if user and user.role.name != 'SuperAdmin' else None
+    try:
+        user, org_id = _get_user_and_org_id()
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User authentication required or session expired.'}), 401
 
-    assets = BrandingAssetsConfig.query.filter_by(org_id=org_id).first()
-    if assets:
-        assets.logo_url = "/assets/img/logo.png"
-        assets.print_logo_url = "/assets/img/logo-print.png"
-        assets.pdf_logo_url = "/assets/img/logo-pdf.png"
+        assets = BrandingAssetsConfig.query.filter_by(org_id=org_id).first()
+        if assets:
+            assets.logo_url = "/assets/img/logo.png"
+            assets.print_logo_url = "/assets/img/logo-print.png"
+            assets.pdf_logo_url = "/assets/img/logo-pdf.png"
 
-    if org_id and user.organization:
-        user.organization.logo_url = None
+        if org_id and user.organization:
+            user.organization.logo_url = None
 
-    db.session.commit()
-    DocumentBrandingService.invalidate_cache()
+        db.session.commit()
+        DocumentBrandingService.invalidate_cache(org_id)
 
-    ctx = DocumentBrandingService.get_branding_context(org_id)
+        ctx = DocumentBrandingService.get_branding_context(org_id)
 
-    return jsonify({
-        "status": "success",
-        "message": "Platform logo reset to default successfully!",
-        "logo_url": "/assets/img/logo.png",
-        "branding_context": ctx
-    }), 200
+        return jsonify({
+            "status": "success",
+            "message": "Platform logo reset to default successfully!",
+            "logo_url": "/assets/img/logo.png",
+            "branding_context": ctx
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return internal_server_error(e, "Failed to reset platform logo.")
 
 
 @document_branding_bp.route('/usage-map', methods=['GET'])
@@ -324,9 +346,7 @@ def generate_live_preview():
     """Generate live HTML rendering preview for Invoices, QC Story Reports, Certificates, and Email Templates."""
     data = request.json or {}
     preview_type = data.get('type', 'invoice')
-    user_id = get_jwt_identity()
-    user = db.session.get(User, int(user_id))
-    org_id = user.org_id if user and user.role.name != 'SuperAdmin' else None
+    user, org_id = _get_user_and_org_id()
 
     ctx = DocumentBrandingService.get_branding_context(org_id)
     tmpl = DocumentBrandingService.get_template_config(preview_type, org_id)

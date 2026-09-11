@@ -23,11 +23,11 @@ const SuperAdmin = {
     async init() {
         console.log("Super Admin Controller Initializing...");
 
-        // 1. Execute view switching based on URL parameters FIRST (eliminates Platform Governance flash)
-        this.handleRouting();
+        // 1. Load sub-role permissions FIRST so that routing and UI enforce correct access
+        await this.loadMyPermissions();
 
-        // 2. Load sub-role permissions
-        this.loadMyPermissions();
+        // 2. Execute view switching based on URL parameters (now verified against loaded sub-role permissions)
+        this.handleRouting();
 
         // 3. Dynamically populate plan select dropdowns across app
         this.populateAllPlanDropdowns();
@@ -80,7 +80,12 @@ const SuperAdmin = {
 
     async loadMyPermissions() {
         try {
-            // Try to read sub_role from JWT claims first (fast, no extra request)
+            // First check OctaQube / local storage for instant role resolution
+            if (window.OctaQube && typeof window.OctaQube.getSaSubRole === 'function') {
+                this.saSubRole = window.OctaQube.getSaSubRole();
+            }
+
+            // Also check token claims if available
             const token = api.token;
             if (token && token.includes('.')) {
                 try {
@@ -91,33 +96,42 @@ const SuperAdmin = {
                 } catch (_) {}
             }
 
-            // Fetch full permission map from backend
+            // Immediately apply restrictions based on local subRole so no flash occurs
+            this.applySubRoleRestrictions();
+
+            // Fetch authoritative permission map from backend
             const res = await api.get('/super-admin/my-permissions');
-            if (res && res.status === 'success') {
-                this.saSubRole = res.data.sub_role || 'Owner';
+            if (res && res.status === 'success' && res.data) {
+                this.saSubRole = res.data.sub_role || this.saSubRole || 'Owner';
                 this._permissions = res.data.permissions;
                 this.applySubRoleRestrictions();
             }
         } catch (e) {
-            // Default to Owner on error (safe for existing sessions)
-            this.saSubRole = 'Owner';
-            console.warn('[RBAC] Could not load permissions, defaulting to Owner:', e.message);
+            console.warn('[RBAC] Could not load permissions from API, using cached sub-role:', this.saSubRole, e.message);
+            this.applySubRoleRestrictions();
         }
     },
 
     canRead(section) {
         if (!this.saSubRole || this.saSubRole === 'Owner') return true;
-        if (!this._permissions) return true; // Safe default while loading
-        const p = this._permissions[section];
-        return p ? Boolean(p.can_read) : true;
+        if (this._permissions) {
+            const p = this._permissions[section];
+            return p ? Boolean(p.can_read) : false;
+        }
+        if (window.OctaQube && typeof window.OctaQube.canSaRead === 'function') {
+            return window.OctaQube.canSaRead(section);
+        }
+        return false;
     },
 
     canWrite(section) {
         if (!this.saSubRole || this.saSubRole === 'Owner') return true;
         if (this.saSubRole === 'Read Only') return false;
-        if (!this._permissions) return true;
-        const p = this._permissions[section];
-        return p ? Boolean(p.can_write) : true;
+        if (this._permissions) {
+            const p = this._permissions[section];
+            return p ? Boolean(p.can_write) : false;
+        }
+        return false;
     },
 
     applySubRoleRestrictions() {
@@ -134,41 +148,69 @@ const SuperAdmin = {
         // --- Sidebar link visibility ---
         // Map view IDs to their section key in the permission map
         const VIEW_SECTION_MAP = {
-            'organizations': 'organizations',
-            'subscriptions': 'subscriptions',
-            'admins':        'admins',
-            'users':         'users',
-            'plans':         'plans',
-            'modules':       'modules',
-            'analytics':     'analytics',
-            'support':       'support',
-            'billing':       'billing',
-            'announcements': 'announcements',
-            'logs':          'logs',
-            'integrations':  'integrations',
-            'settings':      'settings',
+            'organizations':   'organizations',
+            'subscriptions':   'subscriptions',
+            'licenses':        'licenses',
+            'admins':          'admins',
+            'users':           'users',
+            'plans':           'plans',
+            'modules':         'modules',
+            'analytics':       'analytics',
+            'support':         'support',
+            'billing':         'billing',
+            'revenue':         'billing',
+            'announcements':   'announcements',
+            'logs':            'logs',
+            'integrations':    'integrations',
+            'doc-identity':    'doc-identity',
+            'storage':         'storage',
+            'stage-templates': 'stage-templates',
+            'stage-weightage': 'stage-weightage',
+            'recycle-bin':     'recycle-bin',
+            'recycleBin':      'recycle-bin',
+            'settings':        'settings',
+            'admin-logins':    'admin-logins',
         };
 
-        document.querySelectorAll('.sidebar-link[href]').forEach(link => {
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            const dataSec = link.getAttribute('data-section');
             const href = link.getAttribute('href') || '';
-            const viewMatch = href.match(/[?&]view=([^&]+)/);
-            if (!viewMatch) return;
-            const viewId = viewMatch[1];
-            const section = VIEW_SECTION_MAP[viewId] || viewId;
-            if (!this.canRead(section)) {
-                link.style.display = 'none';
+            let section = dataSec;
+            if (!section) {
+                const viewMatch = href.match(/[?&]view=([^&]+)/);
+                if (viewMatch) {
+                    const viewId = viewMatch[1];
+                    section = VIEW_SECTION_MAP[viewId] || viewId;
+                } else if (href.includes('user-manual.html')) {
+                    section = 'user-manual';
+                } else if (href.includes('super-admin.html')) {
+                    section = 'overview';
+                }
+            }
+            if (section && !this.canRead(section)) {
+                link.classList.add('d-none');
+                link.style.setProperty('display', 'none', 'important');
             }
         });
+
+        // --- Settings Navigation: Hide admin-logins for non-Owner & non-Auditor ---
+        if (this.saSubRole !== 'Owner' && this.saSubRole !== 'Read Only') {
+            const adminLoginsNav = document.querySelector('.ps-nav-item[data-tab="admin-logins"]');
+            if (adminLoginsNav) {
+                adminLoginsNav.classList.add('d-none');
+                adminLoginsNav.style.setProperty('display', 'none', 'important');
+            }
+        }
 
         // --- Disable write buttons for Read Only ---
         if (role === 'Read Only') {
             // Disable all save/create/delete action buttons
             document.querySelectorAll(
-                '.ds-btn-primary, .ds-btn-danger, [onclick*="save"], [onclick*="create"], [onclick*="delete"], [onclick*="add"]'
+                '.ds-btn-primary, .ds-btn-danger, [onclick*="save"], [onclick*="create"], [onclick*="delete"], [onclick*="add"], [onclick*="openAdd"]'
             ).forEach(btn => {
-                // Skip navigation-only buttons (those using switchView)
+                // Skip navigation-only buttons (those using switchView or modals)
                 const oc = (btn.getAttribute('onclick') || '');
-                if (oc.includes('switchView') || oc.includes('loadMyPermissions')) return;
+                if (oc.includes('switchView') || oc.includes('loadMyPermissions') || oc.includes('switchTab') || (oc.includes('openModal') && !oc.includes('Add') && !oc.includes('Edit'))) return;
                 btn.disabled = true;
                 btn.title = 'Read Only Auditor — write access disabled';
                 btn.style.opacity = '0.45';
@@ -177,7 +219,6 @@ const SuperAdmin = {
         }
 
         // --- Disable write buttons for specific sections ---
-        // We mark write action buttons with data-section attributes in HTML
         document.querySelectorAll('[data-rbac-section]').forEach(el => {
             const section = el.getAttribute('data-rbac-section');
             const action = el.getAttribute('data-rbac-action') || 'write';
@@ -192,8 +233,15 @@ const SuperAdmin = {
 
     handleRouting() {
         const params = new URLSearchParams(window.location.search);
-        const view = params.get('view') || 'overview';
+        let view = params.get('view') || 'overview';
         const tab = params.get('tab');
+        
+        // Check if view is allowed
+        const checkSection = (view === 'overview' || !view) ? 'overview' : view;
+        if (!this.canRead(checkSection)) {
+            view = 'overview';
+        }
+
         this.switchView(view);
         if (view === 'settings' && tab && window.PlatformSettings) {
             setTimeout(() => window.PlatformSettings.switchTab(tab), 50);
@@ -208,14 +256,17 @@ const SuperAdmin = {
         if (viewId === 'subscriptions') viewId = 'overview';
 
         // ── RBAC: block navigation to forbidden sections ──────────────────
-        if (this._permissions && this.saSubRole !== 'Owner') {
-            const section = viewId === 'overview' ? 'overview' : viewId;
+        if (this.saSubRole && this.saSubRole !== 'Owner') {
+            const section = (viewId === 'overview' || !viewId) ? 'overview' : viewId;
             if (!this.canRead(section)) {
                 if (window.OctaQube && OctaQube.toast) {
                     OctaQube.toast(
                         `Your sub-role "${this.saSubRole}" does not have access to this section.`,
                         'warning'
                     );
+                }
+                if (this.canRead('overview') && viewId !== 'overview') {
+                    this.switchView('overview');
                 }
                 return; // Block navigation
             }
@@ -8186,8 +8237,8 @@ const SuperAdmin = {
             grid.innerHTML = kpis.map(k=>`
                 <div class="plan-kpi-card" onclick="${k.filter?`SuperAdmin.setPlanFilter('status','${k.filter}')`:''}" title="${k.label}">
                     <div class="plan-kpi-icon" style="background:${k.bg};"><i data-lucide="${k.icon}" style="width:16px;height:16px;color:${k.color};"></i></div>
-                    <div class="plan-kpi-label">${k.label}</div>
                     <div class="plan-kpi-value">${k.val}</div>
+                    <div class="plan-kpi-label">${k.label}</div>
                     <div class="plan-kpi-accent" style="background:${k.accent};"></div>
                 </div>`).join('');
             if(window.lucide) lucide.createIcons();

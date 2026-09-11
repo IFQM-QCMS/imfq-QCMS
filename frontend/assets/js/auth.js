@@ -124,6 +124,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
                 plant_name: data.plant_name || data.location,
                 location: data.location || data.plant_name,
                 custom_fields: data.custom_fields || {},
+                sa_sub_role: data.sa_sub_role || (data.custom_fields && data.custom_fields.super_admin_role) || (data.role === 'SuperAdmin' ? 'Owner' : null),
                 subscription_plan: data.subscription_plan,
                 subscription_status: data.subscription_status,
                 is_temp_password: data.is_temp_password,

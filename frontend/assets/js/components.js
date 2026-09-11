@@ -370,6 +370,62 @@ const OctaQube = {
         return roleStr;
     },
 
+    getSaSubRole() {
+        if (!this.user) {
+            try {
+                const stored = sessionStorage.getItem('user') || localStorage.getItem('user');
+                if (stored) this.user = JSON.parse(stored);
+            } catch (_) {}
+        }
+        if (!this.user) return 'Owner';
+        const raw = this.user.sa_sub_role ||
+                    (this.user.custom_fields && this.user.custom_fields.super_admin_role) ||
+                    (this.user.role === 'SuperAdmin' ? 'Owner' : null);
+        if (!raw) return 'Owner';
+        const str = String(raw).trim().toLowerCase();
+        if (str.includes('platform')) return 'Platform Operations';
+        if (str.includes('billing') || str.includes('subscription')) return 'Billing';
+        if (str.includes('support')) return 'Support';
+        if (str.includes('product')) return 'Product';
+        if (str.includes('read only') || str.includes('auditor')) return 'Read Only';
+        return 'Owner';
+    },
+
+    canSaRead(section) {
+        const subRole = this.getSaSubRole();
+        if (subRole === 'Owner') return true;
+
+        const SA_READ_MAP = {
+            'overview':        ['Platform Operations', 'Billing', 'Support', 'Product', 'Read Only'],
+            'organizations':   ['Platform Operations', 'Billing', 'Support', 'Read Only'],
+            'subscriptions':   ['Billing', 'Read Only', 'Platform Operations'],
+            'licenses':        ['Platform Operations', 'Billing', 'Read Only'],
+            'admins':          ['Platform Operations', 'Support', 'Read Only'],
+            'users':           ['Platform Operations', 'Support', 'Read Only'],
+            'plans':           ['Billing', 'Product', 'Read Only', 'Platform Operations'],
+            'modules':         ['Platform Operations', 'Billing', 'Support', 'Product', 'Read Only'],
+            'analytics':       ['Platform Operations', 'Billing', 'Read Only'],
+            'support':         ['Platform Operations', 'Support', 'Read Only'],
+            'billing':         ['Billing', 'Read Only'],
+            'announcements':   ['Platform Operations', 'Product', 'Read Only', 'Support'],
+            'logs':            ['Platform Operations', 'Read Only'],
+            'integrations':    ['Platform Operations', 'Read Only'],
+            'doc-identity':    ['Platform Operations', 'Product', 'Read Only'],
+            'storage':         ['Platform Operations', 'Read Only'],
+            'stage-templates': ['Platform Operations', 'Product', 'Read Only'],
+            'stage-weightage': ['Platform Operations', 'Product', 'Read Only'],
+            'recycle-bin':     ['Platform Operations', 'Read Only'],
+            'recycleBin':      ['Platform Operations', 'Read Only'],
+            'user-manual':     ['Platform Operations', 'Billing', 'Support', 'Product', 'Read Only'],
+            'settings':        ['Platform Operations', 'Read Only'],
+            'admin-logins':    ['Read Only']
+        };
+
+        const allowed = SA_READ_MAP[section];
+        if (!allowed) return false;
+        return allowed.includes(subRole);
+    },
+
     getDashboardUrl(role) {
         const norm = this.normalizeRole(role || (this.user && this.user.role));
         if (norm === 'SuperAdmin') return '/admin/super-admin.html';
@@ -1050,45 +1106,76 @@ const OctaQube = {
         let navItems = [];
 
         if (roleName === 'SuperAdmin') {
-            // ── SuperAdmin Platform Owner Bottom Navigation ──
+            // ── SuperAdmin Sub-Role Aware Bottom Navigation ──
             const isOverviewActive = currentPath.includes('super-admin.html') && (currentView === 'overview' || !window.location.search);
             const isOrgsActive = currentPath.includes('super-admin.html') && currentView === 'organizations';
-            const isPlansActive = currentPath.includes('super-admin.html') && (currentView === 'plans' || currentView === 'billing');
+            const isPlansActive = currentPath.includes('super-admin.html') && currentView === 'plans';
+            const isBillingActive = currentPath.includes('super-admin.html') && currentView === 'billing';
+            const isSupportActive = currentPath.includes('super-admin.html') && currentView === 'support';
+            const isAncActive = currentPath.includes('super-admin.html') && currentView === 'announcements';
             const isLogsActive = currentPath.includes('super-admin.html') && currentView === 'logs';
             const isSASettingsActive = currentPath.includes('super-admin.html') && ['settings', 'doc-identity', 'integrations', 'storage', 'stage-templates', 'stage-weightage', 'recycle-bin'].includes(currentView);
 
-            navItems = [
+            const allSaItems = [
                 {
+                    section: 'overview',
                     label: 'Dashboard',
                     url: '/admin/super-admin.html',
                     icon: 'layout-dashboard',
                     isActive: isOverviewActive
                 },
                 {
+                    section: 'organizations',
                     label: 'Orgs',
                     url: '/admin/super-admin.html?view=organizations',
                     icon: 'building-2',
                     isActive: isOrgsActive
                 },
                 {
+                    section: 'plans',
                     label: 'Plans',
                     url: '/admin/super-admin.html?view=plans',
                     icon: 'layers',
                     isActive: isPlansActive
                 },
                 {
+                    section: 'billing',
+                    label: 'Billing',
+                    url: '/admin/super-admin.html?view=billing',
+                    icon: 'receipt',
+                    isActive: isBillingActive
+                },
+                {
+                    section: 'support',
+                    label: 'Support',
+                    url: '/admin/super-admin.html?view=support',
+                    icon: 'life-buoy',
+                    isActive: isSupportActive
+                },
+                {
+                    section: 'announcements',
+                    label: 'Updates',
+                    url: '/admin/super-admin.html?view=announcements',
+                    icon: 'megaphone',
+                    isActive: isAncActive
+                },
+                {
+                    section: 'logs',
                     label: 'Logs',
                     url: '/admin/super-admin.html?view=logs',
                     icon: 'scroll-text',
                     isActive: isLogsActive
                 },
                 {
+                    section: 'settings',
                     label: 'Settings',
                     url: '/admin/super-admin.html?view=settings',
                     icon: 'settings-2',
                     isActive: isSASettingsActive
                 }
             ];
+
+            navItems = allSaItems.filter(item => this.canSaRead(item.section)).slice(0, 5);
         } else if (roleName === 'Admin') {
             // ── Organization Administrator ──
             const canProj = this.isModuleAllowed(roleName, 'project_repo');
@@ -1370,6 +1457,11 @@ const OctaQube = {
             document.body.appendChild(backdrop);
         }
 
+        const sidebar = document.getElementById('app-sidebar');
+        if (sidebar && sidebar.parentElement && sidebar.parentElement !== document.body) {
+            document.body.appendChild(sidebar);
+        }
+
         // Check saved desktop state
         if (localStorage.getItem('octaqube-sidebar-collapsed') === 'true') {
             document.body.classList.add('sidebar-collapsed');
@@ -1381,9 +1473,9 @@ const OctaQube = {
             document.addEventListener('click', (e) => {
                 const sidebarLink = e.target.closest('#app-sidebar a, #app-sidebar .sidebar-link, #app-sidebar button');
                 if (sidebarLink && window.innerWidth <= 1024) {
-                    const sidebar = document.getElementById('app-sidebar');
+                    const sb = document.getElementById('app-sidebar');
                     const bd = document.getElementById('sidebar-backdrop');
-                    if (sidebar) sidebar.classList.remove('show');
+                    if (sb) sb.classList.remove('show');
                     if (bd) bd.classList.remove('show');
                     document.body.classList.remove('sidebar-mobile-open');
                 }
@@ -1393,8 +1485,8 @@ const OctaQube = {
         if (backdrop) {
             const closeDrawer = (e) => {
                 if (e && e.cancelable) e.preventDefault();
-                const sidebar = document.getElementById('app-sidebar');
-                if (sidebar) sidebar.classList.remove('show');
+                const sb = document.getElementById('app-sidebar');
+                if (sb) sb.classList.remove('show');
                 backdrop.classList.remove('show');
                 document.body.classList.remove('sidebar-mobile-open');
             };
@@ -1403,7 +1495,6 @@ const OctaQube = {
         }
 
         // Native Swipe-to-close Touch Gesture on Drawer
-        const sidebar = document.getElementById('app-sidebar');
         if (sidebar && !this._sidebarSwipeBound) {
             this._sidebarSwipeBound = true;
             let touchStartX = 0;
@@ -1463,6 +1554,9 @@ const OctaQube = {
         }
 
         const sidebar = document.getElementById('app-sidebar');
+        if (sidebar && sidebar.parentElement && sidebar.parentElement !== document.body) {
+            document.body.appendChild(sidebar);
+        }
 
         if (window.innerWidth <= 1024) {
             const isCurrentlyOpen = sidebar ? sidebar.classList.contains('show') : false;
@@ -1920,75 +2014,39 @@ const OctaQube = {
         let sectionsHtml = '';
         let footerHtml = '';
 
-        // ── SUPER ADMIN – Platform owner only ──────────────────────────
+        // ── SUPER ADMIN – Platform owner / sub-role aware ─────────────
         if (roleName === 'SuperAdmin') {
+            const allSaLinks = [
+                { section: 'overview', url: '/admin/super-admin.html', icon: 'layout-dashboard', title: 'Dashboard' },
+                { section: 'organizations', url: '/admin/super-admin.html?view=organizations', icon: 'building-2', title: 'Organizations' },
+                { section: 'plans', url: '/admin/super-admin.html?view=plans', icon: 'layers', title: 'Plans' },
+                { section: 'analytics', url: '/admin/super-admin.html?view=analytics', icon: 'bar-chart-2', title: 'Analytics' },
+                { section: 'support', url: '/admin/super-admin.html?view=support', icon: 'life-buoy', title: 'Support Tickets' },
+                { section: 'billing', url: '/admin/super-admin.html?view=billing', icon: 'receipt', title: 'Billing' },
+                { section: 'announcements', url: '/admin/super-admin.html?view=announcements', icon: 'megaphone', title: 'Announcements' },
+                { section: 'logs', url: '/admin/super-admin.html?view=logs', icon: 'scroll-text', title: 'Audit Logs' },
+                { section: 'integrations', url: '/admin/super-admin.html?view=integrations', icon: 'blocks', title: 'Integrations' },
+                { section: 'doc-identity', url: '/admin/super-admin.html?view=doc-identity', icon: 'file-badge', title: 'Doc Identity & Branding' },
+                { section: 'storage', url: '/admin/super-admin.html?view=storage', icon: 'hard-drive', title: 'Storage Analytics' },
+                { section: 'stage-templates', url: '/admin/super-admin.html?view=stage-templates', icon: 'layers', title: 'Global Stage Templates' },
+                { section: 'stage-weightage', url: '/admin/super-admin.html?view=stage-weightage', icon: 'percent', title: 'Stage Weightage' },
+                { section: 'recycle-bin', url: '/admin/super-admin.html?view=recycle-bin', icon: 'trash-2', title: 'Recycle Bin' },
+                { section: 'user-manual', url: '/resources/user-manual.html', icon: 'book-open', title: 'User Manual' },
+                { section: 'settings', url: '/admin/super-admin.html?view=settings', icon: 'settings-2', title: 'Settings' }
+            ];
+
+            const allowedSaLinks = allSaLinks.filter(item => this.canSaRead(item.section));
+            const linksHtml = allowedSaLinks.map(item => `
+                <a href="${item.url}" class="sidebar-link sa-compact-link" data-section="${item.section}" title="${item.title}">
+                    <i class="link-icon" data-lucide="${item.icon}"></i>
+                    <span>${item.title}</span>
+                </a>
+            `).join('');
+
             sectionsHtml = `
                 <div class="sidebar-section" style="margin-bottom: 0;">
                     <nav class="sidebar-nav" style="gap: 1px;">
-                        <a href="/admin/super-admin.html" class="sidebar-link sa-compact-link" title="Dashboard">
-                            <i class="link-icon" data-lucide="layout-dashboard"></i>
-                            <span>Dashboard</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=organizations" class="sidebar-link sa-compact-link" title="Organizations">
-                            <i class="link-icon" data-lucide="building-2"></i>
-                            <span>Organizations</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=plans" class="sidebar-link sa-compact-link" title="Plans">
-                            <i class="link-icon" data-lucide="layers"></i>
-                            <span>Plans</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=analytics" class="sidebar-link sa-compact-link" title="Analytics">
-                            <i class="link-icon" data-lucide="bar-chart-2"></i>
-                            <span>Analytics</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=support" class="sidebar-link sa-compact-link" title="Support Tickets">
-                            <i class="link-icon" data-lucide="life-buoy"></i>
-                            <span>Support Tickets</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=billing" class="sidebar-link sa-compact-link" title="Billing">
-                            <i class="link-icon" data-lucide="receipt"></i>
-                            <span>Billing</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=announcements" class="sidebar-link sa-compact-link" title="Announcements">
-                            <i class="link-icon" data-lucide="megaphone"></i>
-                            <span>Announcements</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=logs" class="sidebar-link sa-compact-link" title="Audit Logs">
-                            <i class="link-icon" data-lucide="scroll-text"></i>
-                            <span>Audit Logs</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=integrations" class="sidebar-link sa-compact-link" title="Integrations">
-                            <i class="link-icon" data-lucide="blocks"></i>
-                            <span>Integrations</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=doc-identity" class="sidebar-link sa-compact-link" title="Document Identity & Branding">
-                            <i class="link-icon" data-lucide="file-badge"></i>
-                            <span>Doc Identity & Branding</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=storage" class="sidebar-link sa-compact-link" title="Storage Analytics">
-                            <i class="link-icon" data-lucide="hard-drive"></i>
-                            <span>Storage Analytics</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=stage-templates" class="sidebar-link sa-compact-link" title="Global Stage Templates">
-                            <i class="link-icon" data-lucide="layers"></i>
-                            <span>Global Stage Templates</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=stage-weightage" class="sidebar-link sa-compact-link" title="Stage Weightage">
-                            <i class="link-icon" data-lucide="percent"></i>
-                            <span>Stage Weightage</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=recycle-bin" class="sidebar-link sa-compact-link" title="Recycle Bin">
-                            <i class="link-icon" data-lucide="trash-2"></i>
-                            <span>Recycle Bin</span>
-                        </a>
-                        <a href="/resources/user-manual.html" class="sidebar-link sa-compact-link" title="User Manual">
-                            <i class="link-icon" data-lucide="book-open"></i>
-                            <span>User Manual</span>
-                        </a>
-                        <a href="/admin/super-admin.html?view=settings" class="sidebar-link sa-compact-link" title="Settings">
-                            <i class="link-icon" data-lucide="settings-2"></i>
-                            <span>Settings</span>
-                        </a>
+                        ${linksHtml}
                     </nav>
                 </div>
             `;

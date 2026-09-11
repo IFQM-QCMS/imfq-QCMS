@@ -134,6 +134,14 @@ const PlatformSettings = {
         } else if (tabId === 'auth') {
             setTimeout(() => this.loadAuthKPIs(), 100);
         } else if (tabId === 'admin-logins') {
+            const subRole = (window.SuperAdmin && SuperAdmin.saSubRole) || (window.OctaQube && OctaQube.getSaSubRole()) || 'Owner';
+            if (subRole !== 'Owner' && subRole !== 'Read Only') {
+                if (window.OctaQube && OctaQube.toast) {
+                    OctaQube.toast(`Your sub-role '${subRole}' cannot access Super Admin Account Management.`, 'warning');
+                }
+                this.switchTab('general');
+                return;
+            }
             setTimeout(() => this.loadAdminLogins(), 100);
         } else if (tabId === 'system-health') {
             setTimeout(() => this.loadSystemHealth(), 100);
@@ -2763,6 +2771,22 @@ Object.assign(PlatformSettings, {
         const infoEl = document.getElementById('adminLoginsPaginationInfo');
         const controlsEl = document.getElementById('adminLoginsPaginationControls');
 
+        const isOwner = ((window.SuperAdmin && SuperAdmin.saSubRole) || (window.OctaQube && OctaQube.getSaSubRole()) || 'Owner') === 'Owner';
+        const addAdminBtn = document.querySelector('button[onclick*="openAddAdminModal"]');
+        if (addAdminBtn) {
+            if (!isOwner) {
+                addAdminBtn.classList.add('d-none');
+            } else {
+                addAdminBtn.classList.remove('d-none');
+            }
+        }
+        const ownCredsForm = document.getElementById('ownCredentialsForm');
+        if (ownCredsForm && !isOwner) {
+            ownCredsForm.querySelectorAll('input, button[type="submit"]').forEach(el => {
+                el.disabled = true;
+            });
+        }
+
         const admins = this._adminLoginsAll || [];
         if (countBadge) countBadge.textContent = `${admins.length} Account${admins.length === 1 ? '' : 's'}`;
 
@@ -2815,6 +2839,7 @@ Object.assign(PlatformSettings, {
                     <td><span class="badge bg-success-subtle text-success text-xxs">${a.status}</span></td>
                     <td class="text-secondary text-xxs">${a.created_at ? a.created_at.slice(0, 10) : '—'}</td>
                     <td class="text-end">
+                        ${isOwner ? `
                         <div class="dropdown d-inline-block">
                             <button class="ds-btn ds-btn-secondary ds-btn-xs px-2 py-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
                                 <i data-lucide="more-vertical" style="width:14px;height:14px;"></i>
@@ -2838,6 +2863,9 @@ Object.assign(PlatformSettings, {
                                 `}
                             </ul>
                         </div>
+                        ` : `
+                        <span class="badge bg-secondary-subtle text-secondary text-xxs">View Only</span>
+                        `}
                     </td>
                 </tr>
             `;

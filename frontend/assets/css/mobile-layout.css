@@ -216,6 +216,8 @@ body.dark-mode .app-bottom-nav {
         background: #002347 !important;
         background-color: #002347 !important;
         color: #FFFFFF !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
         transform: translateX(-100%) !important;
         transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.35s ease !important;
         box-shadow: none !important;
@@ -241,7 +243,10 @@ body.dark-mode .app-bottom-nav {
     body.sidebar-mobile-open .glass-sidebar {
         transform: translateX(0) !important;
         visibility: visible !important;
-        box-shadow: 20px 0 60px rgba(0, 0, 0, 0.35) !important;
+        box-shadow: 20px 0 60px rgba(0, 0, 0, 0.45) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        z-index: 1060 !important;
     }
 
     /* Swipe-to-close grab handle indicator on sidebar */
@@ -265,7 +270,7 @@ body.dark-mode .app-bottom-nav {
         background: rgba(15, 23, 42, 0.65) !important;
         backdrop-filter: blur(6px) !important;
         -webkit-backdrop-filter: blur(6px) !important;
-        z-index: 1055 !important;
+        z-index: 1050 !important;
         opacity: 0 !important;
         visibility: hidden !important;
         pointer-events: none !important;
