@@ -147,12 +147,10 @@ jobs:
             # 4. Non-Destructive Container Build (Traffic keeps serving)
             echo "[OctaQube CD] Building updated container images..."
             docker compose -f "$COMPOSE_FILE" build --pull backend
-            docker compose -f "$COMPOSE_FILE" build frontend
 
             # 5. Rolling Container Replacement (Zero downtime swap)
             echo "[OctaQube CD] Launching updated containers..."
             docker compose -f "$COMPOSE_FILE" up -d --no-deps --build backend
-            docker compose -f "$COMPOSE_FILE" up -d --no-deps --build frontend
             docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
             # 6. Database Migration & Schema Synchronization (Fail on error)
