@@ -1,40 +1,19 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: qcms_redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-qcms_redis_secure_pass}
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-qcms_redis_secure_pass}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "5"
-
   backend:
     image: qcms-backend:${QCMS_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: qcms_backend
-    ports:
-      - "5000:5000"
+    container_name: qcms-backend
     env_file:
       - ./backend/.env
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: always
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - qcms-internal
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health')\" || exit 1"]
       interval: 10s
@@ -42,46 +21,55 @@ services:
       retries: 6
       start_period: 20s
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
-        max-size: "50m"
+        max-size: 50m
         max-file: "10"
 
   celery_worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: qcms_celery_worker
+    container_name: qcms-celery-worker
     command: celery -A celery_worker.celery worker --loglevel=info --concurrency=2
-    depends_on:
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_started
     env_file:
       - ./backend/.env
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - qcms-internal
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      disable: true
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
-        max-size: "50m"
+        max-size: 50m
         max-file: "10"
 
   celery_beat:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: qcms_celery_beat
+    container_name: qcms-celery-beat
     command: celery -A celery_worker.celery beat --loglevel=info
-    depends_on:
-      - celery_worker
     env_file:
       - ./backend/.env
+    networks:
+      - qcms-internal
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      disable: true
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
-        max-size: "20m"
+        max-size: 20m
         max-file: "5"
 
   frontend:
@@ -89,13 +77,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: qcms_frontend
-    ports:
-      - "80:80"
+    container_name: qcms-frontend
+    networks:
+      - qcms-internal
+      - ifqm-new-sites
     depends_on:
       backend:
         condition: service_healthy
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:80/ || exit 1"]
       interval: 10s
@@ -103,10 +92,13 @@ services:
       retries: 6
       start_period: 10s
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
-        max-size: "50m"
+        max-size: 50m
         max-file: "10"
 
-volumes:
-  redis_data:
+networks:
+  qcms-internal:
+    external: true
+  ifqm-new-sites:
+    external: true
