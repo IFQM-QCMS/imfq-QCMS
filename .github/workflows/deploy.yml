@@ -165,7 +165,7 @@ jobs:
 
             until [ $RETRY_COUNT -ge $MAX_RETRIES ]
             do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/api/health/live || true)
+              HTTP_CODE=$(docker exec qcms-backend python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/api/health').status)" 2>/dev/null || echo 000)
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "[OctaQube CD ✅] Backend readiness probe passed with HTTP 200 OK!"
                 HEALTHY=true
