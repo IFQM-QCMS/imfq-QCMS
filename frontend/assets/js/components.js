@@ -1477,8 +1477,13 @@ const OctaQube = {
         }
 
         const sidebar = document.getElementById('app-sidebar');
-        if (sidebar && sidebar.parentElement && sidebar.parentElement !== document.body) {
+        if (sidebar && sidebar.parentElement !== document.body) {
             document.body.appendChild(sidebar);
+        }
+        if (backdrop && sidebar && sidebar.parentElement === document.body) {
+            if (sidebar.previousElementSibling !== backdrop) {
+                document.body.insertBefore(backdrop, sidebar);
+            }
         }
 
         // Check saved desktop state
@@ -1513,7 +1518,7 @@ const OctaQube = {
             backdrop.ontouchstart = closeDrawer;
         }
 
-        // Native Swipe-to-close Touch Gesture on Drawer
+        // Native Swipe-to-close Touch Gesture on Drawer (tuned to not block vertical scroll)
         if (sidebar && !this._sidebarSwipeBound) {
             this._sidebarSwipeBound = true;
             let touchStartX = 0;
@@ -1535,8 +1540,8 @@ const OctaQube = {
                 const deltaX = currentX - touchStartX;
                 const deltaY = Math.abs(currentY - touchStartY);
 
-                // If swipe to the left by > 50px with low vertical movement
-                if (deltaX < -50 && deltaY < 50) {
+                // Only trigger if horizontal swipe to left is dominant (> 75px) and vertical movement is minimal (< 25px)
+                if (deltaX < -75 && deltaY < 25) {
                     sidebar.classList.remove('show');
                     if (backdrop) backdrop.classList.remove('show');
                     document.body.classList.remove('sidebar-mobile-open');
@@ -1561,27 +1566,47 @@ const OctaQube = {
             backdrop.id = 'sidebar-backdrop';
             backdrop.className = 'sidebar-backdrop';
             document.body.appendChild(backdrop);
-            const closeDrawer = (e) => {
-                if (e && e.cancelable) e.preventDefault();
-                const sb = document.getElementById('app-sidebar');
-                if (sb) sb.classList.remove('show');
-                backdrop.classList.remove('show');
-                document.body.classList.remove('sidebar-mobile-open');
-            };
-            backdrop.onclick = closeDrawer;
-            backdrop.ontouchstart = closeDrawer;
         }
+        const closeDrawer = (e) => {
+            if (e && e.cancelable) e.preventDefault();
+            const sb = document.getElementById('app-sidebar');
+            if (sb) sb.classList.remove('show');
+            if (backdrop) backdrop.classList.remove('show');
+            document.body.classList.remove('sidebar-mobile-open');
+        };
+        backdrop.onclick = closeDrawer;
+        backdrop.ontouchstart = closeDrawer;
 
         const sidebar = document.getElementById('app-sidebar');
-        if (sidebar && sidebar.parentElement && sidebar.parentElement !== document.body) {
+        if (sidebar && sidebar.parentElement !== document.body) {
             document.body.appendChild(sidebar);
+        }
+        if (backdrop && sidebar && sidebar.parentElement === document.body) {
+            if (sidebar.previousElementSibling !== backdrop) {
+                document.body.insertBefore(backdrop, sidebar);
+            }
         }
 
         if (window.innerWidth <= 1024) {
             const isCurrentlyOpen = sidebar ? sidebar.classList.contains('show') : false;
             const willOpen = !isCurrentlyOpen;
-            if (sidebar) sidebar.classList.toggle('show', willOpen);
-            backdrop.classList.toggle('show', willOpen);
+            if (sidebar) {
+                sidebar.classList.toggle('show', willOpen);
+                if (willOpen) {
+                    sidebar.style.setProperty('z-index', '200010', 'important');
+                    sidebar.style.setProperty('visibility', 'visible', 'important');
+                    sidebar.style.setProperty('transform', 'translateX(0)', 'important');
+                } else {
+                    sidebar.style.removeProperty('transform');
+                }
+            }
+            if (backdrop) {
+                backdrop.classList.toggle('show', willOpen);
+                if (willOpen) {
+                    backdrop.style.setProperty('z-index', '200000', 'important');
+                    backdrop.style.setProperty('visibility', 'visible', 'important');
+                }
+            }
             document.body.classList.toggle('sidebar-mobile-open', willOpen);
         } else {
             document.body.classList.toggle('sidebar-collapsed');

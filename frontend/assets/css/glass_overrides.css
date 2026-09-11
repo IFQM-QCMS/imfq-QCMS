@@ -268,16 +268,20 @@ body {
         transform: translateX(-100%) !important;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease !important;
         box-shadow: none !important;
-        z-index: 1060 !important;
+        z-index: 200010 !important;
+        overflow: hidden !important;
     }
 
     .app-sidebar.show,
-    .glass-sidebar.show {
+    .glass-sidebar.show,
+    body.sidebar-mobile-open .app-sidebar,
+    body.sidebar-mobile-open .glass-sidebar {
         transform: translateX(0) !important;
         box-shadow: 10px 0 40px rgba(0, 0, 0, 0.5) !important;
         visibility: visible !important;
         opacity: 1 !important;
         display: flex !important;
+        z-index: 200010 !important;
     }
 
     .glass-navbar {
@@ -320,24 +324,26 @@ body {
 
 /* Mobile Sidebar Overlay Backdrop */
 .sidebar-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-    z-index: 1040;
-    opacity: 0;
-    visibility: hidden;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    background: rgba(15, 23, 42, 0.6) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 200000 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
     pointer-events: none !important;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease !important;
 }
 
 .sidebar-backdrop.show,
 body.sidebar-mobile-open .sidebar-backdrop {
-    opacity: 1;
-    visibility: visible;
+    opacity: 1 !important;
+    visibility: visible !important;
     pointer-events: auto !important;
 }
 
@@ -1233,9 +1239,13 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
     min-height: 0 !important;
     padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
+    padding-bottom: 3.5rem !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 255, 255, 0.45) rgba(255, 255, 255, 0.08) !important;
 }
 
 .sidebar-section {
@@ -1348,34 +1358,44 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     color: #fca5a5 !important;
 }
 
-/* Custom Sleek Scrollbars inside Navy Sidebar */
+/* Custom Visible Scrollbars inside Navy Sidebar */
+.app-sidebar,
+.glass-sidebar,
+.sidebar-body,
+.sidebar-content {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 255, 255, 0.45) rgba(255, 255, 255, 0.08) !important;
+}
+
 .app-sidebar::-webkit-scrollbar,
 .glass-sidebar::-webkit-scrollbar,
 .sidebar-body::-webkit-scrollbar,
 .sidebar-content::-webkit-scrollbar {
-    width: 4px;
+    width: 6px !important;
+    display: block !important;
 }
 
 .app-sidebar::-webkit-scrollbar-track,
 .glass-sidebar::-webkit-scrollbar-track,
 .sidebar-body::-webkit-scrollbar-track,
 .sidebar-content::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 4px !important;
 }
 
 .app-sidebar::-webkit-scrollbar-thumb,
 .glass-sidebar::-webkit-scrollbar-thumb,
 .sidebar-body::-webkit-scrollbar-thumb,
 .sidebar-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.45) !important;
+    border-radius: 4px !important;
 }
 
 .app-sidebar::-webkit-scrollbar-thumb:hover,
 .glass-sidebar::-webkit-scrollbar-thumb:hover,
 .sidebar-body::-webkit-scrollbar-thumb:hover,
 .sidebar-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.75) !important;
 }
 
 /* 2. Platform Settings Matrix Side Panel (.ps-workspace) on Mobile */
@@ -1383,23 +1403,30 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     .ps-workspace {
         grid-template-columns: 1fr !important;
         gap: 1rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
     .ps-sidebar-card {
         margin-bottom: 0.75rem !important;
+        padding: 1rem !important;
+        border-radius: 14px !important;
+        box-sizing: border-box !important;
     }
 
     .ps-nav-list {
         display: grid !important;
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
         max-height: none !important;
         overflow: visible !important;
     }
 
     .ps-nav-item {
-        padding: 8px 10px !important;
-        min-height: 42px !important;
+        padding: 10px 12px !important;
+        min-height: 48px !important;
+        height: auto !important;
+        border-radius: 10px !important;
     }
 
     .ps-nav-desc {
@@ -1409,13 +1436,21 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     .ps-nav-item .ps-nav-title {
         white-space: normal !important;
         word-break: break-word !important;
-        line-height: 1.2 !important;
-        font-size: 11px !important;
+        line-height: 1.25 !important;
+        font-size: 12px !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
     }
 
-    .ps-workspace,
-    .ps-content-card,
-    .ps-tab-pane,
+    .ps-content-card {
+        padding: 1.25rem !important;
+        border-radius: 16px !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
     #settingsView {
         padding-bottom: 5rem !important;
     }
@@ -1428,6 +1463,59 @@ html[data-theme="dark"] #footerPageModal .modal-content {
 
     .ps-tab-pane .p-3.rounded-3 {
         gap: 12px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .ps-sidebar-card {
+        padding: 0.875rem !important;
+        border-radius: 12px !important;
+    }
+
+    .ps-nav-item {
+        padding: 8px 10px !important;
+        gap: 8px !important;
+    }
+
+    .ps-nav-icon {
+        width: 28px !important;
+        height: 28px !important;
+    }
+
+    .ps-nav-item .ps-nav-title {
+        font-size: 11px !important;
+        line-height: 1.2 !important;
+    }
+
+    .ps-content-card {
+        padding: 1.125rem 1rem !important;
+        border-radius: 14px !important;
+    }
+
+    .ps-tab-pane > .d-flex.justify-content-between.flex-wrap {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+
+    .ps-tab-pane > .d-flex.justify-content-between.flex-wrap > div:first-child {
+        width: 100% !important;
+    }
+
+    .ps-tab-pane > .d-flex.justify-content-between.flex-wrap > .ds-btn,
+    .ps-tab-pane > .d-flex.justify-content-between.flex-wrap > div:last-child {
+        width: 100% !important;
+    }
+
+    .ps-tab-pane > .d-flex.justify-content-between.flex-wrap > .ds-btn,
+    .ps-tab-pane > .d-flex.justify-content-between.flex-wrap > div:last-child .ds-btn {
+        width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    .ps-tab-pane .p-3.rounded-3 {
+        padding: 0.875rem !important;
     }
 }
 
@@ -1478,9 +1566,122 @@ html[data-theme="dark"] #footerPageModal .modal-content {
         width: 100% !important;
     }
 
-    /* Compact KPI Card Layout */
+    /* Dedicated Modern Horizontal KPI Cards for Tenant Management & Overview (Icon on Left, Value & Label on Right across Card Width) */
+    #superKpiGrid,
+    #orgKpiGrid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.5rem !important;
+        margin-bottom: 1.25rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    @media (max-width: 359px) {
+        #superKpiGrid,
+        #orgKpiGrid {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
     #superKpiGrid .glass-card,
-    #orgKpiGrid .glass-card,
+    #orgKpiGrid .glass-card {
+        display: grid !important;
+        grid-template-columns: 36px 1fr !important;
+        grid-template-rows: auto auto !important;
+        align-items: center !important;
+        justify-content: start !important;
+        text-align: left !important;
+        column-gap: 10px !important;
+        row-gap: 2px !important;
+        min-height: 66px !important;
+        height: auto !important;
+        padding: 10px 10px !important;
+        border-radius: 12px !important;
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        position: relative !important;
+    }
+
+    #superKpiGrid .glass-card div[style*="width:36px"],
+    #superKpiGrid .glass-card div[style*="width:40px"],
+    #orgKpiGrid .glass-card div[style*="width:36px"],
+    #orgKpiGrid .glass-card div[style*="width:40px"] {
+        grid-column: 1 !important;
+        grid-row: 1 / span 2 !important;
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 10px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        flex-shrink: 0 !important;
+        align-self: center !important;
+    }
+
+    #superKpiGrid .glass-card div[style*="width:36px"] i,
+    #superKpiGrid .glass-card div[style*="width:36px"] svg,
+    #superKpiGrid .glass-card div[style*="width:40px"] i,
+    #superKpiGrid .glass-card div[style*="width:40px"] svg,
+    #orgKpiGrid .glass-card div[style*="width:36px"] i,
+    #orgKpiGrid .glass-card div[style*="width:36px"] svg,
+    #orgKpiGrid .glass-card div[style*="width:40px"] i,
+    #orgKpiGrid .glass-card div[style*="width:40px"] svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+
+    #superKpiGrid .glass-card .text-xl,
+    #superKpiGrid .glass-card .text-2xl,
+    #orgKpiGrid .glass-card .text-xl,
+    #orgKpiGrid .glass-card .text-2xl {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        font-size: 1.25rem !important;
+        font-weight: 700 !important;
+        line-height: 1.15 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        text-align: left !important;
+        width: auto !important;
+        color: var(--ds-text-main) !important;
+        align-self: end !important;
+    }
+
+    #superKpiGrid .glass-card .text-muted,
+    #superKpiGrid .glass-card .text-xs,
+    #orgKpiGrid .glass-card .text-muted,
+    #orgKpiGrid .glass-card .text-xs {
+        grid-column: 2 !important;
+        grid-row: 2 !important;
+        font-size: 9.5px !important;
+        font-weight: 600 !important;
+        line-height: 1.25 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        text-align: left !important;
+        letter-spacing: 0.02em !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        color: var(--ds-text-secondary) !important;
+        align-self: start !important;
+    }
+
+    [data-theme="dark"] #superKpiGrid .glass-card .text-muted,
+    [data-theme="dark"] #superKpiGrid .glass-card .text-xs,
+    [data-theme="dark"] #orgKpiGrid .glass-card .text-muted,
+    [data-theme="dark"] #orgKpiGrid .glass-card .text-xs {
+        color: #94a3b8 !important;
+    }
+
+    /* Compact KPI Card Layout */
     #kpiGrid .glass-card,
     #workstationKpiGrid .glass-card,
     #teamKpiGrid .glass-card,
@@ -1527,10 +1728,6 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     }
 
     /* Compact Centered KPI Icons */
-    #superKpiGrid .glass-card div[style*="width:36px"],
-    #superKpiGrid .glass-card div[style*="width:40px"],
-    #orgKpiGrid .glass-card div[style*="width:36px"],
-    #orgKpiGrid .glass-card div[style*="width:40px"],
     .kpi-icon-box,
     .kpi-icon,
     .plan-kpi-icon,
@@ -1549,10 +1746,6 @@ html[data-theme="dark"] #footerPageModal .modal-content {
         flex-shrink: 0 !important;
     }
 
-    #superKpiGrid .glass-card div[style*="width:36px"] i,
-    #superKpiGrid .glass-card div[style*="width:40px"] i,
-    #orgKpiGrid .glass-card div[style*="width:36px"] i,
-    #orgKpiGrid .glass-card div[style*="width:40px"] i,
     .kpi-icon-box i,
     .kpi-icon i,
     .plan-kpi-icon i,
@@ -1569,11 +1762,7 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     .kpi-value,
     .plan-kpi-value,
     .audit-kpi-value,
-    .bill-kpi-card .kpi-value,
-    #superKpiGrid .text-xl,
-    #superKpiGrid .text-2xl,
-    #orgKpiGrid .text-xl,
-    #orgKpiGrid .text-2xl {
+    .bill-kpi-card .kpi-value {
         font-size: 1.25rem !important;
         font-weight: 700 !important;
         line-height: 1.15 !important;
@@ -1586,11 +1775,7 @@ html[data-theme="dark"] #footerPageModal .modal-content {
     .kpi-label,
     .plan-kpi-label,
     .audit-kpi-label,
-    .bill-kpi-card .kpi-label,
-    #superKpiGrid .text-muted,
-    #orgKpiGrid .text-muted,
-    #superKpiGrid .text-xs,
-    #orgKpiGrid .text-xs {
+    .bill-kpi-card .kpi-label {
         font-size: 10px !important;
         font-weight: 600 !important;
         line-height: 1.2 !important;
@@ -3602,21 +3787,21 @@ html[data-theme="dark"] .audit-member-box .text-dark {
         font-size: 13px !important;
     }
 
-    /* Edge-to-edge table containment inside cards on mobile */
+    /* Edge-to-edge table containment inside cards on mobile (exclude parent matrix panels) */
     .tab-content-panel .glass-card,
-    .glass-card:has(.table-responsive) {
+    .glass-card:has(.table-responsive):not(.ps-content-card) {
         padding: 0 !important;
         overflow: hidden !important;
         border-radius: 12px !important;
     }
 
     .tab-content-panel .glass-card .ds-card-header,
-    .glass-card:has(.table-responsive) .ds-card-header {
+    .glass-card:has(.table-responsive):not(.ps-content-card) .ds-card-header {
         padding: 12px 16px !important;
     }
 
     .tab-content-panel .glass-card .ds-card-body,
-    .glass-card:has(.table-responsive) .ds-card-body {
+    .glass-card:has(.table-responsive):not(.ps-content-card) .ds-card-body {
         padding: 0 !important;
     }
 

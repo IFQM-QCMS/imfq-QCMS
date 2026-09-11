@@ -8262,11 +8262,13 @@ const SuperAdmin = {
             ];
 
             grid.innerHTML = kpis.map(k=>`
-                <div class="plan-kpi-card" onclick="${k.filter?`SuperAdmin.setPlanFilter('status','${k.filter}')`:''}" title="${k.label}">
-                    <div class="plan-kpi-icon" style="background:${k.bg};"><i data-lucide="${k.icon}" style="width:16px;height:16px;color:${k.color};"></i></div>
-                    <div class="plan-kpi-value">${k.val}</div>
-                    <div class="plan-kpi-label">${k.label}</div>
-                    <div class="plan-kpi-accent" style="background:${k.accent};"></div>
+                <div class="plan-kpi-card" onclick="${k.filter?`SuperAdmin.setPlanFilter('status','${k.filter}')`:''}" title="${k.label}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px 10px 14px;border-radius:14px;min-height:112px;position:relative;overflow:hidden;box-sizing:border-box;">
+                    <div class="plan-kpi-icon" style="background:${k.bg};width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px auto;flex-shrink:0;">
+                        <i data-lucide="${k.icon}" style="width:18px;height:18px;color:${k.color};"></i>
+                    </div>
+                    <div class="plan-kpi-value" style="font-size:1.55rem;font-weight:800;color:var(--ds-text-main,#0f172a);line-height:1.15;margin-bottom:3px;text-align:center;width:100%;">${k.val}</div>
+                    <div class="plan-kpi-label" style="font-size:10.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--ds-text-secondary,#64748b);text-align:center;width:100%;margin:0;padding:0 4px;box-sizing:border-box;">${k.label}</div>
+                    <div class="plan-kpi-accent" style="background:${k.accent};position:absolute;bottom:0;left:0;right:0;height:3.5px;border-radius:0 0 14px 14px;"></div>
                 </div>`).join('');
             if(window.lucide) lucide.createIcons();
         } catch(e) {
