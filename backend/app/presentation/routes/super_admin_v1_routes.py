@@ -108,6 +108,25 @@ def check_permission(user, capability):
         return capability in ('view', 'export')
     return False
 
+_TRIAL_PLAN_NAMES = ('trial', 'trialing', 'default trial plan', 'trial plan (free onboarding trial)', '')
+
+def _to_naive_utc(dt):
+    """Safely normalize any datetime, date, or ISO string to offset-naive UTC datetime."""
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except Exception:
+            return None
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+        try:
+            from datetime import timezone
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        except Exception:
+            return dt.replace(tzinfo=None)
+    return dt
+
 @super_admin_v1_bp.route('/dashboard/stats', methods=['GET'])
 @jwt_required()
 def get_dashboard_stats():
@@ -146,17 +165,24 @@ def get_dashboard_stats():
         start_date = now - timedelta(days=30)
         prev_start_date = start_date - timedelta(days=30)
         range_label = 'Last 30 Days'
-    
+
     # 1. Total Organizations (non-deleted customer tenants only)
-    total_orgs = Organization.query.filter(
+    all_non_deleted_orgs = Organization.query.filter(
         Organization.is_deleted == False,
         Organization.is_platform_org == False
-    ).count()
+    ).all()
+    total_orgs = len(all_non_deleted_orgs)
     
-    # 2. Paid Organizations (Strictly customer tenants that have made completed payments > 0, paid invoices > 0, or hold active non-trial paid subscriptions > 0)
+    # 2. Paid Organizations (Paid SaaS plan, completed payments > 0, paid invoices > 0, or active paid subscriptions)
     paid_org_ids = set()
     
-    # 2a. Orgs with completed payments > 0
+    # 2a. Orgs with paid subscription_plan on the Organization table
+    for o in all_non_deleted_orgs:
+        p = (o.subscription_plan or '').strip().lower()
+        if p and p not in _TRIAL_PLAN_NAMES:
+            paid_org_ids.add(o.id)
+
+    # 2b. Orgs with completed payments > 0
     for row in db.session.query(SubscriptionPayment.org_id).join(
         Organization, SubscriptionPayment.org_id == Organization.id
     ).filter(
@@ -168,7 +194,7 @@ def get_dashboard_stats():
         if row[0]:
             paid_org_ids.add(row[0])
 
-    # 2b. Orgs with paid invoices > 0
+    # 2c. Orgs with paid invoices > 0
     for row in db.session.query(SubscriptionInvoice.org_id).join(
         Organization, SubscriptionInvoice.org_id == Organization.id
     ).filter(
@@ -180,7 +206,7 @@ def get_dashboard_stats():
         if row[0]:
             paid_org_ids.add(row[0])
 
-    # 2c. Orgs with active paid subscriptions > 0
+    # 2d. Orgs with active paid subscriptions > 0
     active_subs_init = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
         Organization.is_deleted == False,
         Organization.is_platform_org == False,
@@ -192,55 +218,34 @@ def get_dashboard_stats():
         p_price = float(s.final_amount or s.base_price or 0.0)
         if p_price > 0:
             paid_org_ids.add(s.org_id)
-        elif s.plan_name and s.plan_name.strip().lower() not in ('trial', 'trialing', 'default trial plan', ''):
-            sp = SaaSPlan.query.filter(
-                db.or_(
-                    func.lower(func.trim(SaaSPlan.name)) == s.plan_name.strip().lower(),
-                    func.lower(func.trim(SaaSPlan.code)) == s.plan_name.strip().lower()
-                )
-            ).first()
-            if sp:
-                pricing = SaaSPlanPricing.query.filter_by(plan_id=sp.id, is_active=True).first()
-                if pricing and pricing.price and float(pricing.price) > 0:
-                    paid_org_ids.add(s.org_id)
+        elif s.plan_name and s.plan_name.strip().lower() not in _TRIAL_PLAN_NAMES:
+            paid_org_ids.add(s.org_id)
 
-    paid_orgs_count = len(paid_org_ids)
-    active_orgs = paid_orgs_count
+    def _is_expired_org_v1(o):
+        exp = _to_naive_utc(o.license_expiry_date)
+        if exp and exp < now:
+            return True
+        if (o.subscription_status or '').strip() in ('Expired', 'EXPIRED'):
+            return True
+        return False
 
-    all_non_deleted_orgs = Organization.query.filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False
-    ).all()
+    def _get_effective_v1_status(o):
+        st = (o.subscription_status or '').strip()
+        if st in ('Suspended', 'On Hold', 'SUSPENDED'):
+            return 'Suspended'
+        if st in ('Canceled', 'CANCELED', 'Revoked', 'REVOKED'):
+            return 'Suspended'
+        if _is_expired_org_v1(o):
+            return 'Expired'
+        if o.id in paid_org_ids:
+            return 'Active'
+        return 'Trialing'
 
-    def _is_org_paid(o):
-        return o.id in paid_org_ids
-
-    paid_orgs_list = [o for o in all_non_deleted_orgs if _is_org_paid(o)]
-
-    # 3. On Trial Organizations
-    trial_orgs = len([
-        o for o in all_non_deleted_orgs
-        if not _is_org_paid(o) and (o.subscription_status or '').strip().lower() not in ('suspended', 'expired', 'revoked', 'canceled')
-    ])
-
-    # 4. Expired Licenses / Organizations
-    expired_licenses = Organization.query.filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False,
-        (Organization.license_expiry_date < now) | (Organization.subscription_status.in_(['Expired', 'EXPIRED'])),
-        ~Organization.subscription_status.in_(['Suspended', 'SUSPENDED', 'Canceled', 'CANCELED'])
-    ).count()
-
-    def _to_naive_utc(dt):
-        if dt is None:
-            return None
-        if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
-            try:
-                from datetime import timezone
-                return dt.astimezone(timezone.utc).replace(tzinfo=None)
-            except Exception:
-                return dt.replace(tzinfo=None)
-        return dt
+    active_orgs = len([o for o in all_non_deleted_orgs if _get_effective_v1_status(o) == 'Active'])
+    trial_orgs = len([o for o in all_non_deleted_orgs if _get_effective_v1_status(o) == 'Trialing'])
+    suspended_orgs = len([o for o in all_non_deleted_orgs if _get_effective_v1_status(o) == 'Suspended'])
+    expired_licenses = len([o for o in all_non_deleted_orgs if _get_effective_v1_status(o) == 'Expired'])
+    paid_orgs_count = active_orgs
 
     # 4b. Inactive 20d Organizations
     cutoff_20d = now - timedelta(days=20)
@@ -325,12 +330,8 @@ def get_dashboard_stats():
         SupportTicket.status.in_(['Open', 'In Progress', 'OPEN', 'IN_PROGRESS'])
     ).count()
 
-    # 11. Suspended Organizations
-    suspended_orgs = Organization.query.filter(
-        Organization.is_deleted == False,
-        Organization.is_platform_org == False,
-        Organization.subscription_status.in_(['Suspended', 'SUSPENDED', 'Canceled', 'CANCELED'])
-    ).count()
+    # 11. Suspended Organizations (using partitioned count matching _get_effective_v1_status)
+    # suspended_orgs already calculated above to guarantee total consistency
 
     # 12. Dynamic Trend Chart Points for Selected Range
     trend_labels = []
@@ -1173,11 +1174,44 @@ def update_org_status_v1(org_id):
     payload = request.get_json() or {}
     status = payload.get('status')
     
-    if not status or status.lower() not in ('active', 'suspended'):
+    if not status or status.lower() not in ('active', 'suspended', 'reactivate', 'trialing', 'on hold'):
         return jsonify({"error": "Invalid status status"}), 400
 
     old_status = org.subscription_status
-    org.subscription_status = 'Active' if status.lower() == 'active' else 'Suspended'
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if status.lower() in ('suspended', 'on hold'):
+        org.subscription_status = 'Suspended'
+    else:
+        # Check if org is paid or trial
+        pl = (getattr(org, 'subscription_plan', '') or '').strip().lower()
+        trial_names = ('trial', 'trialing', 'default trial plan', 'trial plan (free onboarding trial)', '')
+        has_paid_plan = pl and pl not in trial_names
+        
+        has_paid_tx = False
+        if not has_paid_plan:
+            has_pmt = SubscriptionPayment.query.filter(
+                SubscriptionPayment.org_id == org.id,
+                SubscriptionPayment.payment_status.in_(['Completed', 'Paid', 'COMPLETED', 'PAID', 'SUCCESS']),
+                func.coalesce(SubscriptionPayment.final_amount, SubscriptionPayment.amount, 0) > 0
+            ).first()
+            if has_pmt:
+                has_paid_tx = True
+            else:
+                has_inv = SubscriptionInvoice.query.filter(
+                    SubscriptionInvoice.org_id == org.id,
+                    SubscriptionInvoice.invoice_status.in_(['Paid', 'PAID', 'Completed']),
+                    func.coalesce(SubscriptionInvoice.total_amount, 0) > 0
+                ).first()
+                if has_inv:
+                    has_paid_tx = True
+
+        if has_paid_plan or has_paid_tx:
+            org.subscription_status = 'Active'
+        else:
+            exp = _to_naive_utc(org.trial_ends_at or org.license_expiry_date)
+            org.subscription_status = 'Expired' if (exp and exp < now_naive) else 'Trialing'
+
     db.session.commit()
     
     log_admin_action_v1(user, 'ORG_STATUS_CHANGED', 'Organization', org.id, old_status, org.subscription_status)

@@ -2367,7 +2367,7 @@ const SuperAdmin = {
                             <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-warning" href="#" onclick="SuperAdmin.resetAdminPassword(${org.id});return false;"><i data-lucide="key" style="width:14px;height:14px;"></i> Reset Password</a></li>
                             <li><hr class="dropdown-divider" style="border-color:var(--ds-border-color);"></li>
                             ${org.status === 'Suspended'
-                                ? `<li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-success" href="#" onclick="SuperAdmin.confirmStatusChange(${org.id},'${org.name}','Active');return false;"><i data-lucide="check-circle" style="width:14px;height:14px;"></i> Unpause / Reactivate</a></li>`
+                                ? `<li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-success" href="#" onclick="SuperAdmin.confirmStatusChange(${org.id},'${org.name}','Reactivate');return false;"><i data-lucide="check-circle" style="width:14px;height:14px;"></i> Unpause / Reactivate</a></li>`
                                 : `<li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-warning" href="#" onclick="SuperAdmin.confirmStatusChange(${org.id},'${org.name}','Suspended');return false;"><i data-lucide="pause-circle" style="width:14px;height:14px;"></i> Pause</a></li>`
                             }
                             ${org.is_deleted
@@ -5774,15 +5774,16 @@ const SuperAdmin = {
         document.getElementById('confirmActionTitle').textContent = isSuspend ? 'Pause Organization?' : 'Reactivate Organization?';
         document.getElementById('confirmActionMsg').textContent = isSuspend
             ? `${name} will be paused and lose platform access.`
-            : `${name} will regain full platform access.`;
+            : `${name} will regain full platform access with its existing subscription/trial tier.`;
         const btn = document.getElementById('confirmActionBtn');
         btn.className = isSuspend ? 'ds-btn ds-btn-warning' : 'ds-btn ds-btn-primary';
         btn.textContent = isSuspend ? 'Pause' : 'Reactivate';
         btn.onclick = async () => {
             try {
-                await api.put(`/super-admin/companies/${id}/status`, { status: newStatus });
-                api.showNotification(`Organization ${isSuspend ? 'paused' : 'reactivated'} successfully`, 'success');
+                const res = await api.put(`/super-admin/companies/${id}/status`, { status: newStatus });
+                api.showNotification((res && res.message) || `Organization ${isSuspend ? 'paused' : 'reactivated'} successfully`, 'success');
                 bootstrap.Modal.getInstance(document.getElementById('confirmActionModal')).hide();
+                this.lastStats = null;
                 this.loadOrganizations();
             } catch (err) {
                 api.showNotification('Failed to update status', 'error');
@@ -5811,6 +5812,7 @@ const SuperAdmin = {
                     api.showNotification(res.msg || 'Subscription activated successfully', 'success');
                 }
                 bootstrap.Modal.getInstance(document.getElementById('confirmActionModal')).hide();
+                this.lastStats = null;
                 this.loadOrganizations();
             } catch (err) {
                 api.showNotification('Failed to activate subscription', 'error');
@@ -11468,6 +11470,7 @@ const SuperAdmin = {
             api.showNotification('Organization updated successfully!', 'success');
             const inst = bootstrap.Modal.getInstance(document.getElementById('editOrgModal'));
             if (inst) inst.hide();
+            this.lastStats = null;
             this.loadOrganizations();
         } catch (err) {
             api.showNotification(err.message || 'Failed to update organization', 'error');

@@ -11,6 +11,9 @@
     --ds-bg-main: #F8F9FA;
     --ds-bg-surface: #FFFFFF;
     --ds-bg-card: #FFFFFF;
+    --ds-surface: #FFFFFF;
+    --ds-surface-secondary: #F1F5F9;
+    --ds-surface-raised: #FFFFFF;
 
     --ds-primary: #002347;
     --ds-primary-rgb: 0, 35, 71;
@@ -98,6 +101,9 @@
     --ds-bg-main: #001830;
     --ds-bg-surface: #002347;
     --ds-bg-card: #002347;
+    --ds-surface: #002347;
+    --ds-surface-secondary: #001f3f;
+    --ds-surface-raised: #002b54;
     --ds-bg-subtle: rgba(0, 35, 71, 0.6);
     --ds-bg-elevated: #00305F;
     --ds-text-main: #FFFFFF;
@@ -2233,7 +2239,11 @@ body.dark-mode:not(.lp-landing-page) .text-primary {
 [data-theme="dark"] .kpi-card-title,
 [data-theme="dark"] .ds-kpi-card-label,
 [data-theme="dark"] .impact-stat .lbl,
-[data-theme="dark"] .detail-label {
+[data-theme="dark"] .detail-label,
+[data-theme="dark"] .plan-kpi-label,
+[data-theme="dark"] .plan-kpi-card .plan-kpi-label,
+body.dark-mode .plan-kpi-label,
+body.dark-mode .plan-kpi-card .plan-kpi-label {
     color: #cbd5e1 !important;
     font-weight: 700 !important;
     letter-spacing: 0.05em;
@@ -2243,7 +2253,11 @@ body.dark-mode:not(.lp-landing-page) .text-primary {
 [data-theme="dark"] .kpi-card .kpi-value,
 [data-theme="dark"] .kpi-val,
 [data-theme="dark"] .kpi-value,
-[data-theme="dark"] .impact-stat .val {
+[data-theme="dark"] .impact-stat .val,
+[data-theme="dark"] .plan-kpi-value,
+[data-theme="dark"] .plan-kpi-card .plan-kpi-value,
+body.dark-mode .plan-kpi-value,
+body.dark-mode .plan-kpi-card .plan-kpi-value {
     color: #ffffff !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }

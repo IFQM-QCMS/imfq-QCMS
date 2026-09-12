@@ -41,6 +41,104 @@ def _tenant_filter(query):
     )
 
 
+_TRIAL_PLAN_NAMES = ('trial', 'trialing', 'default trial plan', 'trial plan (free onboarding trial)', '')
+
+def _is_paid_plan(pname):
+    if not pname:
+        return False
+    p = str(pname).strip().lower()
+    return p not in _TRIAL_PLAN_NAMES
+
+def _get_paid_org_ids_set():
+    """Returns a set of org_ids that are legitimately paid customer tenant organizations."""
+    paid_ids = set()
+    try:
+        # 1. Non-trial subscription_plan on Organization
+        paid_plan_rows = db.session.query(Organization.id).filter(
+            Organization.is_deleted == False,
+            Organization.is_platform_org == False,
+            Organization.subscription_plan.isnot(None),
+            ~func.lower(func.trim(Organization.subscription_plan)).in_(_TRIAL_PLAN_NAMES)
+        ).all()
+        for r in paid_plan_rows:
+            if r[0]:
+                paid_ids.add(r[0])
+
+        # 2. Completed payments > 0
+        for r in db.session.query(SubscriptionPayment.org_id).join(
+            Organization, SubscriptionPayment.org_id == Organization.id
+        ).filter(
+            Organization.is_platform_org == False,
+            Organization.is_deleted == False,
+            SubscriptionPayment.payment_status.in_(['Completed', 'Paid', 'COMPLETED', 'PAID', 'SUCCESS']),
+            func.coalesce(SubscriptionPayment.final_amount, SubscriptionPayment.amount, 0) > 0
+        ).distinct().all():
+            if r[0]:
+                paid_ids.add(r[0])
+
+        # 3. Paid invoices > 0
+        for r in db.session.query(SubscriptionInvoice.org_id).join(
+            Organization, SubscriptionInvoice.org_id == Organization.id
+        ).filter(
+            Organization.is_platform_org == False,
+            Organization.is_deleted == False,
+            SubscriptionInvoice.invoice_status.in_(['Paid', 'PAID', 'Completed']),
+            func.coalesce(SubscriptionInvoice.total_amount, 0) > 0
+        ).distinct().all():
+            if r[0]:
+                paid_ids.add(r[0])
+
+        # 4. Active paid subscriptions
+        for s in Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
+            Organization.is_deleted == False,
+            Organization.is_platform_org == False,
+            Subscription.subscription_status.in_(['Active', 'ACTIVE'])
+        ).all():
+            if not s.org_id or s.subscription_status in ['Trialing', 'Trial', 'TRIAL']:
+                continue
+            p_price = float(s.final_amount or s.base_price or 0.0)
+            if p_price > 0:
+                paid_ids.add(s.org_id)
+            elif s.plan_name and s.plan_name.strip().lower() not in _TRIAL_PLAN_NAMES:
+                paid_ids.add(s.org_id)
+    except Exception as e:
+        logger.warning(f"Error calculating paid org ids: {e}")
+    return paid_ids
+
+def _is_org_paid_helper(org):
+    """Check if an individual organization is paid."""
+    if not org:
+        return False
+    pl = (getattr(org, 'subscription_plan', '') or '').strip().lower()
+    if pl and pl not in _TRIAL_PLAN_NAMES:
+        return True
+    try:
+        sub = Subscription.query.filter_by(org_id=org.id).order_by(Subscription.id.desc()).first()
+        if sub and sub.subscription_status in ('Active', 'ACTIVE'):
+            sub_pl = (sub.plan_name or '').strip().lower()
+            if sub_pl not in _TRIAL_PLAN_NAMES:
+                return True
+            if float(sub.final_amount or sub.base_price or 0.0) > 0:
+                return True
+        has_pmt = SubscriptionPayment.query.filter(
+            SubscriptionPayment.org_id == org.id,
+            SubscriptionPayment.payment_status.in_(['Completed', 'Paid', 'COMPLETED', 'PAID', 'SUCCESS']),
+            func.coalesce(SubscriptionPayment.final_amount, SubscriptionPayment.amount, 0) > 0
+        ).first()
+        if has_pmt:
+            return True
+        has_inv = SubscriptionInvoice.query.filter(
+            SubscriptionInvoice.org_id == org.id,
+            SubscriptionInvoice.invoice_status.in_(['Paid', 'PAID', 'Completed']),
+            func.coalesce(SubscriptionInvoice.total_amount, 0) > 0
+        ).first()
+        if has_inv:
+            return True
+    except Exception as e:
+        logger.warning(f"Error checking if org {getattr(org, 'id', None)} is paid: {e}")
+    return False
+
+
 @super_admin_bp.route('/public/landing-content', methods=['GET'])
 def get_landing_content():
     """Public endpoint to fetch landing CMS content and centralized platform branding."""
@@ -443,20 +541,7 @@ def list_companies():
         if sp.code:
             plan_type_map[sp.code.lower()] = pt
 
-    def _is_paid_plan(pname):
-        if not pname:
-            return False
-        p = str(pname).strip().lower()
-        return p not in ('trial', 'trialing', 'default trial plan', '')
-
-    def _get_effective_org_status(o):
-        st = (o.subscription_status or '').strip()
-        pl = (o.subscription_plan or '').strip()
-        if st in ('Suspended', 'On Hold', 'Expired'):
-            return st
-        if _is_paid_plan(pl):
-            return 'Active'
-        return st or 'Trialing'
+    paid_org_ids = _get_paid_org_ids_set()
 
     def _is_expired_org(o):
         """Org is expired if license_expiry_date is in the past OR subscription_status is Expired."""
@@ -467,12 +552,24 @@ def list_companies():
             return True
         return False
 
+    def _get_effective_org_status(o):
+        st = (o.subscription_status or '').strip()
+        if st in ('Suspended', 'On Hold', 'SUSPENDED'):
+            return 'Suspended'
+        if st in ('Canceled', 'CANCELED', 'Revoked', 'REVOKED'):
+            return st
+        if _is_expired_org(o):
+            return 'Expired'
+        if o.id in paid_org_ids:
+            return 'Active'
+        return 'Trialing'
+
     kpi = {
         "total": len(all_orgs_list),
         "active": len([o for o in all_orgs_list if _get_effective_org_status(o) == 'Active']),
-        "trialing": len([o for o in all_orgs_list if _get_effective_org_status(o) in ('Trialing', 'Trial', 'On Trial')]),
-        "suspended": len([o for o in all_orgs_list if _get_effective_org_status(o) in ('Suspended', 'On Hold')]),
-        "expired": len([o for o in all_orgs_list if _is_expired_org(o)]),
+        "trialing": len([o for o in all_orgs_list if _get_effective_org_status(o) == 'Trialing']),
+        "suspended": len([o for o in all_orgs_list if _get_effective_org_status(o) in ('Suspended', 'On Hold', 'Canceled', 'Revoked')]),
+        "expired": len([o for o in all_orgs_list if _get_effective_org_status(o) == 'Expired']),
         "enterprise": len([o for o in all_orgs_list if _resolve_org_plan_type(o, plan_type_map).lower() == 'enterprise']),
         "white_label": len([o for o in all_orgs_list if o.is_white_label]),
         "expiring_soon": len([o for o in all_orgs_list if is_org_expiring_soon(o) and not _is_expired_org(o)]),
@@ -1043,14 +1140,14 @@ def update_company(org_id):
         org.zip_code = comp_data['pincode']
     if 'logo_url' in comp_data:
         org.logo_url = comp_data['logo_url']
-    if 'status' in comp_data:
-        org.subscription_status = comp_data['status']
-        
+    req_status = comp_data.get('status') or sub_data.get('status')
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+
     # Update subscription details
-    if 'plan' in sub_data:
+    if 'plan' in sub_data and sub_data['plan']:
         org.subscription_plan = sub_data['plan']
         plan_name_clean = str(sub_data['plan']).strip().lower()
-        if plan_name_clean not in ('trial', 'trialing', 'default trial plan', ''):
+        if plan_name_clean not in _TRIAL_PLAN_NAMES:
             if org.subscription_status in ('Trialing', 'Trial', 'On Trial', None, ''):
                 org.subscription_status = 'Active'
             sub = Subscription.query.filter_by(org_id=org.id).order_by(Subscription.id.desc()).first()
@@ -1058,6 +1155,21 @@ def update_company(org_id):
                 sub.plan_name = sub_data['plan']
                 if sub.subscription_status in ('Trial', 'Trialing'):
                     sub.subscription_status = 'Active'
+        else:
+            if org.subscription_status not in ('Suspended', 'On Hold', 'Expired'):
+                org.subscription_status = 'Trialing'
+
+    if req_status:
+        if req_status in ('Suspended', 'On Hold'):
+            org.subscription_status = 'Suspended'
+        elif req_status == 'Expired':
+            org.subscription_status = 'Expired'
+        elif req_status in ('Active', 'Trialing', 'Reactivate'):
+            if _is_org_paid_helper(org):
+                org.subscription_status = 'Active'
+            else:
+                exp = _to_naive_utc(org.trial_ends_at or org.license_expiry_date)
+                org.subscription_status = 'Expired' if (exp and exp < now_naive) else 'Trialing'
     if 'max_users' in sub_data:
         org.max_users = int(sub_data['max_users'])
     if 'storage_limit' in sub_data:
@@ -1762,7 +1874,7 @@ def update_company_plan(org_id):
     old_plan = org.subscription_plan
     org.subscription_plan = new_plan
     plan_name_clean = str(new_plan).strip().lower()
-    if plan_name_clean not in ('trial', 'trialing', 'default trial plan', ''):
+    if plan_name_clean not in _TRIAL_PLAN_NAMES:
         if org.subscription_status in ('Trialing', 'Trial', 'On Trial', None, ''):
             org.subscription_status = 'Active'
         sub = Subscription.query.filter_by(org_id=org.id).order_by(Subscription.id.desc()).first()
@@ -1770,6 +1882,9 @@ def update_company_plan(org_id):
             sub.plan_name = new_plan
             if sub.subscription_status in ('Trial', 'Trialing'):
                 sub.subscription_status = 'Active'
+    else:
+        if org.subscription_status not in ('Suspended', 'On Hold', 'Expired'):
+            org.subscription_status = 'Trialing'
 
     clean_plan = new_plan.strip()
     saas_plan = SaaSPlan.query.filter(
@@ -1958,27 +2073,47 @@ def extend_company_trial(org_id):
 @super_admin_required()
 def update_company_status(org_id):
     org = Organization.query.get_or_404(org_id)
-    data = request.json
+    data = request.json or {}
     
     new_status = data.get('status')
-    if new_status not in ['Active', 'Suspended', 'Expired', 'Trialing']:
+    if new_status not in ['Active', 'Suspended', 'Expired', 'Trialing', 'Reactivate', 'On Hold']:
         return jsonify({"msg": "Invalid status"}), 400
         
     old_status = org.subscription_status
-    org.subscription_status = new_status
-    if new_status in ['Active', 'Trialing']:
-        User.query.filter_by(org_id=org.id).update({'is_active': True, 'deactivated_at': None})
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    if new_status in ['Suspended', 'On Hold']:
+        org.subscription_status = 'Suspended'
+        User.query.filter_by(org_id=org.id).update({'is_active': False, 'deactivated_at': now_naive})
+    elif new_status == 'Expired':
+        org.subscription_status = 'Expired'
+        User.query.filter_by(org_id=org.id).update({'is_active': False, 'deactivated_at': now_naive})
     else:
-        User.query.filter_by(org_id=org.id).update({'is_active': False, 'deactivated_at': datetime.now(timezone.utc).replace(tzinfo=None)})
+        # Unpausing / Reactivating or setting Active/Trialing
+        # Check if the organization is paid or on trial
+        is_paid = _is_org_paid_helper(org)
+        if is_paid:
+            org.subscription_status = 'Active'
+        else:
+            # It's a trial organization!
+            # Check if its trial has expired
+            exp = _to_naive_utc(org.trial_ends_at or org.license_expiry_date)
+            if exp and exp < now_naive:
+                org.subscription_status = 'Expired'
+            else:
+                org.subscription_status = 'Trialing'
+                
+        User.query.filter_by(org_id=org.id).update({'is_active': True, 'deactivated_at': None})
+
     db.session.commit()
     
     log_admin_action(
-        f"Updated company status from {old_status} to {new_status}",
+        f"Updated company status from {old_status} to {org.subscription_status}",
         target_type="Organization",
         target_id=org.id
     )
     
-    return jsonify({"status": "success", "message": f"Company status updated to {new_status}"})
+    return jsonify({"status": "success", "message": f"Company status updated to {org.subscription_status}"})
 
 @super_admin_bp.route('/companies/<int:org_id>/activate-subscription', methods=['POST'])
 @jwt_required()
@@ -1987,9 +2122,40 @@ def activate_company_subscription(org_id):
     org = Organization.query.get_or_404(org_id)
     
     old_status = org.subscription_status
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     org.subscription_status = 'Active'
-    org.trial_ends_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
+    org.trial_ends_at = now_naive + timedelta(days=30)
+    org.license_expiry_date = org.trial_ends_at
+    
+    # If currently on a trial plan, promote to Starter tier
+    if not org.subscription_plan or str(org.subscription_plan).strip().lower() in _TRIAL_PLAN_NAMES:
+        org.subscription_plan = 'Starter'
+
     User.query.filter_by(org_id=org.id).update({'is_active': True, 'deactivated_at': None})
+
+    # Ensure Subscription record exists and is Active
+    sub = Subscription.query.filter_by(org_id=org.id).order_by(Subscription.id.desc()).first()
+    if not sub:
+        sub = Subscription(
+            org_id=org.id,
+            subscription_uid=f"SUB-{now_naive.year}-{uuid.uuid4().hex[:6].upper()}",
+            plan_name=org.subscription_plan,
+            subscription_status='Active',
+            payment_status='Paid',
+            billing_cycle='Monthly',
+            start_date=now_naive,
+            end_date=org.trial_ends_at,
+            base_price=2999.00,
+            final_amount=2999.00
+        )
+        db.session.add(sub)
+    else:
+        sub.subscription_status = 'Active'
+        sub.payment_status = 'Paid'
+        sub.plan_name = org.subscription_plan
+        sub.start_date = now_naive
+        sub.end_date = org.trial_ends_at
+
     db.session.commit()
     
     log_admin_action(
