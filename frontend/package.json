@@ -21,7 +21,7 @@
   "type": "commonjs",
   "devDependencies": {
     "clean-css": "^5.3.3",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "terser": "^5.50.0"
   }
 }
