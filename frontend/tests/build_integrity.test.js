@@ -42,7 +42,7 @@ test('Frontend Production Build Integrity Suite', async (t) => {
         }
     });
 
-    await t.test('HTML files contain critical preloads and CDN preconnect links', () => {
+    await t.test('HTML files contain critical preloads and NO external CDN dependencies', () => {
         const indexPath = path.join(frontendDir, 'index.html');
         const loginPath = path.join(frontendDir, 'auth', 'login.html');
         const adminDashboardPath = path.join(frontendDir, 'dashboard', 'dashboard-admin.html');
@@ -51,10 +51,9 @@ test('Frontend Production Build Integrity Suite', async (t) => {
             assert.ok(fs.existsSync(filePath), `HTML file ${filePath} must exist`);
             const html = fs.readFileSync(filePath, 'utf8');
 
-            assert.ok(html.includes('rel="preconnect" href="https://cdn.jsdelivr.net"'), `${filePath} must have CDN preconnect for jsdelivr`);
-            assert.ok(html.includes('rel="dns-prefetch" href="https://cdn.jsdelivr.net"'), `${filePath} must have CDN dns-prefetch for jsdelivr`);
-            assert.ok(html.includes('rel="preconnect" href="https://unpkg.com"'), `${filePath} must have CDN preconnect for unpkg`);
-            assert.ok(html.includes('rel="dns-prefetch" href="https://unpkg.com"'), `${filePath} must have CDN dns-prefetch for unpkg`);
+            assert.ok(!html.includes('cdn.jsdelivr.net'), `${filePath} must not contain jsdelivr CDN`);
+            assert.ok(!html.includes('unpkg.com'), `${filePath} must not contain unpkg CDN`);
+            assert.ok(!html.includes('cdnjs.cloudflare.com'), `${filePath} must not contain cdnjs CDN`);
             assert.ok(/rel="preload"\s+href="\/assets\/dist\/core\.[a-f0-9]+\.min\.css"\s+as="style"/.test(html), `${filePath} must preload core CSS bundle`);
             assert.ok(/rel="preload"\s+href="\/assets\/dist\/auth-guard\.[a-f0-9]+\.min\.js"\s+as="script"/.test(html), `${filePath} must preload auth-guard script`);
         }

@@ -18,6 +18,16 @@ const ASSETS_DIR = path.join(FRONTEND_DIR, 'assets');
 const CSS_DIR = path.join(ASSETS_DIR, 'css');
 const JS_DIR = path.join(ASSETS_DIR, 'js');
 const DIST_DIR = path.join(ASSETS_DIR, 'dist');
+const VENDOR_DIR = path.join(ASSETS_DIR, 'vendor');
+
+const VENDOR_FILES = new Set([
+    'bootstrap.bundle.min.js',
+    'chart.min.js',
+    'lucide.min.js',
+    'html2pdf.bundle.min.js',
+    'apexcharts.min.js',
+    'font-awesome.all.min.css'
+]);
 
 const cleanCss = new CleanCSS({
     level: {
@@ -36,16 +46,33 @@ function ensureDir(dir) {
     }
 }
 
+function copyVendorAssets() {
+    if (!fs.existsSync(VENDOR_DIR)) return;
+    ensureDir(DIST_DIR);
+    const files = fs.readdirSync(VENDOR_DIR);
+    for (const file of files) {
+        const src = path.join(VENDOR_DIR, file);
+        const dest = path.join(DIST_DIR, file);
+        if (fs.statSync(src).isDirectory()) {
+            fs.cpSync(src, dest, { recursive: true });
+        } else {
+            fs.copyFileSync(src, dest);
+        }
+    }
+}
+
 function cleanDistDir() {
     ensureDir(DIST_DIR);
     const files = fs.readdirSync(DIST_DIR);
     for (const file of files) {
+        if (VENDOR_FILES.has(file) || file === 'fa-webfonts') continue;
         if (file.endsWith('.min.js') || file.endsWith('.min.css') || file === 'manifest.json') {
             try {
                 fs.unlinkSync(path.join(DIST_DIR, file));
             } catch (e) {}
         }
     }
+    copyVendorAssets();
 }
 	async function minifyJS(code, filename = 'file.js') {
     try {
@@ -253,11 +280,7 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
     const authGuardPath = manifest['auth-guard.js'] || '/assets/dist/auth-guard.min.js';
 
     const preloads = [
-        '<!-- Performance & Network Acceleration: CDN Preconnect & Critical Preloads -->',
-        '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>',
-        '<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">',
-        '<link rel="preconnect" href="https://unpkg.com" crossorigin>',
-        '<link rel="dns-prefetch" href="https://unpkg.com">',
+        '<!-- Performance & Network Acceleration: Critical Preloads -->',
         `<link rel="preload" href="/assets/dist/${coreCssFile}" as="style">`,
         `<link rel="preload" href="${authGuardPath}" as="script">`
     ].join('\n    ');
