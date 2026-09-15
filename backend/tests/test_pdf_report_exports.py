@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 from app.infrastructure.database.models.models import Project, KPIMetric, Organization, db
 from app.utils.report_gen import generate_pdf_summary
+import app.utils.pdf_filler as pdf_filler
 
 
 def test_generate_pdf_summary_no_fpdf_align_error(app, auth_context):

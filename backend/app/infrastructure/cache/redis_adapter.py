@@ -180,11 +180,21 @@ class CacheAdapter:
                 return bool(self._redis_client.exists(key))
             except Exception:
                 pass
-        return self.get(key) is not None
 
-    def incr(self, key: str, amount: int = 1, ttl_seconds: Optional[int] = None, timeout: Optional[int] = None, is_security_critical: bool = False) -> int:
+        now = time.time()
+        with self._lock:
+            if key in self._memory_store:
+                _, exp = self._memory_store[key]
+                if exp == 0 or now < exp:
+                    return True
+                del self._memory_store[key]
+        return False
+
+    def incr(self, key: str, amount: int = 1, ttl_seconds: Optional[int] = None, timeout: Optional[int] = None, ttl: Optional[int] = None, is_security_critical: bool = False) -> int:
         """Atomically increments a counter and sets TTL on first creation."""
-        effective_ttl = timeout if timeout is not None else ttl_seconds
+        effective_ttl = ttl_seconds if ttl_seconds is not None else (ttl if ttl is not None else timeout)
+        ttl_seconds = effective_ttl if effective_ttl is not None else 0
+
         if is_security_critical:
             self._ensure_security_available(f"cache_incr:{key}")
 
@@ -272,6 +282,7 @@ class CacheAdapter:
         start_time = time.time()
 
         while True:
+            redis_failed = False
             if self._redis_client:
                 try:
                     acquired = self._redis_client.set(key, token, nx=True, ex=eff_ttl)
@@ -279,8 +290,9 @@ class CacheAdapter:
                         self._locks_held[lock_name] = token
                         return token
                 except Exception:
-                    pass
-            else:
+                    redis_failed = True
+
+            if not self._redis_client or redis_failed:
                 with self._lock:
                     now = time.time()
                     existing = self._memory_store.get(key)
