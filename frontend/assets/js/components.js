@@ -378,6 +378,28 @@ const OctaQube = {
         return roleStr;
     },
 
+    escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    },
+
+    sanitizeUrl(url) {
+        if (!url || typeof url !== 'string') return '';
+        const trimmed = url.trim();
+        if (trimmed.startsWith('/') || trimmed.startsWith('./') || trimmed.startsWith('../')) {
+            return trimmed;
+        }
+        if (/^(https?:\/\/|data:image\/|blob:)/i.test(trimmed)) {
+            return trimmed;
+        }
+        return '';
+    },
+
     getSaSubRole() {
         if (window.SuperAdmin && window.SuperAdmin.saSubRole) {
             return window.SuperAdmin.saSubRole;
@@ -2134,15 +2156,19 @@ const OctaQube = {
         let brandNameHtml = `${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small>`;
 
         if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
-            const resolvedLogoUrl = logoUrl.includes('/uploads/') ? (logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()) : logoUrl;
-            const safeLogoUrl = OctaQube.sanitizeUrl(resolvedLogoUrl);
-            if (safeLogoUrl) {
-                logoIconHtml = `
-                    <img src="${safeLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.remove(); const fb = this.parentElement ? this.parentElement.querySelector('.fallback-brand-icon') : null; if (fb) fb.style.display='flex';">
-                    <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none; width: 32px; height: 32px; border-radius: 8px; align-items: center; justify-content: center;">
-                        <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white; width:18px; height:18px;"></i>
-                    </div>
-                `;
+            try {
+                const resolvedLogoUrl = logoUrl.includes('/uploads/') ? (logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()) : logoUrl;
+                const safeLogoUrl = this.sanitizeUrl ? this.sanitizeUrl(resolvedLogoUrl) : (window.OctaQube && window.OctaQube.sanitizeUrl ? window.OctaQube.sanitizeUrl(resolvedLogoUrl) : resolvedLogoUrl);
+                if (safeLogoUrl) {
+                    logoIconHtml = `
+                        <img src="${safeLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.remove(); const fb = this.parentElement ? this.parentElement.querySelector('.fallback-brand-icon') : null; if (fb) fb.style.display='flex';">
+                        <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none; width: 32px; height: 32px; border-radius: 8px; align-items: center; justify-content: center;">
+                            <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white; width:18px; height:18px;"></i>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                console.warn('[renderSidebar] Logo URL resolution error:', err);
             }
         }
 
@@ -2180,7 +2206,8 @@ const OctaQube = {
             ];
 
             const allowedSaLinks = allSaLinks.filter(item => this.canSaRead(item.section));
-            const linksHtml = allowedSaLinks.map(item => `
+            const linksToShow = (allowedSaLinks && allowedSaLinks.length > 0) ? allowedSaLinks : allSaLinks;
+            const linksHtml = linksToShow.map(item => `
                 <a href="${item.url}" class="sidebar-link sa-compact-link" data-section="${item.section}" title="${item.title}">
                     <i class="link-icon" data-lucide="${item.icon}"></i>
                     <span>${item.title}</span>
@@ -3721,6 +3748,18 @@ OctaQube.escapeHtml = function(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+};
+
+OctaQube.sanitizeUrl = function(url) {
+    if (!url || typeof url !== 'string') return '';
+    const trimmed = url.trim();
+    if (trimmed.startsWith('/') || trimmed.startsWith('./') || trimmed.startsWith('../')) {
+        return trimmed;
+    }
+    if (/^(https?:\/\/|data:image\/|blob:)/i.test(trimmed)) {
+        return trimmed;
+    }
+    return '';
 };
 
 // Dynamic Organization Category Manager

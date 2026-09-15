@@ -201,7 +201,7 @@ body.dark-mode .app-bottom-nav {
    3. Offcanvas Mobile Drawer with Swipe-to-Close
    ========================================================================== */
 
-@media (max-width: 768px), (max-width: 1024px) {
+@media (max-width: 991.98px) {
     .app-sidebar,
     .glass-sidebar {
         position: fixed !important;

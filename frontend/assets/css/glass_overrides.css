@@ -278,7 +278,7 @@ body.dark-mode .plan-kpi-label {
     display: inline-flex !important;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 991.98px) {
     #sidebar-toggle-btn {
         display: inline-flex !important;
     }
