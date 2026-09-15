@@ -2417,7 +2417,7 @@ def upload_project_evidence():
         logger.error(f"[upload_project_evidence] Failed to save evidence file '{file.filename}': {e}", exc_info=True)
         return jsonify({
             "status": "error",
-            "msg": f"Failed to save uploaded evidence: {str(e)}"
+            "msg": "Failed to save uploaded evidence. Please try again."
         }), 500
 
 
@@ -2440,10 +2440,10 @@ def close_project(project_id):
             sign_off_by_role="Admin"
         )
         return jsonify(result), 200
-    except ValueError as val_err:
-        return jsonify({"status": "error", "message": str(val_err)}), 404
-    except PermissionError as perm_err:
-        return jsonify({"status": "error", "message": str(perm_err)}), 403
+    except ValueError:
+        return jsonify({"status": "error", "message": "Project not found or invalid closure parameters."}), 404
+    except PermissionError:
+        return jsonify({"status": "error", "message": "Access denied. Insufficient permissions to close this project."}), 403
     except Exception as err:
         db.session.rollback()
         return internal_server_error(err, "Project closure failed.")

@@ -326,24 +326,21 @@ class EmailUtils:
                 logger.info(f"DEVELOPMENT MODE: EMAIL SENT VIA {provider_type.upper()}")
                 logger.info(f"FROM: {sender_name} <{clean_from}>")
                 logger.info(f"TO: {to_email}")
-                logger.info(f"SUBJECT: {subject}".encode('ascii', errors='replace').decode('ascii'))
+                logger.info("SUBJECT: [EMAIL DISPATCHED]")
                 if reply_to:
                     logger.info(f"REPLY-TO: {reply_to}")
                 logger.info("-" * 50)
 
                 otp_match = re.search(r'>\s*(\d{6})\s*<', html_content)
                 if otp_match:
-                    logger.info(f"OTP CODE: {otp_match.group(1)}")
+                    logger.info("OTP CODE: ******")
 
                 links = re.findall(r'href="([^"]+)"', html_content)
                 if links:
-                    logger.info("EXTRACTED LINKS:")
-                    for link in links:
-                        logger.info(f"  - {link}")
+                    logger.info(f"LINKS ATTACHED: {len(links)} links")
                     logger.info("-" * 50)
 
-                logger.info("EMAIL CONTENT (Truncated preview):")
-                logger.info(html_content[:300].encode('ascii', errors='replace').decode('ascii'))
+                logger.info("EMAIL DISPATCH COMPLETED.")
                 logger.info("="*50 + "\n")
             except Exception:
                 pass

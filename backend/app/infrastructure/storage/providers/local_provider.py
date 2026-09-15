@@ -109,12 +109,20 @@ class LocalStorageProvider(BaseStorageProvider):
             "content_type": content_type
         }
 
-    def get_file_bytes(self, filename_or_path: str, subfolder: str = "") -> Tuple[Optional[bytes], Optional[str]]:
+    def _get_safe_candidates(self, filename_or_path: str, subfolder: str = "") -> list:
         clean_sub = subfolder.strip("/\\")
         target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
-        local_path = os.path.join(self.upload_folder, target_path)
+        from app.utils.security_utils import safe_resolve_path
+        candidates = []
+        for base in (self.upload_folder, FALLBACK_UPLOAD_FOLDER):
+            if base:
+                safe_cand = safe_resolve_path(base, target_path)
+                if safe_cand:
+                    candidates.append(safe_cand)
+        return candidates
 
-        candidates = [local_path, os.path.join(FALLBACK_UPLOAD_FOLDER, target_path)]
+    def get_file_bytes(self, filename_or_path: str, subfolder: str = "") -> Tuple[Optional[bytes], Optional[str]]:
+        candidates = self._get_safe_candidates(filename_or_path, subfolder)
         for cand in candidates:
             if os.path.exists(cand):
                 try:
@@ -133,10 +141,7 @@ class LocalStorageProvider(BaseStorageProvider):
         return f"/api/storage/download/{clean_path}"
 
     def delete_file(self, filename_or_path: str, subfolder: str = "") -> bool:
-        clean_sub = subfolder.strip("/\\")
-        target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
-        candidates = [os.path.join(self.upload_folder, target_path), os.path.join(FALLBACK_UPLOAD_FOLDER, target_path)]
-
+        candidates = self._get_safe_candidates(filename_or_path, subfolder)
         deleted = False
         for cand in candidates:
             if os.path.exists(cand):
@@ -149,9 +154,8 @@ class LocalStorageProvider(BaseStorageProvider):
         return deleted
 
     def exists(self, filename_or_path: str, subfolder: str = "") -> bool:
-        clean_sub = subfolder.strip("/\\")
-        target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
-        return os.path.exists(os.path.join(self.upload_folder, target_path)) or os.path.exists(os.path.join(FALLBACK_UPLOAD_FOLDER, target_path))
+        candidates = self._get_safe_candidates(filename_or_path, subfolder)
+        return any(os.path.exists(cand) for cand in candidates)
 
     def get_info(self) -> Dict[str, Any]:
         return {

@@ -1557,7 +1557,7 @@ def update_profile():
                         user.profile_picture = f"/uploads/avatars/{target_name}"
                     except Exception as fallback_ex:
                         logging.getLogger('qcms.auth').error(f"[update_profile] Emergency avatar fallback failed: {fallback_ex}", exc_info=True)
-                        return jsonify({"status": "error", "message": f"Failed to save avatar image: {str(ex)}"}), 500
+                        return jsonify({"status": "error", "message": "Failed to save avatar image. Please try again."}), 500
         elif 'profile_picture' in request.form and request.form['profile_picture']:
             user.profile_picture = request.form['profile_picture']
                 
@@ -1591,7 +1591,7 @@ def update_profile():
                         user.banner_image = f"/uploads/branding/{target_name}"
                     except Exception as fallback_ex:
                         logging.getLogger('qcms.auth').error(f"[update_profile] Emergency banner fallback failed: {fallback_ex}", exc_info=True)
-                        return jsonify({"status": "error", "message": f"Failed to save banner image: {str(ex)}"}), 500
+                        return jsonify({"status": "error", "message": "Failed to save banner image. Please try again."}), 500
         elif 'banner_image' in request.form and request.form['banner_image']:
             user.banner_image = request.form['banner_image']
         

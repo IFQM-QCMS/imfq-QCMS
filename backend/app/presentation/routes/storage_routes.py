@@ -125,7 +125,11 @@ def secure_download_file(file_path):
     if storage.backend in ('azure', 'supabase'):
         signed_url = storage.generate_signed_url(clean_path, expiry_minutes=15)
         if signed_url:
-            return redirect(signed_url, code=302)
+            from urllib.parse import urlsplit
+            parsed = urlsplit(signed_url)
+            host = parsed.netloc.lower()
+            if parsed.scheme == 'https' and any(host == d or host.endswith('.' + d) for d in ('supabase.co', 'blob.core.windows.net', 'amazonaws.com')):
+                return redirect(signed_url, code=302)
 
     content_bytes, content_type = storage.get_file_bytes(clean_path)
     if content_bytes is None:

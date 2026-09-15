@@ -604,7 +604,7 @@ def send_test_sms_template(template_key):
     from app.domain.services.email_notification_engine import EmailNotificationEngine
     body = EmailNotificationEngine.replace_variables(tmpl.body or 'Test SMS Notification from IFQM QCMS', context)
 
-    print(f"\n[TEST SMS] Template: {tmpl.display_name} ({tmpl.template_key}) | DLT: {tmpl.template_id} | To: {phone} | Body: {body}\n")
+    logger.info(f"[TEST SMS] Template: {tmpl.display_name} ({tmpl.template_key}) | DLT: {tmpl.template_id} | To: {phone}")
 
     # Dispatch SMS via Jio DLT / Kaleyra using template's specific DLT parameters
     msg_type = "OTP" if (tmpl.category == 'auth' or 'otp' in tmpl.template_key) else "TXN"
@@ -645,9 +645,10 @@ def send_test_sms_template(template_key):
         print(f"[SMS Log Error] {e}")
 
     if not sms_ok:
+        safe_err = "SMS gateway delivery failed. Please verify credentials and connectivity." if "Exception:" in str(sms_msg) else str(sms_msg)
         return jsonify({
             "status": "error",
-            "message": f"Gateway Error: {sms_msg}",
+            "message": f"Gateway Error: {safe_err}",
             "rendered_body": body,
             "dlt_template_id": tmpl.template_id,
             "dlt_entity_id": tmpl.entity_id,

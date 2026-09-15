@@ -952,19 +952,21 @@ def get_dashboard_orgs():
         plans = plan_filter.split(',')
         query = query.filter(Organization.subscription_plan.in_(plans))
         
-    # Sort mapping safety
-    allowed_sort_cols = ['name', 'subscription_plan', 'license_expiry_date', 'max_users', 'created_at']
-    if sort not in allowed_sort_cols:
-        sort = 'name'
-    if sort == 'plan':
-        sort = 'subscription_plan'
-    if sort == 'license_expiry':
-        sort = 'license_expiry_date'
-        
-    if sort_dir == 'desc':
-        query = query.order_by(text(f"organizations.{sort} DESC"))
+    # Safe ORM Sort mapping
+    col_map = {
+        'name': Organization.name,
+        'subscription_plan': Organization.subscription_plan,
+        'plan': Organization.subscription_plan,
+        'license_expiry_date': Organization.license_expiry_date,
+        'license_expiry': Organization.license_expiry_date,
+        'max_users': Organization.max_users,
+        'created_at': Organization.created_at
+    }
+    sort_col = col_map.get(sort, Organization.name)
+    if str(sort_dir).lower() == 'desc':
+        query = query.order_by(sort_col.desc())
     else:
-        query = query.order_by(text(f"organizations.{sort} ASC"))
+        query = query.order_by(sort_col.asc())
         
     def _serializer(row):
         o, u_cnt = row[0], row[1]

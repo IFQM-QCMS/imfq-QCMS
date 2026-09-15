@@ -782,15 +782,18 @@ def create_app():
 
         if not has_local_frontend:
             if filename.endswith('.html') or '.' not in filename:
-                return redirect(f"{vercel_url}/{filename}")
+                safe_name = filename.replace('\\', '/').lstrip('/')
+                if safe_name and not safe_name.startswith(('http:', 'https:', '//')) and '..' not in safe_name:
+                    return redirect(f"{vercel_url.rstrip('/')}/{safe_name}")
             return jsonify({"code": 404, "message": "File not found", "status": "error"}), 404
 
         if (filename == 'index.html' or filename == 'index' or filename == '') and not is_landing_page_enabled():
             return redirect('/auth/login.html')
 
         # 1. Direct match at root or exact path (e.g. assets, favicon)
-        filepath = os.path.join(frontend_dir, filename)
-        if os.path.isfile(filepath):
+        from app.utils.security_utils import safe_resolve_path
+        filepath = safe_resolve_path(frontend_dir, filename)
+        if filepath and os.path.isfile(filepath):
             return send_from_directory(frontend_dir, filename)
             
         # Check if requesting i18n translation assets even with nested route prefix
@@ -824,6 +827,11 @@ def create_app():
         if '..' in clean_filename or clean_filename.startswith('/'):
             return jsonify({"status": "error", "message": "Invalid file path."}), 400
 
+        # Strip accidental redundant uploads/ prefix
+        while clean_filename.startswith('uploads/'):
+            clean_filename = clean_filename[len('uploads/'):]
+        clean_filename = clean_filename.lstrip('/')
+
         is_public_asset = (
             clean_filename.startswith('branding/') or
             clean_filename.startswith('template_previews/') or
@@ -833,12 +841,16 @@ def create_app():
             clean_filename.startswith('banner_') or
             'logo' in clean_filename.lower() or
             'favicon' in clean_filename.lower() or
-            clean_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp'))
+            clean_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp', '.avif'))
         )
 
         if not is_public_asset:
             user_id = None
             token = request.args.get('token')
+            if not token:
+                # Support cookie-based authentication for <img>, <iframe>, window.open, and direct download links
+                token = request.cookies.get('auth_token') or request.cookies.get('access_token_cookie') or request.cookies.get('token')
+
             if token:
                 try:
                     from flask_jwt_extended import decode_token
@@ -881,17 +893,20 @@ def create_app():
                         return jsonify({"status": "error", "message": "Access denied. You do not have permission to view this tenant file.", "code": "FORBIDDEN"}), 403
 
         primary_dir = app.config.get('UPLOAD_FOLDER')
+        root_uploads_dir = os.path.abspath(os.path.join(app.root_path, '..', '..', 'uploads'))
+        backend_uploads_dir = os.path.abspath(os.path.join(app.root_path, '..', 'uploads'))
         frontend_dir_local = os.path.abspath(os.path.join(app.root_path, '..', '..', 'frontend', 'uploads'))
         import tempfile
         fallback_tmp_dir = os.path.join(tempfile.gettempdir(), 'qcms_uploads')
         alt_tmp_dir = '/tmp/uploads'
-        search_dirs = [d for d in (primary_dir, frontend_dir_local, fallback_tmp_dir, alt_tmp_dir) if d and os.path.isdir(d)]
+        search_dirs = [d for d in (primary_dir, root_uploads_dir, backend_uploads_dir, frontend_dir_local, fallback_tmp_dir, alt_tmp_dir) if d and os.path.isdir(d)]
 
         def check_file(d, p):
             if not d or not p:
                 return None
-            full = os.path.join(d, p.replace('/', os.sep))
-            if os.path.isfile(full):
+            from app.utils.security_utils import safe_resolve_path
+            safe_full = safe_resolve_path(d, p)
+            if safe_full and os.path.isfile(safe_full):
                 return (d, p)
             return None
 
@@ -906,7 +921,7 @@ def create_app():
         # 2. Subdirectory flexibility for basename
         base_name = os.path.basename(clean_filename)
         if not resolved:
-            subfolders = ['avatars', 'project_evidence', 'sop', 'reports', 'support_attachments', 'branding', 'certificates', 'projects', 'diagnostics']
+            subfolders = ['avatars', 'project_evidence', 'sop', 'reports', 'support_attachments', 'branding', 'certificates', 'projects', 'diagnostics', 'evidence', 'template_previews']
             for s_dir in search_dirs:
                 resolved = check_file(s_dir, base_name)
                 if resolved:
@@ -953,7 +968,12 @@ def create_app():
             res_dir, res_path = resolved
             as_att = request.args.get('download') == '1'
             download_name = request.args.get('filename') or os.path.basename(res_path)
-            return send_from_directory(res_dir, res_path, as_attachment=as_att, download_name=download_name)
+            resp = send_from_directory(res_dir, res_path, as_attachment=as_att, download_name=download_name)
+            if is_public_asset:
+                resp.headers['Cache-Control'] = 'public, max-age=60, must-revalidate'
+            else:
+                resp.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+            return resp
 
         # 5. Fallback to Unified Storage Service
         try:
@@ -963,7 +983,12 @@ def create_app():
                 content_bytes, content_type = storage.get_file_bytes(base_name)
             if content_bytes is not None:
                 from flask import Response
-                return Response(content_bytes, mimetype=content_type)
+                resp = Response(content_bytes, mimetype=content_type)
+                if is_public_asset:
+                    resp.headers['Cache-Control'] = 'public, max-age=60, must-revalidate'
+                else:
+                    resp.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+                return resp
         except Exception:
             pass
 
@@ -1124,9 +1149,10 @@ def create_app():
             "message": "An internal server error occurred. Please contact support if the problem persists.",
             "code": "INTERNAL_SERVER_ERROR"
         }
-        import traceback
-        response["debug_error"] = str(e)
-        response["traceback"] = traceback.format_exc()
+        if app.config.get('TESTING') or app.config.get('DEBUG'):
+            import traceback
+            response["debug_error"] = str(e)
+            response["traceback"] = traceback.format_exc()
         return jsonify(response), 500
 
     @app.after_request

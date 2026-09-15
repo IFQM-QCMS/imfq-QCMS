@@ -15,8 +15,8 @@ with app.app_context():
     adm_token = create_access_token(identity=str(adm_user.id), additional_claims={'session_id': 'TEST-SESS-ADM', 'role': adm_user.role.name, 'org_id': adm_user.org_id})
     tm_token = create_access_token(identity=str(tm_user.id), additional_claims={'session_id': 'TEST-SESS-TM', 'role': tm_user.role.name, 'org_id': tm_user.org_id})
     
-    print(f'Admin user: {adm_user.email} (Role: {adm_user.role.name})')
-    print(f'TM user: {tm_user.email} (Role: {tm_user.role.name})')
+    print(f'Admin user: ***@*** (Role: {adm_user.role.name})')
+    print(f'TM user: ***@*** (Role: {tm_user.role.name})')
     
     # Test BLK-01: API Key Endpoint
     h_tm = {'Authorization': f'Bearer {tm_token}'}
@@ -32,14 +32,14 @@ with app.app_context():
     data = r_adm_key.get_json()
     if data and data.get('api_key'):
         masked = data.get('api_key')
-        print(f'BLK-01 Masked key: {masked}')
+        print('BLK-01 Masked key: [REDACTED - value hidden in logs]')
         assert '***' in masked, 'BLK-01 Failed: Key not masked'
     else:
         print('BLK-01: No API key generated yet for this org. Let us generate one and test masking.')
         gen_res = client.post('/api/admin/integrations/api-key/generate', headers=h_adm)
         get_res = client.get('/api/admin/integrations/api-key', headers=h_adm)
         masked = get_res.get_json().get('api_key')
-        print('Generated & fetched masked key:', masked)
+        print('BLK-01 Generated & fetched masked key: [REDACTED - value hidden in logs]')
         assert '***' in masked, 'BLK-01 Masking check failed'
         
     # Test BLK-02: Settings permission

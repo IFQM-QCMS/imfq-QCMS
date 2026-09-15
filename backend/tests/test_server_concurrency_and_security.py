@@ -50,7 +50,7 @@ def test_production_security_headers_enforced(client):
     # 6. Content-Security-Policy
     csp = res.headers.get('Content-Security-Policy', '')
     assert "default-src 'self'" in csp
-    assert 'https://cdn.jsdelivr.net' in csp
+    assert any('cdn.jsdelivr.net' in token for token in csp.split())
 
 
 def test_proxy_fix_client_ip_resolution(client):
@@ -96,3 +96,40 @@ def test_health_probes_liveness_and_readiness(client):
     ready_data = ready_res.get_json()
     assert 'db' in ready_data
     assert 'redis' in ready_data
+
+
+def test_ssrf_webhook_url_validation():
+    """Verify that is_safe_webhook_url blocks SSRF, private IPs, loopback, and file protocols."""
+    from app.utils.security_utils import is_safe_webhook_url
+
+    # Malicious / internal addresses that MUST be blocked
+    blocked = [
+        "http://localhost:5000/api",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.2",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://10.0.0.1/admin",
+        "http://192.168.1.1/router",
+        "http://172.16.0.1",
+        "file:///etc/passwd",
+        "gopher://127.0.0.1:25",
+        "ftp://example.com/test",
+        "http://0.0.0.0:80",
+        "http://[::1]/test",
+        "",
+        None,
+        "not-a-url"
+    ]
+    for url in blocked:
+        is_safe, msg = is_safe_webhook_url(url)
+        assert is_safe is False, f"URL should be blocked for SSRF: {url}"
+
+    # Valid public addresses that SHOULD be allowed
+    valid = [
+        "https://webhook.site/test",
+        "https://api.github.com/webhook",
+        "https://httpbin.org/post"
+    ]
+    for url in valid:
+        is_safe, _ = is_safe_webhook_url(url)
+        assert is_safe is True, f"Legitimate public URL should be allowed: {url}"

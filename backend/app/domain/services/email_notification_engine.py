@@ -818,10 +818,12 @@ class EmailNotificationEngine:
             import json
 
             url = api_url.rstrip('/')
-            if account_sid and 'kaleyra.io' in url and '/v1/' not in url:
+            parsed_netloc = urllib.parse.urlsplit(url).netloc.lower()
+            is_kaleyra = (parsed_netloc == 'kaleyra.io' or parsed_netloc.endswith('.kaleyra.io'))
+            if account_sid and is_kaleyra and '/v1/' not in url:
                 url = f"https://api.kaleyra.io/v1/{account_sid}/messages"
             elif not url.endswith('/messages') and not url.endswith('/send') and not url.endswith('.php'):
-                if 'kaleyra.io' in url and '/v1/' not in url:
+                if is_kaleyra and '/v1/' not in url:
                     url = f"{url}/v1/messages"
 
             kaleyra_type = msg_type if msg_type in ('OTP', 'MKT') else 'OTP'

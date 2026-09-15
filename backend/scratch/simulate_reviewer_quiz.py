@@ -8,11 +8,17 @@ from app import create_app
 
 app = create_app()
 
+# Credentials are loaded from environment variables — never hardcoded
+_REVIEWER_USER = os.environ.get('TEST_REVIEWER_USER', 'reviewer')
+_REVIEWER_PASS = os.environ.get('TEST_REVIEWER_PASS', '')
+_FACILITATOR_USER = os.environ.get('TEST_FACILITATOR_USER', 'facilitator')
+_FACILITATOR_PASS = os.environ.get('TEST_FACILITATOR_PASS', '')
+
 with app.test_client() as client:
     # 1. Login as reviewer
     login_res = client.post('/api/auth/login', json={
-        'username': 'reviewer',
-        'password': '123456'
+        'username': _REVIEWER_USER,
+        'password': _REVIEWER_PASS
     })
     token = login_res.json.get('access_token')
     headers = {'Authorization': f'Bearer {token}'}
@@ -57,8 +63,8 @@ with app.test_client() as client:
     
     # 7. Login as facilitator (user 7) to check if trainings list contains the score
     login_fac = client.post('/api/auth/login', json={
-        'username': 'facilitator',
-        'password': '123456'
+        'username': _FACILITATOR_USER,
+        'password': _FACILITATOR_PASS
     })
     token_fac = login_fac.json.get('access_token')
     headers_fac = {'Authorization': f'Bearer {token_fac}'}

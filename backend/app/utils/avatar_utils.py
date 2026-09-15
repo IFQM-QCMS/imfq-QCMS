@@ -51,9 +51,11 @@ def get_profile_picture_url(user_or_path):
         f"branding/{base_name}"
     ]
 
+    from app.utils.security_utils import safe_resolve_path
     for s_dir in search_dirs:
         for cand in candidates:
-            if os.path.isfile(os.path.join(s_dir, cand.replace('/', os.sep))):
+            safe_cand = safe_resolve_path(s_dir, cand)
+            if safe_cand and os.path.isfile(safe_cand):
                 return f"/uploads/{clean_name}"
 
     # If the user has a saved avatar path (starts with avatar_ or in avatars/),

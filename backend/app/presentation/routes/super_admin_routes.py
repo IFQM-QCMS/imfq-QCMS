@@ -3090,6 +3090,12 @@ def test_webhook():
     url = body.get('url', '')
     if not url:
         return jsonify({"status": "error", "message": "Webhook URL is required"}), 400
+
+    from app.utils.security_utils import is_safe_webhook_url
+    is_safe, error_msg = is_safe_webhook_url(url)
+    if not is_safe:
+        return jsonify({"status": "error", "message": f"Restricted or invalid webhook URL: {error_msg}"}), 400
+
     try:
         import urllib.request as urlreq
         payload = json.dumps({
@@ -3433,7 +3439,8 @@ def get_system_health():
             else:
                 db_version = f"v{str(res).split()[1]}" if len(str(res).split()) > 1 else "v18.3"
     except Exception as e:
-        db_status = f"Disconnected ({str(e)})"
+        logger.error(f"[system_health] DB connection error: {e}")
+        db_status = "Disconnected"
 
     # 2. Redis Cache Server Status
     redis_status = "Active"

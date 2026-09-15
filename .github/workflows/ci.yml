@@ -11,6 +11,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   # 1. FRONTEND CI: Install, Lint, Build & Automated Tests

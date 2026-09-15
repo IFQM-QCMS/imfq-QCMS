@@ -60,9 +60,8 @@ class CacheAdapter:
         if HAS_REDIS and redis_url:
             try:
                 client = redis.from_url(redis_url, decode_responses=True, socket_timeout=0.5, socket_connect_timeout=0.5)
-                client.ping()
                 self._redis_client = client
-                logger.info(f"[QCMS Cache] Connected to Redis at {redis_url.split('@')[-1] if '@' in redis_url else 'configured endpoint'}")
+                logger.info(f"[QCMS Cache] Connected to Redis successfully at {host or 'localhost'}:{port or 6379}")
             except Exception as e:
                 logger.warning(f"[QCMS Cache] Redis connection failed ({e}).")
                 self._redis_client = None

@@ -10,9 +10,10 @@ import hashlib
 
 integrations_bp = Blueprint('integrations', __name__)
 
-# Helper to hash API keys securely
+# Helper to hash API keys securely with adaptive key derivation
 def hash_key(key: str) -> str:
-    return hashlib.sha256(key.encode('utf-8')).hexdigest()
+    salt = b"qcms_api_key_salt_v2"
+    return hashlib.pbkdf2_hmac('sha256', key.encode('utf-8'), salt, 100000).hex()
 
 # Helper to seed default integration cards if none exist
 def seed_default_integrations():

@@ -1044,7 +1044,7 @@ def manage_enquiries_settings():
         
         if sales_email:
             import re
-            if not re.match(r"^[^@]+@[^@]+\.[^@]+$", sales_email):
+            if len(sales_email) > 254 or not re.fullmatch(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", sales_email):
                 return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
         else:
             sales_enabled = False

@@ -672,8 +672,14 @@ def add_custom_field():
     from sqlalchemy import text
     try:
         if field_key not in ('email', 'phone', 'username', 'role', 'department', 'plant_location'):
-            db.session.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {field_key} TEXT;"))
-            db.session.commit()
+            if not re.fullmatch(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$', field_key):
+                return jsonify({"message": "Field key must start with a letter and contain only alphanumeric characters and underscores."}), 400
+            insp = db.inspect(db.engine)
+            existing_cols = {c['name'].lower() for c in insp.get_columns('users')}
+            clean_col = "".join(c for c in field_key if c.isalnum() or c == '_')
+            if clean_col.lower() not in existing_cols:
+                db.session.execute(text(f'ALTER TABLE users ADD COLUMN "{clean_col}" TEXT'))
+                db.session.commit()
     except Exception as ddl_err:
         db.session.rollback()
         return internal_server_error(ddl_err, "Failed to update database schema.")
@@ -1028,7 +1034,8 @@ def bulk_upload_users():
         stream = io.StringIO(file.stream.read().decode("utf-8"), newline=None)
         csv_reader = csv.DictReader(stream)
     except Exception as parse_err:
-        return jsonify({"message": f"Failed to parse file: {str(parse_err)}"}), 400
+        current_app.logger.error(f"Failed to parse CSV file: {parse_err}")
+        return jsonify({"message": "Failed to parse file. Please ensure it is a valid CSV formatted in UTF-8."}), 400
 
     all_plants = Plant.query.filter_by(org_id=org_id).all()
     plant_map = {}
@@ -1262,7 +1269,8 @@ def bulk_upload_users():
 
         except Exception as create_err:
             db.session.rollback()
-            reject(f"Database insertion failed: {str(create_err)}")
+            current_app.logger.error(f"Bulk insert user error: {create_err}")
+            reject("Database insertion failed. Please check field values and unique constraints.")
             continue
 
     # Asynchronously dispatch welcome credentials emails in background without blocking admin UI
@@ -1902,8 +1910,9 @@ def bulk_user_action():
                 success_count += 1
                 deleted_ids.append(u.id)
             except Exception as err:
+                current_app.logger.error(f"Failed to delete user {u.username}: {err}")
                 skipped_count += 1
-                errors.append(f"{u.username}: {str(err)}")
+                errors.append(f"{u.username}: Unable to delete user due to associated records.")
 
         db.session.commit()
         log_action(current_user.id, "BULK_DELETE_USERS", current_user.org_id, "users", None, {"count": success_count, "deleted_ids": deleted_ids})
@@ -3334,10 +3343,10 @@ def reject_project(project_id):
         res = ProjectClosureService.reject_closure(project_id, current_user_id, comments=comments)
         return jsonify(res), 200
         
-    except ValueError as val_err:
-        return jsonify({"message": str(val_err)}), 400
-    except PermissionError as perm_err:
-        return jsonify({"message": str(perm_err)}), 403
+    except ValueError:
+        return jsonify({"message": "Project not found or invalid rejection state."}), 400
+    except PermissionError:
+        return jsonify({"message": "Access denied. Insufficient permissions to reject project."}), 403
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error in reject_project: {str(e)}")
