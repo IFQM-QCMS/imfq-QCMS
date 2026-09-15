@@ -22,6 +22,7 @@ const VENDOR_DIR = path.join(ASSETS_DIR, 'vendor');
 
 const VENDOR_FILES = new Set([
     'bootstrap.bundle.min.js',
+    'bootstrap.min.css',
     'chart.min.js',
     'lucide.min.js',
     'html2pdf.bundle.min.js',
@@ -132,18 +133,19 @@ function getHtmlFiles(dir, fileList = []) {
 
     console.log('\n[1/4] Bundling & Minifying Core CSS Stylesheets...');
     const coreCssFiles = [
-        'design-system.css',
-        'glass.css',
-        'glass_overrides.css',
-        'styles.css',
-        'mobile-layout.css'
+        path.join(VENDOR_DIR, 'bootstrap.min.css'),
+        path.join(CSS_DIR, 'design-system.css'),
+        path.join(CSS_DIR, 'glass.css'),
+        path.join(CSS_DIR, 'glass_overrides.css'),
+        path.join(CSS_DIR, 'styles.css'),
+        path.join(CSS_DIR, 'mobile-layout.css')
     ];
 
     let combinedCoreCss = '';
-    for (const cssFile of coreCssFiles) {
-        const fullPath = path.join(CSS_DIR, cssFile);
+    for (const fullPath of coreCssFiles) {
         if (fs.existsSync(fullPath)) {
-            combinedCoreCss += `/* === ${cssFile} === */\n` + fs.readFileSync(fullPath, 'utf8') + '\n';
+            const fileName = path.basename(fullPath);
+            combinedCoreCss += `/* === ${fileName} === */\n` + fs.readFileSync(fullPath, 'utf8') + '\n';
         }
     }
 
