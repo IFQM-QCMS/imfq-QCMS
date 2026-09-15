@@ -312,7 +312,7 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
                 hasStageMatch = true;
                 if (firstStage) {
                     firstStage = false;
-                    return <!-- __STAGES_JS_SLOT__ -->\n    ;
+                    return `<!-- __STAGES_JS_SLOT__ -->\n    `;
                 }
                 return '';
             });
@@ -332,7 +332,7 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
                 hasCoreMatch = true;
                 if (firstCore) {
                     firstCore = false;
-                    return <!-- __CORE_JS_SLOT__ -->\n    ;
+                    return `<!-- __CORE_JS_SLOT__ -->\n    `;
                 }
                 return '';
             });
