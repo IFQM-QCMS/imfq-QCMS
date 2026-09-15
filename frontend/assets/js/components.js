@@ -553,8 +553,18 @@ const OctaQube = {
         if (userStr) {
             try {
                 this.user = JSON.parse(userStr);
-                if (this.user && this.user.role) {
-                    this.user.role = this.normalizeRole(this.user.role);
+                const isSuperAdminUser = Boolean(
+                    (this.user && (this.user.role === 'SuperAdmin' || this.user.role === 'Super Admin' || this.user.is_super_admin)) ||
+                    (typeof window !== 'undefined' && window.location.pathname.includes('super-admin'))
+                );
+                const rawRole = isSuperAdminUser ? 'SuperAdmin' : (this.user.role || this.user.role_name);
+                this.user.role = isSuperAdminUser ? 'SuperAdmin' : this.normalizeRole(rawRole);
+                if (!this.user.role_name) this.user.role_name = this.user.role;
+                if (isSuperAdminUser) {
+                    this.user.is_super_admin = true;
+                    if (!this.user.sa_sub_role) {
+                        this.user.sa_sub_role = sessionStorage.getItem('sa_sub_role') || localStorage.getItem('sa_sub_role') || 'Owner';
+                    }
                 }
                 const synched = JSON.stringify(sanitizeUserForStorage(this.user));
                 sessionStorage.setItem('user', synched);
@@ -568,17 +578,21 @@ const OctaQube = {
 
         if (!this.user && !this.isPublicOrAuthPage()) {
             const path = window.location.pathname.toLowerCase();
-            const fallbackRole = path.includes('super-admin') ? 'SuperAdmin' :
+            const isSuperAdminPath = path.includes('super-admin');
+            const fallbackRole = isSuperAdminPath ? 'SuperAdmin' :
                                  (path.includes('dashboard-admin') || path.includes('/admin/')) ? 'Admin' :
                                  path.includes('dashboard-reviewer') ? 'Reviewer' :
                                  path.includes('dashboard-facilitator') ? 'Facilitator' :
                                  path.includes('dashboard-ceo') ? 'CEO' : 'Team Member';
             this.user = {
                 id: 'active_session',
-                full_name: 'Enterprise User',
+                full_name: isSuperAdminPath ? 'Super Admin' : 'Enterprise User',
                 role: fallbackRole,
-                org_name: 'OctaQube Enterprise',
-                email: 'user@octaqube.io'
+                role_name: fallbackRole,
+                is_super_admin: isSuperAdminPath,
+                sa_sub_role: isSuperAdminPath ? (sessionStorage.getItem('sa_sub_role') || localStorage.getItem('sa_sub_role') || 'Owner') : null,
+                org_name: isSuperAdminPath ? 'OctaQube Platform' : 'OctaQube Enterprise',
+                email: isSuperAdminPath ? 'superadmin@octaqube.io' : 'user@octaqube.io'
             };
         }
 
@@ -1908,8 +1922,28 @@ const OctaQube = {
      * Standardized Navbar Rendering
      */
     renderNavbar(userData = null) {
-        const user = userData || this.user;
-        if (!user) return;
+        let user = userData || this.user;
+        const isSuperAdmin = Boolean(
+            (user && (user.role === 'SuperAdmin' || user.role === 'Super Admin' || user.is_super_admin)) ||
+            (typeof window !== 'undefined' && window.location.pathname.includes('super-admin'))
+        );
+
+        if (!user) {
+            if (isSuperAdmin) {
+                user = this.user = {
+                    id: 'active_session',
+                    full_name: 'Super Admin',
+                    role: 'SuperAdmin',
+                    role_name: 'SuperAdmin',
+                    is_super_admin: true,
+                    sa_sub_role: sessionStorage.getItem('sa_sub_role') || localStorage.getItem('sa_sub_role') || 'Owner',
+                    org_name: 'OctaQube Platform',
+                    email: 'superadmin@octaqube.io'
+                };
+            } else {
+                return;
+            }
+        }
 
         const navbar = document.getElementById('app-navbar');
         if (!navbar) return;
@@ -2038,20 +2072,35 @@ const OctaQube = {
      * Each role gets a completely separate sidebar. No shared sections leak across roles.
      */
     renderSidebar() {
-        const user = this.user;
-        if (!user) return;
+        let user = this.user;
+        const isSuperAdmin = Boolean(
+            (user && (user.role === 'SuperAdmin' || user.role === 'Super Admin' || user.is_super_admin)) ||
+            (typeof window !== 'undefined' && window.location.pathname.includes('super-admin'))
+        );
+
+        if (!user) {
+            if (isSuperAdmin) {
+                user = this.user = {
+                    id: 'active_session',
+                    full_name: 'Super Admin',
+                    role: 'SuperAdmin',
+                    role_name: 'SuperAdmin',
+                    is_super_admin: true,
+                    sa_sub_role: sessionStorage.getItem('sa_sub_role') || localStorage.getItem('sa_sub_role') || 'Owner',
+                    org_name: 'OctaQube Platform',
+                    email: 'superadmin@octaqube.io'
+                };
+            } else {
+                return;
+            }
+        }
 
         const sidebar = document.getElementById('app-sidebar');
         if (!sidebar) return;
 
         sidebar.className = 'app-sidebar glass-sidebar';
-        const roleName = user.role || 'Team Member';
+        const roleName = isSuperAdmin ? 'SuperAdmin' : this.normalizeRole(user.role || user.role_name);
         const roleSlug = this.roleToSlug(roleName);
-
-        // Brand header — shared across all roles
-        // SuperAdmin: show platform logo & platform name
-        // Org users: show org logo (if set) & org name — NEVER the platform logo
-        const isSuperAdmin = (user.role === 'SuperAdmin' || user.role === 'Super Admin');
 
         const shortName = isSuperAdmin
             ? (user.platform_short_name || user.software_name || user.software_display_name || 'OctaQube')
@@ -2110,7 +2159,7 @@ const OctaQube = {
         let footerHtml = '';
 
         // ── SUPER ADMIN – Platform owner / sub-role aware ─────────────
-        if (roleName === 'SuperAdmin') {
+        if (roleName === 'SuperAdmin' || isSuperAdmin) {
             const allSaLinks = [
                 { section: 'overview', url: '/admin/super-admin.html', icon: 'layout-dashboard', title: 'Dashboard' },
                 { section: 'organizations', url: '/admin/super-admin.html?view=organizations', icon: 'building-2', title: 'Organizations' },

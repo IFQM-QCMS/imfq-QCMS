@@ -31,6 +31,19 @@ const SuperAdmin = {
     async init() {
         console.log("Super Admin Controller Initializing...");
 
+        // Ensure OctaQube core UI (sidebar, navbar, mobile nav, branding) is initialized immediately
+        if (window.OctaQube) {
+            if (typeof window.OctaQube.init === 'function') {
+                try { window.OctaQube.init(); } catch (err) { console.warn('[SuperAdmin] OctaQube.init error:', err); }
+            }
+            if (typeof window.OctaQube.renderSidebar === 'function') {
+                try { window.OctaQube.renderSidebar(); } catch (err) { console.warn('[SuperAdmin] OctaQube.renderSidebar error:', err); }
+            }
+            if (typeof window.OctaQube.renderNavbar === 'function') {
+                try { window.OctaQube.renderNavbar(); } catch (err) { console.warn('[SuperAdmin] OctaQube.renderNavbar error:', err); }
+            }
+        }
+
         // 1. Load sub-role permissions FIRST so that routing and UI enforce correct access
         await this.loadMyPermissions();
 
@@ -130,9 +143,10 @@ const SuperAdmin = {
                     }
                 } catch (_) {}
 
-                // Re-render sidebar dynamically showing ONLY options allowed for this sub-role
-                if (window.OctaQube && typeof window.OctaQube.renderSidebar === 'function') {
-                    window.OctaQube.renderSidebar();
+                // Re-render sidebar & navbar dynamically showing ONLY options allowed for this sub-role
+                if (window.OctaQube) {
+                    if (typeof window.OctaQube.renderSidebar === 'function') window.OctaQube.renderSidebar();
+                    if (typeof window.OctaQube.renderNavbar === 'function') window.OctaQube.renderNavbar();
                 }
 
                 this.applySubRoleRestrictions();
@@ -140,6 +154,10 @@ const SuperAdmin = {
         } catch (e) {
             console.warn('[RBAC] Could not load permissions from API, using cached sub-role:', this.saSubRole, e.message);
             this.applySubRoleRestrictions();
+            if (window.OctaQube) {
+                if (typeof window.OctaQube.renderSidebar === 'function') window.OctaQube.renderSidebar();
+                if (typeof window.OctaQube.renderNavbar === 'function') window.OctaQube.renderNavbar();
+            }
         }
     },
 

@@ -6568,12 +6568,12 @@
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
     <script src="/assets/dist/chart.min.js"></script>
-    <script src="/assets/dist/core-bundle.7404ee3d.min.js"></script>
+    <script src="/assets/dist/core-bundle.fc09c32f.min.js"></script>
     <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.81f4486e.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
     <script src="/assets/dist/platform-settings.05729cbd.min.js"></script>
-    <script src="/assets/dist/super-admin.76ee25c0.min.js"></script>
+    <script src="/assets/dist/super-admin.206e00e1.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
@@ -8287,5 +8287,30 @@ body.dark-mode #sa-doc-preview-body > div {
             </div>
         </div>
     </div>
+    <script>
+    (function() {
+        function bootSuperAdminShell() {
+            if (window.OctaQube) {
+                if (typeof window.OctaQube.init === 'function') {
+                    try { window.OctaQube.init(); } catch (e) { console.warn(e); }
+                }
+                if (typeof window.OctaQube.renderSidebar === 'function') {
+                    try { window.OctaQube.renderSidebar(); } catch (e) { console.warn(e); }
+                }
+                if (typeof window.OctaQube.renderNavbar === 'function') {
+                    try { window.OctaQube.renderNavbar(); } catch (e) { console.warn(e); }
+                }
+            }
+            if (window.SuperAdmin && typeof window.SuperAdmin.init === 'function') {
+                try { window.SuperAdmin.init(); } catch (e) { console.warn(e); }
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootSuperAdminShell);
+        } else {
+            bootSuperAdminShell();
+        }
+    })();
+    </script>
 </body>
 </html>
