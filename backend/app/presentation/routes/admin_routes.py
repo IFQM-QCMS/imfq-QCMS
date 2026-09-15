@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from app import db, bcrypt
 import sqlalchemy as sa
+from sqlalchemy.schema import CreateColumn
 from app.infrastructure.database.models.models import (
     User, Role, Department, Plant, AuditLog, Project, ProjectMember, ProjectReview, ProjectWorkflow,
     ProjectStageTracker, Stage3CauseIdentification,
@@ -669,7 +670,6 @@ def add_custom_field():
     if UserCustomField.query.filter_by(org_id=org_id, field_key=field_key).first():
         return jsonify({"message": "A field with this name already exists"}), 400
         
-    from sqlalchemy import text
     try:
         if field_key not in ('email', 'phone', 'username', 'role', 'department', 'plant_location'):
             if not re.fullmatch(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$', field_key):
@@ -678,7 +678,10 @@ def add_custom_field():
             existing_cols = {c['name'].lower() for c in insp.get_columns('users')}
             clean_col = "".join(c for c in field_key if c.isalnum() or c == '_')
             if clean_col.lower() not in existing_cols:
-                db.session.execute(text(f'ALTER TABLE users ADD COLUMN "{clean_col}" TEXT'))
+                users_table = sa.Table('users', sa.MetaData(), autoload_with=db.engine)
+                new_column = sa.Column(clean_col, sa.Text())
+                column_ddl = str(CreateColumn(new_column).compile(dialect=db.engine.dialect))
+                db.session.execute(sa.text(f'ALTER TABLE users ADD COLUMN {column_ddl}'))
                 db.session.commit()
     except Exception as ddl_err:
         db.session.rollback()
