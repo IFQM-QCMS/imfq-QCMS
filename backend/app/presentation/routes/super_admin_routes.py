@@ -1,5 +1,8 @@
 import os
 import logging
+import socket
+import ipaddress
+from urllib.parse import urlparse
 from flask import Blueprint, jsonify, request, current_app
 logger = logging.getLogger('qcms.super_admin')
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, set_access_cookies
@@ -3082,6 +3085,38 @@ def test_email_config():
 # TEST WEBHOOK
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _is_safe_public_webhook_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme not in ("http", "https"):
+            return False
+        if not parsed.hostname:
+            return False
+        if parsed.username or parsed.password:
+            return False
+
+        infos = socket.getaddrinfo(parsed.hostname, parsed.port, type=socket.SOCK_STREAM)
+        if not infos:
+            return False
+
+        for info in infos:
+            ip_str = info[4][0]
+            ip_obj = ipaddress.ip_address(ip_str)
+            if (
+                ip_obj.is_private
+                or ip_obj.is_loopback
+                or ip_obj.is_link_local
+                or ip_obj.is_multicast
+                or ip_obj.is_reserved
+                or ip_obj.is_unspecified
+            ):
+                return False
+
+        return True
+    except Exception:
+        return False
+
+
 @super_admin_bp.route('/settings/test-webhook', methods=['POST'])
 @jwt_required()
 @super_admin_required()
@@ -3090,6 +3125,8 @@ def test_webhook():
     url = body.get('url', '')
     if not url:
         return jsonify({"status": "error", "message": "Webhook URL is required"}), 400
+    if not _is_safe_public_webhook_url(url):
+        return jsonify({"status": "error", "message": "Webhook URL is not allowed"}), 400
     try:
         import urllib.request as urlreq
         payload = json.dumps({
