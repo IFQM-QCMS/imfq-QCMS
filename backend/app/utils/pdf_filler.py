@@ -1,4 +1,7 @@
-import fitz
+try:
+    import fitz
+except ImportError:
+    fitz = None
 import os
 import shutil
 import tempfile
@@ -2090,6 +2093,8 @@ def render_html_to_pdf_browser(html_code):
 
 def render_html_to_pdf_pymupdf(html_code):
     """Fallback in-memory PDF rendering using PyMuPDF Story."""
+    if not fitz:
+        raise RuntimeError("PyMuPDF (fitz) is not installed")
     import io
     story = fitz.Story(html_code)
     out_buf = io.BytesIO()
