@@ -111,6 +111,7 @@
     </div>
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
+    <script src="/assets/dist/core-bundle.7404ee3d.min.js"></script>
     <script>
         const repoApp = {
             currentPage: 1,
@@ -280,7 +281,7 @@
                             <a href="/projects/project-details.html?id=${p.project_id || p.id}" class="ds-btn ds-btn-secondary flex-grow-1 text-xs py-2 px-2 text-decoration-none d-flex align-items-center justify-content-center">
                                 <i data-lucide="external-link" style="width:14px;height:14px;margin-right:4px;"></i> View Solution
                             </a>
-                            <button class="ds-btn ds-btn-primary flex-grow-1 text-xs py-2 px-2" onclick="repoApp.downloadReport(${p.project_id || p.id}, this)" title="Download Final Summary Report PDF">
+                            <button class="ds-btn ds-btn-primary flex-grow-1 text-xs py-2 px-2" onclick="repoApp.downloadReport(${p.project_id || p.id})" title="Download Final Summary Report PDF">
                                 <i data-lucide="download" style="width:14px;height:14px;margin-right:4px;"></i> Download Report
                             </button>
                         </div>
@@ -320,16 +321,10 @@
                 }
             },
 
-            async downloadReport(projectId, btnElement) {
+            async downloadReport(projectId) {
                 if (!projectId) {
                     OctaQube.toast('Project ID missing for report generation', 'warning');
                     return;
-                }
-                const btn = btnElement || (window.event && window.event.currentTarget ? window.event.currentTarget : null);
-                const originalHtml = btn ? btn.innerHTML : '';
-                if (btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" style="width:12px;height:12px;margin-right:4px;"></span> Downloading...`;
                 }
                 OctaQube.toast('Preparing final summary report PDF...', 'info');
 
@@ -339,12 +334,6 @@
                 } catch (err) {
                     console.error('[Repo] Download error:', err);
                     OctaQube.toast(err.message || 'Error downloading report PDF', 'danger');
-                } finally {
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = originalHtml;
-                        if (window.lucide) lucide.createIcons();
-                    }
                 }
             },
 
