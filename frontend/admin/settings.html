@@ -408,7 +408,7 @@
                                                 <label class="ds-label" data-i18n="settings.branding.logo_url">LOGO URL / UPLOAD</label>
                                                 <div class="h-stack gap-2">
                                                     <input type="text" class="ds-input" id="logo_url" placeholder="https://...">
-                                                    <button class="ds-btn ds-btn-secondary ds-btn-sm" data-feature="branding.logo" onclick="settingsManager.triggerLogoUpload('logo')">Upload</button>
+                                                    <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm" onclick="settingsManager.triggerLogoUpload('logo')">Upload</button>
                                                     <input type="file" id="logo_file" style="display: none;" accept="image/*" onchange="settingsManager.handleFileUpload(this, 'logo')">
                                                 </div>
                                             </div>
@@ -416,7 +416,7 @@
                                                 <label class="ds-label" data-i18n="settings.branding.favicon_url">FAVICON URL / UPLOAD</label>
                                                 <div class="h-stack gap-2">
                                                     <input type="text" class="ds-input" id="favicon_url" placeholder="https://...">
-                                                    <button class="ds-btn ds-btn-secondary ds-btn-sm" onclick="settingsManager.triggerLogoUpload('favicon')">Upload</button>
+                                                    <button type="button" class="ds-btn ds-btn-secondary ds-btn-sm" onclick="settingsManager.triggerLogoUpload('favicon')">Upload</button>
                                                     <input type="file" id="favicon_file" style="display: none;" accept="image/*" onchange="settingsManager.handleFileUpload(this, 'favicon')">
                                                 </div>
                                             </div>
@@ -425,11 +425,12 @@
                                             <div class="v-stack align-items-center justify-content-center h-100 p-4 border rounded-4 border-dashed">
                                                 <span class="ds-label mb-3" data-i18n="settings.branding.logo_preview">LOGO PREVIEW</span>
                                                 <div class="logo-preview-box glass-card mb-3 d-flex align-items-center justify-content-center overflow-hidden position-relative"
-                                                     data-feature="branding.logo"
                                                      style="width: 200px; height: 100px; cursor: pointer;"
                                                      onclick="settingsManager.triggerLogoUpload('logo')"
+                                                     tabindex="0"
+                                                     role="button"
                                                      title="Click to upload logo">
-                                                    <img id="logo_preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>" style="max-width: 80%; max-height: 80%; object-fit: contain;">
+                                                    <img id="logo_preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>" style="max-width: 80%; max-height: 80%; object-fit: contain; pointer-events: none;">
                                                     <div class="preview-upload-overlay">
                                                         <i data-lucide="upload" style="width:18px;height:18px;"></i>
                                                         <span style="font-size:0.7rem;margin-top:4px;">Upload</span>
@@ -439,8 +440,10 @@
                                                 <div class="glass-card favicon-preview-box d-flex align-items-center justify-content-center position-relative"
                                                      style="width: 48px; height: 48px; cursor: pointer;"
                                                      onclick="settingsManager.triggerLogoUpload('favicon')"
+                                                     tabindex="0"
+                                                     role="button"
                                                      title="Click to upload favicon">
-                                                    <img id="favicon_preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>" style="width: 32px; height: 32px; object-fit: contain;">
+                                                    <img id="favicon_preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>" style="width: 32px; height: 32px; object-fit: contain; pointer-events: none;">
                                                     <div class="preview-upload-overlay" style="border-radius: var(--ds-radius-md);">
                                                         <i data-lucide="upload" style="width:12px;height:12px;"></i>
                                                     </div>
@@ -4294,6 +4297,7 @@ console.log(data);
             }
             this.captureInitialValues();
             this.setupDirtyCheck();
+            this.setupBrandingDragDrop();
         },
 
         switchTab(target, btnEl) {
@@ -5845,54 +5849,142 @@ ET`;
             OctaQube.toast('Full secret API Key copied to clipboard!', 'success');
         },
 
+        setupBrandingDragDrop() {
+            const setups = [
+                { box: document.querySelector('.logo-preview-box'), type: 'logo' },
+                { box: document.querySelector('.favicon-preview-box'), type: 'favicon' }
+            ];
+
+            setups.forEach(({ box, type }) => {
+                if (!box) return;
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    box.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        box.style.borderColor = 'var(--ds-primary, #6366f1)';
+                        box.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.25)';
+                    });
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    box.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        box.style.borderColor = '';
+                        box.style.boxShadow = '';
+                    });
+                });
+
+                box.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    if (dt && dt.files && dt.files.length > 0) {
+                        this.handleFileUpload({ files: dt.files }, type);
+                    }
+                });
+
+                box.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.triggerLogoUpload(type);
+                    }
+                });
+            });
+        },
+
         triggerLogoUpload(type) {
-            if (type === 'logo' && window.FeatureEngineClient && window.FeatureEngineClient.isEnabled('branding.logo') === false) {
-                window.FeatureEngineClient.showDisabledModuleNotice('branding.logo');
-                return;
-            }
             const input = document.getElementById(`${type}_file`);
-            if (input) input.click();
+            if (input) {
+                input.value = ''; // Reset file input so re-selecting same file triggers change
+                input.click();
+            } else {
+                console.error(`[Settings] File input #${type}_file not found`);
+            }
         },
 
         async handleFileUpload(input, type) {
-            if (type === 'logo' && window.FeatureEngineClient && window.FeatureEngineClient.isEnabled('branding.logo') === false) {
+            const file = (input && input.files) ? input.files[0] : null;
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                if (window.OctaQube && typeof OctaQube.toast === 'function') {
+                    OctaQube.toast('Please select a valid image file (PNG, JPG, SVG, WebP, ICO).', 'warning');
+                } else {
+                    alert('Please select a valid image file.');
+                }
                 if (input) input.value = '';
-                window.FeatureEngineClient.showDisabledModuleNotice('branding.logo');
                 return;
             }
-            const file = input.files[0];
-            if (!file) return;
+
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                if (window.OctaQube && typeof OctaQube.toast === 'function') {
+                    OctaQube.toast('Image file size exceeds 5MB limit. Please select a smaller file.', 'warning');
+                } else {
+                    alert('Image file size exceeds 5MB limit.');
+                }
+                if (input) input.value = '';
+                return;
+            }
 
             const formData = new FormData();
             formData.append('file', file);
             formData.append('type', type);
 
             try {
-                OctaQube.toast(`Uploading ${type}...`, 'info');
+                if (window.OctaQube && typeof OctaQube.toast === 'function') {
+                    OctaQube.toast(`Uploading ${type}...`, 'info');
+                }
                 
-                // We use fetch directly or extend api.js to handle FormData
-                const token = sessionStorage.getItem('token');
+                // Multi-fallback token retrieval
+                const token = (window.api && window.api.token) || sessionStorage.getItem('token') || sessionStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('access_token') || '';
                 const response = await fetch('/api/admin/org-branding/upload', {
                     method: 'POST',
-                    headers: {
+                    headers: token ? {
                         'Authorization': `Bearer ${token}`
-                    },
+                    } : {},
                     body: formData
                 });
 
                 const res = await response.json();
                 if (!response.ok) throw new Error(res.message || res.msg || 'Upload failed');
 
-                OctaQube.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} uploaded successfully!`, 'success');
+                if (window.OctaQube && typeof OctaQube.toast === 'function') {
+                    OctaQube.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} uploaded successfully!`, 'success');
+                }
                 
                 // Update input and preview
-                document.getElementById(`${type}_url`).value = res.url;
-                document.getElementById(`${type}_preview`).src = res.url;
+                const urlInput = document.getElementById(`${type}_url`);
+                if (urlInput) urlInput.value = res.url;
+                
+                const previewImg = document.getElementById(`${type}_preview`);
+                if (previewImg) previewImg.src = res.url;
+
+                // Sync with currentUser in session/local storage for real-time header reflection
+                try {
+                    const uStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                    if (uStr) {
+                        const u = JSON.parse(uStr);
+                        if (type === 'logo') u.org_logo_url = res.url;
+                        if (type === 'favicon') u.org_favicon_url = res.url;
+                        sessionStorage.setItem('user', JSON.stringify(u));
+                        localStorage.setItem('user', JSON.stringify(u));
+                    }
+                } catch (_) {}
                 
                 this.isDirty = true;
-                document.getElementById('unsaved-badge').style.display = 'block';
+                const unsavedBadge = document.getElementById('unsaved-badge');
+                if (unsavedBadge) unsavedBadge.style.display = 'block';
             } catch (e) {
-                OctaQube.toast(e.message, 'error');
+                console.error(`[Settings] ${type} upload error:`, e);
+                if (window.OctaQube && typeof OctaQube.toast === 'function') {
+                    OctaQube.toast(e.message || 'Upload failed', 'error');
+                } else {
+                    alert(e.message || 'Upload failed');
+                }
+            } finally {
+                if (input) input.value = '';
             }
         },
 

@@ -2,6 +2,7 @@
 import os
 import mimetypes
 import logging
+import tempfile
 from typing import Optional, Tuple, Any, Dict
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
@@ -12,6 +13,7 @@ from app.infrastructure.storage.exceptions import (
 )
 
 logger = logging.getLogger("QCMS.Storage.Local")
+FALLBACK_UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), "qcms_uploads")
 
 class LocalStorageProvider(BaseStorageProvider):
     """
@@ -79,6 +81,20 @@ class LocalStorageProvider(BaseStorageProvider):
             local_file_path = os.path.join(target_dir, final_filename)
             with open(local_file_path, "wb") as f:
                 f.write(file_bytes)
+        except (PermissionError, OSError) as pe:
+            logger.warning(
+                f"[LocalStorageProvider] Primary upload directory '{target_dir}' not writable ({pe}). "
+                f"Attempting fallback directory '{FALLBACK_UPLOAD_FOLDER}'."
+            )
+            try:
+                fallback_target = os.path.join(FALLBACK_UPLOAD_FOLDER, clean_sub) if clean_sub else FALLBACK_UPLOAD_FOLDER
+                os.makedirs(fallback_target, exist_ok=True)
+                local_file_path = os.path.join(fallback_target, final_filename)
+                with open(local_file_path, "wb") as f:
+                    f.write(file_bytes)
+            except Exception as fe:
+                logger.error(f"[LocalStorageProvider] Fallback write also failed for {blob_path}: {fe}")
+                raise StorageUploadError(f"Local storage write failed: {str(fe)}", original_error=fe)
         except Exception as e:
             logger.error(f"[LocalStorageProvider] Failed to write file {blob_path}: {e}")
             raise StorageUploadError(f"Local storage write failed: {str(e)}", original_error=e)
@@ -98,14 +114,16 @@ class LocalStorageProvider(BaseStorageProvider):
         target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
         local_path = os.path.join(self.upload_folder, target_path)
 
-        if os.path.exists(local_path):
-            try:
-                guessed_type, _ = mimetypes.guess_type(local_path)
-                with open(local_path, "rb") as f:
-                    return f.read(), (guessed_type or "application/octet-stream")
-            except Exception as e:
-                logger.error(f"[LocalStorageProvider] Error reading local file {local_path}: {e}")
-                raise StorageDownloadError(f"Failed to read local file: {str(e)}", original_error=e)
+        candidates = [local_path, os.path.join(FALLBACK_UPLOAD_FOLDER, target_path)]
+        for cand in candidates:
+            if os.path.exists(cand):
+                try:
+                    guessed_type, _ = mimetypes.guess_type(cand)
+                    with open(cand, "rb") as f:
+                        return f.read(), (guessed_type or "application/octet-stream")
+                except Exception as e:
+                    logger.error(f"[LocalStorageProvider] Error reading local file {cand}: {e}")
+                    raise StorageDownloadError(f"Failed to read local file: {str(e)}", original_error=e)
 
         return None, None
 
@@ -117,22 +135,23 @@ class LocalStorageProvider(BaseStorageProvider):
     def delete_file(self, filename_or_path: str, subfolder: str = "") -> bool:
         clean_sub = subfolder.strip("/\\")
         target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
-        local_path = os.path.join(self.upload_folder, target_path)
+        candidates = [os.path.join(self.upload_folder, target_path), os.path.join(FALLBACK_UPLOAD_FOLDER, target_path)]
 
-        if os.path.exists(local_path):
-            try:
-                os.remove(local_path)
-                return True
-            except Exception as e:
-                logger.warning(f"[LocalStorageProvider] Failed to remove local file {local_path}: {e}")
-                raise StorageDeleteError(f"Failed to delete local file: {str(e)}", original_error=e)
-        return False
+        deleted = False
+        for cand in candidates:
+            if os.path.exists(cand):
+                try:
+                    os.remove(cand)
+                    deleted = True
+                except Exception as e:
+                    logger.warning(f"[LocalStorageProvider] Failed to remove local file {cand}: {e}")
+                    raise StorageDeleteError(f"Failed to delete local file: {str(e)}", original_error=e)
+        return deleted
 
     def exists(self, filename_or_path: str, subfolder: str = "") -> bool:
         clean_sub = subfolder.strip("/\\")
         target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
-        local_path = os.path.join(self.upload_folder, target_path)
-        return os.path.exists(local_path)
+        return os.path.exists(os.path.join(self.upload_folder, target_path)) or os.path.exists(os.path.join(FALLBACK_UPLOAD_FOLDER, target_path))
 
     def get_info(self) -> Dict[str, Any]:
         return {

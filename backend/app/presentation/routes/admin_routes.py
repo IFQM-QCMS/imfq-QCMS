@@ -3257,16 +3257,24 @@ def upload_branding():
 
     current_user_id = int(get_jwt_identity())
     current_user = db.session.get(User, current_user_id)
-    org = db.session.get(Organization, current_user.org_id)
+    if not current_user:
+        return jsonify({"message": "User not found"}), 404
 
-    if asset_type == 'logo':
-        from app.domain.services.feature_engine import FeatureEngine
-        if not FeatureEngine.is_enabled(current_user.org_id, 'branding.logo'):
-            return jsonify({"message": "Company logo upload module is temporarily disabled. Please contact the Support team to enable this."}), 403
+    org_id = current_user.org_id
+    if not org_id:
+        return jsonify({"message": "No organization associated with this account"}), 400
+
+    org = db.session.get(Organization, org_id)
+    if not org:
+        return jsonify({"message": "Organization not found"}), 404
 
     if file:
         from app.infrastructure.storage import storage
-        ext = os.path.splitext(file.filename)[1]
+        ext = os.path.splitext(file.filename)[1].lower()
+        allowed_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico']
+        if ext not in allowed_extensions:
+            return jsonify({"message": f"Unsupported file extension '{ext}'. Allowed: {', '.join(allowed_extensions)}"}), 400
+
         target_name = f"org_{org.id}_{asset_type}{ext}"
         result = storage.save_file(file, filename=target_name, subfolder="branding")
         file_url = result['url']

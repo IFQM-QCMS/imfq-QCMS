@@ -1529,30 +1529,81 @@ def update_profile():
             
         if 'profile_picture' in request.files:
             file = request.files['profile_picture']
-            if file and file.filename != '' and allowed_file(file.filename):
-                upload_dir = current_app.config.get('UPLOAD_FOLDER', os.path.abspath(os.path.join(current_app.root_path, '..', 'uploads')))
-                os.makedirs(upload_dir, exist_ok=True)
-                filename = secure_filename(f"avatar_{user.id}_{file.filename}")
-                file_path = os.path.join(upload_dir, filename)
-                file.save(file_path)
-                user.profile_picture = f"/uploads/{filename}"
+            if file and file.filename != '':
+                if not allowed_file(file.filename):
+                    return jsonify({"status": "error", "message": "Invalid file type. Allowed formats: PNG, JPG, JPEG, WEBP, GIF, SVG, AVIF, JFIF"}), 400
+                
+                file.seek(0, os.SEEK_END)
+                fsize = file.tell()
+                file.seek(0)
+                if fsize > 5 * 1024 * 1024:
+                    return jsonify({"status": "error", "message": "Avatar file size exceeds 5MB limit."}), 400
+                
+                safe_name = secure_filename(file.filename) or "avatar.png"
+                target_name = f"avatar_{user.id}_{int(time.time())}_{safe_name}"
+                try:
+                    from app.infrastructure.storage import storage
+                    result = storage.save_file(file, filename=target_name, subfolder="avatars")
+                    user.profile_picture = result.get('url') or f"/uploads/avatars/{target_name}"
+                except Exception as ex:
+                    import logging
+                    logging.getLogger('qcms.auth').warning(f"[update_profile] Storage save_file failed for avatar: {ex}")
+                    try:
+                        import tempfile
+                        fallback_dir = os.path.join(tempfile.gettempdir(), 'qcms_uploads', 'avatars')
+                        os.makedirs(fallback_dir, exist_ok=True)
+                        file.seek(0)
+                        file.save(os.path.join(fallback_dir, target_name))
+                        user.profile_picture = f"/uploads/avatars/{target_name}"
+                    except Exception as fallback_ex:
+                        logging.getLogger('qcms.auth').error(f"[update_profile] Emergency avatar fallback failed: {fallback_ex}", exc_info=True)
+                        return jsonify({"status": "error", "message": f"Failed to save avatar image: {str(ex)}"}), 500
+        elif 'profile_picture' in request.form and request.form['profile_picture']:
+            user.profile_picture = request.form['profile_picture']
                 
         if 'banner_image' in request.files:
             file = request.files['banner_image']
-            if file and file.filename != '' and allowed_file(file.filename):
-                upload_dir = current_app.config.get('UPLOAD_FOLDER', os.path.abspath(os.path.join(current_app.root_path, '..', 'uploads')))
-                os.makedirs(upload_dir, exist_ok=True)
-                filename = secure_filename(f"banner_{user.id}_{file.filename}")
-                file_path = os.path.join(upload_dir, filename)
-                file.save(file_path)
-                user.banner_image = f"/uploads/{filename}"
+            if file and file.filename != '':
+                if not allowed_file(file.filename):
+                    return jsonify({"status": "error", "message": "Invalid banner file type."}), 400
+                
+                file.seek(0, os.SEEK_END)
+                fsize = file.tell()
+                file.seek(0)
+                if fsize > 10 * 1024 * 1024:
+                    return jsonify({"status": "error", "message": "Banner image exceeds 10MB limit."}), 400
+                
+                safe_name = secure_filename(file.filename) or "banner.png"
+                target_name = f"banner_{user.id}_{int(time.time())}_{safe_name}"
+                try:
+                    from app.infrastructure.storage import storage
+                    result = storage.save_file(file, filename=target_name, subfolder="branding")
+                    user.banner_image = result.get('url') or f"/uploads/branding/{target_name}"
+                except Exception as ex:
+                    import logging
+                    logging.getLogger('qcms.auth').warning(f"[update_profile] Storage save_file failed for banner: {ex}")
+                    try:
+                        import tempfile
+                        fallback_dir = os.path.join(tempfile.gettempdir(), 'qcms_uploads', 'branding')
+                        os.makedirs(fallback_dir, exist_ok=True)
+                        file.seek(0)
+                        file.save(os.path.join(fallback_dir, target_name))
+                        user.banner_image = f"/uploads/branding/{target_name}"
+                    except Exception as fallback_ex:
+                        logging.getLogger('qcms.auth').error(f"[update_profile] Emergency banner fallback failed: {fallback_ex}", exc_info=True)
+                        return jsonify({"status": "error", "message": f"Failed to save banner image: {str(ex)}"}), 500
+        elif 'banner_image' in request.form and request.form['banner_image']:
+            user.banner_image = request.form['banner_image']
         
     from app.utils.i18n_utils import _
     db.session.commit()
+    final_avatar = get_profile_picture_url(user)
     return jsonify({
-        "msg": _("auth.update_success", user_id=user.id), 
+        "status": "success",
+        "msg": _("auth.update_success", user_id=user.id),
+        "message": _("auth.update_success", user_id=user.id),
         "full_name": user.full_name,
-        "profile_picture": get_profile_picture_url(user),
+        "profile_picture": final_avatar,
         "banner_image": user.banner_image
     }), 200
 

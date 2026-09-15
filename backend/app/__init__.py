@@ -603,11 +603,11 @@ def create_app():
                     },
                     # PARENT: Branding
                     {
-                        "name": "White-Label Branding", "code": "branding", "category": "Customization", "icon": "palette", "color": "#06b6d4", "display_order": 20, "navigation_route": "/settings/branding", "status": "Active", "version": "1.0.0", "premium_feature": True, "system_module": False, "description": "Custom color branding, logo and domain routing",
+                        "name": "White-Label Branding", "code": "branding", "category": "Customization", "icon": "palette", "color": "#06b6d4", "display_order": 20, "navigation_route": "/settings/branding", "status": "Active", "version": "1.0.0", "system_module": True, "description": "Custom color branding, logo and domain routing",
                         "children": [
-                            {"name": "Company Logo Upload", "code": "branding.logo"},
-                            {"name": "Color Theme Customizer", "code": "branding.theme"},
-                            {"name": "Branding Details", "code": "branding.company_details"}
+                            {"name": "Company Logo Upload", "code": "branding.logo", "system_module": True},
+                            {"name": "Color Theme Customizer", "code": "branding.theme", "system_module": True},
+                            {"name": "Branding Details", "code": "branding.company_details", "system_module": True}
                         ]
                     },
                     # PARENT: Localization
@@ -882,6 +882,10 @@ def create_app():
 
         primary_dir = app.config.get('UPLOAD_FOLDER')
         frontend_dir_local = os.path.abspath(os.path.join(app.root_path, '..', '..', 'frontend', 'uploads'))
+        import tempfile
+        fallback_tmp_dir = os.path.join(tempfile.gettempdir(), 'qcms_uploads')
+        alt_tmp_dir = '/tmp/uploads'
+        search_dirs = [d for d in (primary_dir, frontend_dir_local, fallback_tmp_dir, alt_tmp_dir) if d and os.path.isdir(d)]
 
         def check_file(d, p):
             if not d or not p:
@@ -893,47 +897,57 @@ def create_app():
 
         resolved = None
 
-        # 1. Direct path check in primary_dir and frontend_dir_local
-        resolved = check_file(primary_dir, clean_filename) or check_file(frontend_dir_local, clean_filename)
+        # 1. Direct path check in candidate search directories
+        for s_dir in search_dirs:
+            resolved = check_file(s_dir, clean_filename)
+            if resolved:
+                break
 
         # 2. Subdirectory flexibility for basename
         base_name = os.path.basename(clean_filename)
         if not resolved:
-            subfolders = ['project_evidence', 'sop', 'reports', 'support_attachments', 'branding', 'certificates', 'projects', 'diagnostics']
-            resolved = check_file(primary_dir, base_name) or check_file(frontend_dir_local, base_name)
+            subfolders = ['avatars', 'project_evidence', 'sop', 'reports', 'support_attachments', 'branding', 'certificates', 'projects', 'diagnostics']
+            for s_dir in search_dirs:
+                resolved = check_file(s_dir, base_name)
+                if resolved:
+                    break
             if not resolved:
                 for sf in subfolders:
-                    resolved = check_file(primary_dir, os.path.join(sf, base_name).replace('\\', '/')) or check_file(frontend_dir_local, os.path.join(sf, base_name).replace('\\', '/'))
+                    for s_dir in search_dirs:
+                        resolved = check_file(s_dir, os.path.join(sf, base_name).replace('\\', '/'))
+                        if resolved:
+                            break
                     if resolved:
                         break
 
-        # 3. Recursive exact base_name search in primary_dir and frontend_dir_local
+        # 3. Recursive exact base_name search
         if not resolved:
-            for s_dir in (primary_dir, frontend_dir_local):
-                if s_dir and os.path.isdir(s_dir):
-                    for root, _, files in os.walk(s_dir):
-                        if base_name in files:
-                            rel = os.path.relpath(os.path.join(root, base_name), s_dir)
-                            resolved = (s_dir, rel.replace('\\', '/'))
-                            break
+            for s_dir in search_dirs:
+                for root, _, files in os.walk(s_dir):
+                    if base_name in files:
+                        rel = os.path.relpath(os.path.join(root, base_name), s_dir)
+                        resolved = (s_dir, rel.replace('\\', '/'))
+                        break
                 if resolved:
                     break
 
         # 4. Suffix / Original name fallback (e.g. timestamp differences across seeds/imports)
-        if not resolved and primary_dir and os.path.isdir(primary_dir):
-            pure_name = re.sub(r'^(?:ev_|sop_|ticket_\d+_|draft_\d+_)?\d{8}(?:_\d{6})?_', '', base_name)
-            if pure_name and len(pure_name) > 3 and '.' in pure_name:
-                matching_candidates = []
-                for root, _, files in os.walk(primary_dir):
-                    for f in files:
-                        if f.endswith(pure_name) or f.lower().endswith(pure_name.lower()):
-                            full_p = os.path.join(root, f)
-                            matching_candidates.append((os.path.getmtime(full_p), full_p, root, f))
-                if matching_candidates:
-                    matching_candidates.sort(key=lambda x: x[0], reverse=True)
-                    best_root, best_file = matching_candidates[0][2], matching_candidates[0][3]
-                    rel = os.path.relpath(os.path.join(best_root, best_file), primary_dir)
-                    resolved = (primary_dir, rel.replace('\\', '/'))
+        if not resolved:
+            for s_dir in search_dirs:
+                pure_name = re.sub(r'^(?:ev_|sop_|ticket_\d+_|draft_\d+_)?\d{8}(?:_\d{6})?_', '', base_name)
+                if pure_name and len(pure_name) > 3 and '.' in pure_name:
+                    matching_candidates = []
+                    for root, _, files in os.walk(s_dir):
+                        for f in files:
+                            if f.endswith(pure_name) or f.lower().endswith(pure_name.lower()):
+                                full_p = os.path.join(root, f)
+                                matching_candidates.append((os.path.getmtime(full_p), full_p, root, f))
+                    if matching_candidates:
+                        matching_candidates.sort(key=lambda x: x[0], reverse=True)
+                        best_root, best_file = matching_candidates[0][2], matching_candidates[0][3]
+                        rel = os.path.relpath(os.path.join(best_root, best_file), s_dir)
+                        resolved = (s_dir, rel.replace('\\', '/'))
+                        break
 
         if resolved:
             res_dir, res_path = resolved

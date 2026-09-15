@@ -103,22 +103,56 @@ class StorageService:
         content_type: Optional[str] = None,
         acl: str = "private"
     ) -> Dict[str, Any]:
-        """Saves a file using the active storage provider."""
-        return self.provider.save_file(
-            file_data=file_data,
-            filename=filename,
-            subfolder=subfolder,
-            content_type=content_type,
-            acl=acl
-        )
+        """Saves a file using the active storage provider with resilient fallback to local storage."""
+        try:
+            return self.provider.save_file(
+                file_data=file_data,
+                filename=filename,
+                subfolder=subfolder,
+                content_type=content_type,
+                acl=acl
+            )
+        except Exception as e:
+            if self.backend != "local":
+                logger.warning(
+                    f"[StorageService] Active provider '{self.backend}' failed to save file ({e}). "
+                    "Falling back to LocalStorageProvider."
+                )
+                try:
+                    if hasattr(file_data, "seek"):
+                        file_data.seek(0)
+                except Exception:
+                    pass
+                local_prov = LocalStorageProvider()
+                return local_prov.save_file(
+                    file_data=file_data,
+                    filename=filename,
+                    subfolder=subfolder,
+                    content_type=content_type,
+                    acl=acl
+                )
+            raise
 
     def upload(self, *args, **kwargs) -> Dict[str, Any]:
         """Generic alias for save_file."""
         return self.save_file(*args, **kwargs)
 
     def get_file_bytes(self, filename_or_path: str, subfolder: str = "") -> Tuple[Optional[bytes], Optional[str]]:
-        """Retrieves file bytes and MIME type."""
-        return self.provider.get_file_bytes(filename_or_path, subfolder=subfolder)
+        """Retrieves file bytes and MIME type. Falls back to local storage if remote fails."""
+        try:
+            bytes_data, c_type = self.provider.get_file_bytes(filename_or_path, subfolder=subfolder)
+            if bytes_data is not None:
+                return bytes_data, c_type
+        except Exception as e:
+            logger.warning(f"[StorageService] Active provider '{self.backend}' failed to retrieve file ({e}). Checking local fallback.")
+
+        if self.backend != "local":
+            try:
+                local_prov = LocalStorageProvider()
+                return local_prov.get_file_bytes(filename_or_path, subfolder=subfolder)
+            except Exception:
+                pass
+        return None, None
 
     def download(self, *args, **kwargs) -> Tuple[Optional[bytes], Optional[str]]:
         """Generic alias for get_file_bytes."""

@@ -261,3 +261,131 @@ class TestStorageRoutesIntegration:
             assert del_res.status_code == 403
             assert "CROSS_TENANT_FORBIDDEN" in del_res.get_json()["message"]
 
+
+class TestStorageResilienceAndEvidenceUpload:
+    def test_storage_service_remote_failure_falls_back_to_local(self, tmp_path):
+        service = StorageService()
+        failing_provider = MagicMock(spec=SupabaseStorageProvider)
+        failing_provider.save_file.side_effect = StorageUploadError("Simulated remote failure")
+        service.set_provider(failing_provider, "supabase")
+
+        with patch("app.infrastructure.storage.storage_service.LocalStorageProvider") as mock_local_cls:
+            mock_local_instance = MagicMock()
+            mock_local_instance.save_file.return_value = {
+                "filename": "fallback_file.png",
+                "path": "project_evidence/fallback_file.png",
+                "url": "/uploads/project_evidence/fallback_file.png",
+                "backend": "local",
+                "size_bytes": 100
+            }
+            mock_local_cls.return_value = mock_local_instance
+
+            payload = io.BytesIO(b"Evidence file payload")
+            res = service.save_file(payload, filename="fallback_file.png", subfolder="project_evidence")
+
+            assert res["backend"] == "local"
+            assert res["url"] == "/uploads/project_evidence/fallback_file.png"
+            assert mock_local_instance.save_file.called
+
+    def test_local_storage_fallback_on_permission_error(self, tmp_path):
+        provider = LocalStorageProvider(upload_folder=str(tmp_path / "protected"))
+        
+        # Simulate PermissionError on the primary folder
+        orig_makedirs = os.makedirs
+        def mock_makedirs(name, exist_ok=True):
+            if "protected" in name:
+                raise PermissionError("Permission denied: protected folder")
+            return orig_makedirs(name, exist_ok=exist_ok)
+
+        with patch("os.makedirs", side_effect=mock_makedirs):
+            data = io.BytesIO(b"Data for fallback test")
+            result = provider.save_file(data, filename="perm_test.jpg", subfolder="project_evidence")
+            assert result["backend"] == "local"
+            assert "perm_test" in result["filename"]
+            assert provider.exists(result["path"]) is True
+
+    def test_upload_project_evidence_route_success(self, client, app):
+        with app.app_context():
+            import uuid
+            admin = User.query.first()
+            user_id = str(admin.id) if admin else "1"
+            token = create_access_token(identity=user_id, additional_claims={"session_id": str(uuid.uuid4())})
+
+            data = {
+                "file": (io.BytesIO(b"fake jpeg content for evidence"), "pexels-photo-330771.jpeg")
+            }
+            res = client.post(
+                "/api/projects/upload-evidence",
+                data=data,
+                content_type="multipart/form-data",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert res.status_code == 200
+            res_data = res.get_json()
+            assert res_data["status"] == "success"
+            assert "/uploads/project_evidence/" in res_data["url"]
+            assert res_data["file_url"] == res_data["url"]
+            assert res_data["name"] == "pexels-photo-330771.jpeg"
+
+    def test_upload_project_evidence_disallowed_extension(self, client, app):
+        with app.app_context():
+            import uuid
+            admin = User.query.first()
+            user_id = str(admin.id) if admin else "1"
+            token = create_access_token(identity=user_id, additional_claims={"session_id": str(uuid.uuid4())})
+
+            data = {
+                "file": (io.BytesIO(b"echo evil"), "script.exe")
+            }
+            res = client.post(
+                "/api/projects/upload-evidence",
+                data=data,
+                content_type="multipart/form-data",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert res.status_code == 400
+            assert "not supported" in res.get_json()["msg"]
+
+    def test_upload_profile_picture_success(self, client, app):
+        with app.app_context():
+            import uuid
+            admin = User.query.first()
+            user_id = str(admin.id) if admin else "1"
+            token = create_access_token(identity=user_id, additional_claims={"session_id": str(uuid.uuid4())})
+
+            data = {
+                "full_name": "Test Avatar User",
+                "profile_picture": (io.BytesIO(b"fake png avatar content"), "my_avatar.png")
+            }
+            res = client.put(
+                "/api/auth/profile",
+                data=data,
+                content_type="multipart/form-data",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert res.status_code == 200
+            res_data = res.get_json()
+            assert res_data["status"] == "success"
+            assert "profile_picture" in res_data
+            assert "/uploads/" in res_data["profile_picture"]
+
+    def test_upload_profile_picture_disallowed_extension(self, client, app):
+        with app.app_context():
+            import uuid
+            admin = User.query.first()
+            user_id = str(admin.id) if admin else "1"
+            token = create_access_token(identity=user_id, additional_claims={"session_id": str(uuid.uuid4())})
+
+            data = {
+                "profile_picture": (io.BytesIO(b"binary data"), "virus.exe")
+            }
+            res = client.put(
+                "/api/auth/profile",
+                data=data,
+                content_type="multipart/form-data",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert res.status_code == 400
+            assert "Invalid file type" in res.get_json()["message"]
+
+

@@ -144,6 +144,10 @@ jobs:
             fi
             echo "[OctaQube CD] Using compose file: $COMPOSE_FILE"
 
+            # Ensure host uploads directories exist and have full write permissions for non-root container users
+            mkdir -p uploads/avatars uploads/project_evidence uploads/sop uploads/reports uploads/branding
+            chmod -R 777 uploads 2>/dev/null || true
+
             # 4. Non-Destructive Container Build (Traffic keeps serving)
             echo "[OctaQube CD] Building updated container images..."
             docker compose -f "$COMPOSE_FILE" build --pull backend

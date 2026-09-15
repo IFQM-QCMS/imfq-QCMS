@@ -2362,22 +2362,31 @@ def delete_project(id):
 @jwt_required()
 def upload_project_evidence():
     """General evidence upload for all project roles and stages (PDF, PPT, Images, Videos, Docs)."""
+    import os
+    import logging
+    from werkzeug.utils import secure_filename
+    from datetime import datetime, timezone
+    from flask import current_app
+
+    logger = logging.getLogger("QCMS.ProjectEvidence")
+
     if 'file' not in request.files:
-        return jsonify({"msg": "No file part"}), 400
+        return jsonify({"status": "error", "msg": "No file part in request"}), 400
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"msg": "No selected file"}), 400
+    if not file or file.filename == '':
+        return jsonify({"status": "error", "msg": "No selected file"}), 400
         
     ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
     allowed_extensions = (
         'pdf', 'docx', 'xlsx', 'xls', 'pptx', 'ppt', 
-        'png', 'jpg', 'jpeg', 'gif', 
-        'mp4', 'mkv', 'avi', 'webm', 'mov'
+        'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg',
+        'mp4', 'mkv', 'avi', 'webm', 'mov', 'txt', 'csv'
     )
-    import os
-    from werkzeug.utils import secure_filename
-    from datetime import datetime
-    from flask import current_app
+    if ext not in allowed_extensions:
+        return jsonify({
+            "status": "error",
+            "msg": f"File type '.{ext}' is not supported. Allowed formats: PDF, Word, Excel, PowerPoint, Images, Videos."
+        }), 400
 
     # Check file size (Strict 2MB limit: 2 * 1024 * 1024 bytes)
     file.seek(0, os.SEEK_END)
@@ -2386,18 +2395,30 @@ def upload_project_evidence():
     MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
     if file_size > MAX_FILE_SIZE:
         size_mb = round(file_size / (1024 * 1024), 2)
-        return jsonify({"msg": f"File size exceeds 2MB limit ({size_mb} MB). Please upload a document up to 2MB."}), 400
+        return jsonify({
+            "status": "error",
+            "msg": f"File size exceeds 2MB limit ({size_mb} MB). Please upload a document up to 2MB."
+        }), 400
     
-    from app.infrastructure.storage import storage
-    filename = secure_filename(file.filename)
-    target_name = f"ev_{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y%m%d_%H%M%S')}_{filename}"
-    result = storage.save_file(file, filename=target_name, subfolder="project_evidence")
-    
-    return jsonify({
-        "url": result['url'],
-        "name": file.filename,
-        "storage_backend": result.get('backend', 'local')
-    }), 200
+    try:
+        from app.infrastructure.storage import storage
+        safe_base = secure_filename(file.filename) or f"evidence_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.{ext}"
+        target_name = f"ev_{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y%m%d_%H%M%S')}_{safe_base}"
+        result = storage.save_file(file, filename=target_name, subfolder="project_evidence")
+        
+        return jsonify({
+            "status": "success",
+            "url": result['url'],
+            "file_url": result['url'],
+            "name": file.filename,
+            "storage_backend": result.get('backend', 'local')
+        }), 200
+    except Exception as e:
+        logger.error(f"[upload_project_evidence] Failed to save evidence file '{file.filename}': {e}", exc_info=True)
+        return jsonify({
+            "status": "error",
+            "msg": f"Failed to save uploaded evidence: {str(e)}"
+        }), 500
 
 
 @project_bp.route('/<int:project_id>/close', methods=['POST'])

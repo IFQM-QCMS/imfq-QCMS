@@ -54,8 +54,9 @@ const Stage2 = {
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <label class="ds-label ds-tooltip-trigger" title="Upload Diagram: Upload process flow diagram file (PNG, SVG, PDF)">Upload Diagram</label>
-                                <input type="file" class="ds-input" id="s2_flow_upload" accept=".png,.jpg,.jpeg,.svg,.pdf,.docx,.xlsx" onchange="StageModules[2].validateFileSize(this)">
+                                <input type="file" class="ds-input" id="s2_flow_upload" accept=".png,.jpg,.jpeg,.svg,.pdf,.docx,.xlsx" onchange="StageModules[2].uploadFlowDiagram(this)">
                                 <div class="form-text text-muted mt-1" style="font-size:0.75rem;">Upload documents size is 2MB</div>
+                                <div id="s2_flow_upload_preview" class="mt-2"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="ds-label ds-tooltip-trigger" title="Version: Document control revision number for process flow map">Version</label>
@@ -89,8 +90,9 @@ const Stage2 = {
                             <div class="col-md-6"><label class="ds-label ds-tooltip-trigger" title="Description: Summary description of observation finding">Description</label><input type="text" class="ds-input" id="s2_pf_desc" required></div>
                             <div class="col-12">
                                 <label class="ds-label ds-tooltip-trigger" title="Evidence Upload: Photos, video clips, or audit logs supporting finding">Evidence Upload (Images/Videos/Docs)</label>
-                                <input type="file" multiple class="ds-input" id="s2_pf_evidence" onchange="StageModules[2].validateFileSize(this)">
+                                <input type="file" multiple class="ds-input" id="s2_pf_evidence" onchange="StageModules[2].uploadPfEvidence(this)">
                                 <div class="form-text text-muted mt-1" style="font-size:0.75rem;">Upload documents size is 2MB</div>
+                                <div id="s2_pf_evidence_list" class="mt-2 d-flex flex-column gap-2"></div>
                             </div>
                         </div>
                     </div>
@@ -455,13 +457,15 @@ const Stage2 = {
                             <div class="col-md-6 border-end">
                                 <h6 class="fw-bold mb-2 text-primary">Gemba (Actual Place)</h6>
                                 <textarea class="ds-input ds-textarea mb-2" id="g5_gemba_notes" rows="2" placeholder="e.g. Visited welding bay 3 during night shift. Noticed workspace clutter and poor lighting." required></textarea>
-                                <input type="file" class="ds-input mb-1" id="g5_gemba_ev" accept=".png,.jpg,.jpeg,.svg,.pdf,.docx,.xlsx" onchange="StageModules[2].validateFileSize(this)">
-                                <div class="form-text text-muted mb-3" style="font-size:0.75rem;">Upload documents size is 2MB</div>
+                                <input type="file" class="ds-input mb-1" id="g5_gemba_ev" accept=".png,.jpg,.jpeg,.svg,.pdf,.docx,.xlsx" onchange="StageModules[2].uploadGembaEvidence(this)">
+                                <div class="form-text text-muted mb-1" style="font-size:0.75rem;">Upload documents size is 2MB</div>
+                                <div id="g5_gemba_ev_preview" class="mb-3"></div>
                                 
                                 <h6 class="fw-bold mb-2 text-primary">Gembutsu (Actual Item)</h6>
                                 <input type="text" class="ds-input mb-2" id="g5_gembutsu_item" placeholder="e.g. Crimping tool model CT-400, serial #9921" required>
-                                <input type="file" class="ds-input mb-1" id="g5_gembutsu_ev" accept=".png,.jpg,.jpeg,.svg,.pdf,.docx,.xlsx" onchange="StageModules[2].validateFileSize(this)">
-                                <div class="form-text text-muted mb-3" style="font-size:0.75rem;">Upload documents size is 2MB</div>
+                                <input type="file" class="ds-input mb-1" id="g5_gembutsu_ev" accept=".png,.jpg,.jpeg,.svg,.pdf,.docx,.xlsx" onchange="StageModules[2].uploadGembutsuEvidence(this)">
+                                <div class="form-text text-muted mb-1" style="font-size:0.75rem;">Upload documents size is 2MB</div>
+                                <div id="g5_gembutsu_ev_preview" class="mb-3"></div>
  
                                 <h6 class="fw-bold mb-2 text-primary">Genjitsu (Actual Facts)</h6>
                                 <textarea class="ds-input ds-textarea mb-2" id="g5_genjitsu_facts" rows="2" placeholder="e.g. Shift production logs show 15 defective assemblies were discarded in the scrap bin on 2025-06-25." required></textarea>
@@ -542,6 +546,34 @@ const Stage2 = {
     prefill(d) {
         const po = d.process_observation || {};
         this.setVal('s2_flow_version', po.flow_version || '');
+
+        // Restore Flow Diagram Upload
+        const rawFlow = po.flow_upload || po.flow_diagram || d.flow_upload;
+        if (rawFlow) {
+            this.flowUpload = typeof rawFlow === 'object' && rawFlow
+                ? { url: rawFlow.url || rawFlow.file_path || '', name: rawFlow.name || po.flow_upload_name || (rawFlow.url ? rawFlow.url.split('/').pop() : 'Process Flow Diagram') }
+                : { url: String(rawFlow), name: po.flow_upload_name || String(rawFlow).split('/').pop() || 'Process Flow Diagram' };
+        } else {
+            this.flowUpload = null;
+        }
+        this.renderFlowUpload();
+
+        // Restore Observation Findings Evidence
+        const rawPfEv = po.finding_evidence || po.pf_evidence;
+        if (Array.isArray(rawPfEv)) {
+            this.pfEvidenceFiles = rawPfEv.map(item => {
+                if (typeof item === 'object' && item) {
+                    return { url: item.url || item.file_path || '', name: item.name || (item.url ? item.url.split('/').pop() : 'Evidence File') };
+                }
+                return { url: String(item), name: String(item).split('/').pop() || 'Evidence File' };
+            });
+        } else if (rawPfEv) {
+            this.pfEvidenceFiles = [{ url: String(rawPfEv), name: String(rawPfEv).split('/').pop() || 'Evidence File' }];
+        } else {
+            this.pfEvidenceFiles = [];
+        }
+        this.renderPfEvidence();
+
         this.setVal('s2_pw_date', po.date || '');
         this.setVal('s2_pw_observer', po.observer || '');
         this.setVal('s2_pw_area', po.area || '');
@@ -649,7 +681,31 @@ const Stage2 = {
 
         const fg = d.five_g || {};
         this.setVal('g5_gemba_notes', fg.gemba_notes || '');
+
+        // Restore Gemba Evidence
+        const rawGemba = fg.gemba_ev || fg.gemba_evidence || po.gemba_evidence;
+        if (rawGemba) {
+            this.gembaEv = typeof rawGemba === 'object' && rawGemba
+                ? { url: rawGemba.url || rawGemba.file_path || '', name: rawGemba.name || 'Gemba Evidence' }
+                : { url: String(rawGemba), name: String(rawGemba).split('/').pop() || 'Gemba Evidence' };
+        } else {
+            this.gembaEv = null;
+        }
+        this.renderGembaEv();
+
         this.setVal('g5_gembutsu_item', fg.gembutsu_item || '');
+
+        // Restore Gembutsu Evidence
+        const rawGembutsu = fg.gembutsu_ev || fg.gembutsu_evidence || po.gembutsu_evidence;
+        if (rawGembutsu) {
+            this.gembutsuEv = typeof rawGembutsu === 'object' && rawGembutsu
+                ? { url: rawGembutsu.url || rawGembutsu.file_path || '', name: rawGembutsu.name || 'Gembutsu Evidence' }
+                : { url: String(rawGembutsu), name: String(rawGembutsu).split('/').pop() || 'Gembutsu Evidence' };
+        } else {
+            this.gembutsuEv = null;
+        }
+        this.renderGembutsuEv();
+
         this.setVal('g5_genjitsu_src', fg.genjitsu_src || '');
         this.setVal('g5_genjitsu_facts', fg.genjitsu_facts || '');
         this.setVal('g5_genri_prin', fg.genri_prin || '');
@@ -732,6 +788,8 @@ const Stage2 = {
         return {
             process_observation: {
                 flow_version: this.getVal('s2_flow_version'),
+                flow_upload: this.flowUpload ? (this.flowUpload.url || this.flowUpload) : '',
+                flow_upload_name: this.flowUpload ? (this.flowUpload.name || '') : '',
                 date: this.getVal('s2_pw_date'),
                 observer: this.getVal('s2_pw_observer'),
                 area: this.getVal('s2_pw_area'),
@@ -739,7 +797,10 @@ const Stage2 = {
                 notes: this.getVal('s2_pw_notes'),
                 finding_type: this.getVal('s2_pf_type'),
                 finding_severity: this.getVal('s2_pf_sev'),
-                finding_desc: this.getVal('s2_pf_desc')
+                finding_desc: this.getVal('s2_pf_desc'),
+                finding_evidence: this.pfEvidenceFiles || [],
+                gemba_evidence: this.gembaEv ? (this.gembaEv.url || this.gembaEv) : '',
+                gembutsu_evidence: this.gembutsuEv ? (this.gembutsuEv.url || this.gembutsuEv) : ''
             },
             standard_verification: {
                 ...currentSv,
@@ -765,7 +826,11 @@ const Stage2 = {
             pareto: aggregatedPareto.length ? aggregatedPareto : this.collectParetoRow(),
             five_g: {
                 gemba_notes: this.getVal('g5_gemba_notes'),
+                gemba_ev: this.gembaEv ? (this.gembaEv.url || this.gembaEv) : '',
+                gemba_evidence: this.gembaEv ? (this.gembaEv.url || this.gembaEv) : '',
                 gembutsu_item: this.getVal('g5_gembutsu_item'),
+                gembutsu_ev: this.gembutsuEv ? (this.gembutsuEv.url || this.gembutsuEv) : '',
+                gembutsu_evidence: this.gembutsuEv ? (this.gembutsuEv.url || this.gembutsuEv) : '',
                 genjitsu_src: this.getVal('g5_genjitsu_src'),
                 genjitsu_facts: this.getVal('g5_genjitsu_facts'),
                 genri_prin: this.getVal('g5_genri_prin'),
@@ -2068,11 +2133,15 @@ const Stage2 = {
             
             try {
                 const res = await api.post('/projects/upload-evidence', formData);
-                if (res && res.url) {
+                const fileUrl = res?.url || res?.file_url;
+                if (fileUrl) {
                     this.uploadedFiles.push({
-                        url: res.url,
+                        url: fileUrl,
                         name: res.name || file.name
                     });
+                    if (window.OctaQube && OctaQube.toast) {
+                        OctaQube.toast(`File "${file.name}" uploaded successfully!`, 'success');
+                    }
                 }
             } catch (err) {
                 OctaQube.toast(`Failed to upload ${file.name}: ${err.message}`, 'error');
@@ -2131,6 +2200,327 @@ const Stage2 = {
         this.uploadedFiles.splice(index, 1);
         this.renderUploadedFiles();
         if (typeof markDirty === 'function') markDirty();
+    },
+
+    async uploadFlowDiagram(input) {
+        if (!input.files || input.files.length === 0) return;
+        if (!this.validateFileSize(input)) return;
+
+        const file = input.files[0];
+        const previewEl = document.getElementById('s2_flow_upload_preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<div class="text-xs text-primary d-flex align-items-center gap-2 mt-1">
+                <span class="spinner-border spinner-border-sm" role="status"></span> Uploading ${file.name}...
+            </div>`;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await api.post('/projects/upload-evidence', formData);
+            const fileUrl = res?.url || res?.file_url;
+            if (fileUrl) {
+                this.flowUpload = {
+                    url: fileUrl,
+                    name: res.name || file.name
+                };
+                if (window.OctaQube && OctaQube.toast) {
+                    OctaQube.toast(`Flow diagram "${file.name}" uploaded successfully!`, 'success');
+                }
+            }
+        } catch (err) {
+            if (window.OctaQube && OctaQube.toast) {
+                OctaQube.toast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+            }
+        }
+
+        input.value = '';
+        this.renderFlowUpload();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+            ProjectApp.saveDraft();
+        } else if (typeof markDirty === 'function') {
+            markDirty();
+        }
+    },
+
+    renderFlowUpload() {
+        const previewEl = document.getElementById('s2_flow_upload_preview');
+        if (!previewEl) return;
+
+        if (!this.flowUpload || !this.flowUpload.url) {
+            previewEl.innerHTML = '';
+            return;
+        }
+
+        const f = this.flowUpload;
+        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.url);
+        const previewIcon = isImage
+            ? `<img src="${f.url}" style="width: 28px; height: 28px; object-fit: cover; border-radius: 4px;" class="border">`
+            : `<div class="d-flex align-items-center justify-content-center bg-light text-primary rounded border" style="width: 28px; height: 28px;"><i data-lucide="file-text" style="width: 14px; height: 14px;"></i></div>`;
+
+        previewEl.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between p-2 rounded border bg-light mt-1" style="font-size: 0.8rem;">
+                <div class="d-flex align-items-center gap-2 text-truncate" style="min-width: 0;">
+                    ${previewIcon}
+                    <div class="d-flex flex-column text-truncate">
+                        <a href="${f.url}" target="_blank" class="fw-semibold text-primary text-decoration-none text-truncate" style="max-width: 200px;" title="${f.name}">
+                            ${f.name}
+                        </a>
+                        <span class="text-success" style="font-size: 0.7rem;">✓ File Attached</span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 d-flex align-items-center gap-1" style="font-size: 0.75rem; height: 28px;" title="View file">
+                        <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> View
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 d-flex align-items-center" style="font-size: 0.75rem; height: 28px;" onclick="StageModules[2].deleteFlowUpload()" title="Remove file">
+                        <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+    },
+
+    deleteFlowUpload() {
+        this.flowUpload = null;
+        this.renderFlowUpload();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+            ProjectApp.saveDraft();
+        } else if (typeof markDirty === 'function') {
+            markDirty();
+        }
+    },
+
+    async uploadPfEvidence(input) {
+        if (!input.files || input.files.length === 0) return;
+        if (!this.validateFileSize(input)) return;
+
+        this.pfEvidenceFiles = this.pfEvidenceFiles || [];
+        for (let i = 0; i < input.files.length; i++) {
+            const file = input.files[i];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await api.post('/projects/upload-evidence', formData);
+                const fileUrl = res?.url || res?.file_url;
+                if (fileUrl) {
+                    this.pfEvidenceFiles.push({
+                        url: fileUrl,
+                        name: res.name || file.name
+                    });
+                    if (window.OctaQube && OctaQube.toast) {
+                        OctaQube.toast(`Evidence "${file.name}" uploaded successfully!`, 'success');
+                    }
+                }
+            } catch (err) {
+                if (window.OctaQube && OctaQube.toast) {
+                    OctaQube.toast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+                }
+            }
+        }
+
+        input.value = '';
+        this.renderPfEvidence();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+            ProjectApp.saveDraft();
+        } else if (typeof markDirty === 'function') {
+            markDirty();
+        }
+    },
+
+    renderPfEvidence() {
+        const container = document.getElementById('s2_pf_evidence_list');
+        if (!container) return;
+
+        this.pfEvidenceFiles = this.pfEvidenceFiles || [];
+        if (this.pfEvidenceFiles.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = this.pfEvidenceFiles.map((f, idx) => `
+            <div class="d-flex align-items-center justify-content-between p-2 rounded border bg-light" style="font-size: 0.8rem;">
+                <div class="d-flex align-items-center gap-2 text-truncate" style="min-width: 0;">
+                    <i data-lucide="file-text" style="width: 14px; height: 14px;" class="text-primary"></i>
+                    <a href="${f.url}" target="_blank" class="fw-semibold text-primary text-decoration-none text-truncate" style="max-width: 250px;" title="${f.name}">
+                        ${f.name}
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 d-flex align-items-center gap-1" style="font-size: 0.75rem; height: 26px;">
+                        <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> View
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 d-flex align-items-center" style="font-size: 0.75rem; height: 26px;" onclick="StageModules[2].deletePfEvidence(${idx})">
+                        <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        if (window.lucide) lucide.createIcons();
+    },
+
+    deletePfEvidence(index) {
+        this.pfEvidenceFiles = this.pfEvidenceFiles || [];
+        this.pfEvidenceFiles.splice(index, 1);
+        this.renderPfEvidence();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+            ProjectApp.saveDraft();
+        } else if (typeof markDirty === 'function') {
+            markDirty();
+        }
+    },
+
+    async uploadGembaEvidence(input) {
+        if (!input.files || input.files.length === 0) return;
+        if (!this.validateFileSize(input)) return;
+
+        const file = input.files[0];
+        const previewEl = document.getElementById('g5_gemba_ev_preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<div class="text-xs text-primary d-flex align-items-center gap-2 mt-1">
+                <span class="spinner-border spinner-border-sm" role="status"></span> Uploading ${file.name}...
+            </div>`;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await api.post('/projects/upload-evidence', formData);
+            const fileUrl = res?.url || res?.file_url;
+            if (fileUrl) {
+                this.gembaEv = { url: fileUrl, name: res.name || file.name };
+                if (window.OctaQube && OctaQube.toast) {
+                    OctaQube.toast(`Gemba evidence "${file.name}" uploaded!`, 'success');
+                }
+            }
+        } catch (err) {
+            if (window.OctaQube && OctaQube.toast) {
+                OctaQube.toast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+            }
+        }
+
+        input.value = '';
+        this.renderGembaEv();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+            ProjectApp.saveDraft();
+        } else if (typeof markDirty === 'function') {
+            markDirty();
+        }
+    },
+
+    renderGembaEv() {
+        const previewEl = document.getElementById('g5_gemba_ev_preview');
+        if (!previewEl) return;
+        if (!this.gembaEv || !this.gembaEv.url) {
+            previewEl.innerHTML = '';
+            return;
+        }
+        const f = this.gembaEv;
+        previewEl.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between p-2 rounded border bg-light mt-1" style="font-size: 0.8rem;">
+                <div class="d-flex align-items-center gap-2 text-truncate" style="min-width: 0;">
+                    <i data-lucide="file-text" style="width: 14px; height: 14px;" class="text-primary"></i>
+                    <a href="${f.url}" target="_blank" class="fw-semibold text-primary text-decoration-none text-truncate" style="max-width: 200px;" title="${f.name}">
+                        ${f.name}
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 d-flex align-items-center gap-1" style="font-size: 0.75rem; height: 26px;">
+                        <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> View
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 d-flex align-items-center" style="font-size: 0.75rem; height: 26px;" onclick="StageModules[2].deleteGembaEv()">
+                        <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+    },
+
+    deleteGembaEv() {
+        this.gembaEv = null;
+        this.renderGembaEv();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') ProjectApp.saveDraft();
+        else if (typeof markDirty === 'function') markDirty();
+    },
+
+    async uploadGembutsuEvidence(input) {
+        if (!input.files || input.files.length === 0) return;
+        if (!this.validateFileSize(input)) return;
+
+        const file = input.files[0];
+        const previewEl = document.getElementById('g5_gembutsu_ev_preview');
+        if (previewEl) {
+            previewEl.innerHTML = `<div class="text-xs text-primary d-flex align-items-center gap-2 mt-1">
+                <span class="spinner-border spinner-border-sm" role="status"></span> Uploading ${file.name}...
+            </div>`;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await api.post('/projects/upload-evidence', formData);
+            const fileUrl = res?.url || res?.file_url;
+            if (fileUrl) {
+                this.gembutsuEv = { url: fileUrl, name: res.name || file.name };
+                if (window.OctaQube && OctaQube.toast) {
+                    OctaQube.toast(`Gembutsu evidence "${file.name}" uploaded!`, 'success');
+                }
+            }
+        } catch (err) {
+            if (window.OctaQube && OctaQube.toast) {
+                OctaQube.toast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+            }
+        }
+
+        input.value = '';
+        this.renderGembutsuEv();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+            ProjectApp.saveDraft();
+        } else if (typeof markDirty === 'function') {
+            markDirty();
+        }
+    },
+
+    renderGembutsuEv() {
+        const previewEl = document.getElementById('g5_gembutsu_ev_preview');
+        if (!previewEl) return;
+        if (!this.gembutsuEv || !this.gembutsuEv.url) {
+            previewEl.innerHTML = '';
+            return;
+        }
+        const f = this.gembutsuEv;
+        previewEl.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between p-2 rounded border bg-light mt-1" style="font-size: 0.8rem;">
+                <div class="d-flex align-items-center gap-2 text-truncate" style="min-width: 0;">
+                    <i data-lucide="file-text" style="width: 14px; height: 14px;" class="text-primary"></i>
+                    <a href="${f.url}" target="_blank" class="fw-semibold text-primary text-decoration-none text-truncate" style="max-width: 200px;" title="${f.name}">
+                        ${f.name}
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <a href="${f.url}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 d-flex align-items-center gap-1" style="font-size: 0.75rem; height: 26px;">
+                        <i data-lucide="external-link" style="width: 12px; height: 12px;"></i> View
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 d-flex align-items-center" style="font-size: 0.75rem; height: 26px;" onclick="StageModules[2].deleteGembutsuEv()">
+                        <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+    },
+
+    deleteGembutsuEv() {
+        this.gembutsuEv = null;
+        this.renderGembutsuEv();
+        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') ProjectApp.saveDraft();
+        else if (typeof markDirty === 'function') markDirty();
     },
 
     updateLinks() {
