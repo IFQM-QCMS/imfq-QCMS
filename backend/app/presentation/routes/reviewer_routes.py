@@ -35,34 +35,24 @@ def _get_pending_projects(org_id, reviewer_id, user_dept_id=None, is_admin=False
     if is_admin:
         pending_list = []
         
-        # 1. Stage 8 closures
-        query = Project.query.filter(
-            Project.org_id == org_id,
-            Project.current_stage == 8,
-            Project.status.in_(['Pending Closure', 'SOP Created'])
-        )
-        if user_dept_id:
-            query = query.filter(Project.department_id == user_dept_id)
-        active_projects = query.all()
-        for p in active_projects:
-            workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
-            pending_list.append((p, 8, workflow))
-            
-        # 2. Stage 2-7 submissions (Admin does not review Stage 1)
+        # Stage 2-8 submissions awaiting review (Admin does not review Stage 1)
         sub_query = Project.query.filter(
             Project.org_id == org_id,
             Project.current_stage > 1,
-            Project.current_stage < 8,
             Project.status != 'Closed'
         )
         if user_dept_id:
             sub_query = sub_query.filter(Project.department_id == user_dept_id)
         sub_projects = sub_query.all()
         for p in sub_projects:
-            tracker = ProjectStageTracker.query.filter_by(project_id=p.id, stage_number=p.current_stage).first()
-            if tracker and tracker.status == 'Submitted For Review':
-                workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=p.current_stage).first()
-                pending_list.append((p, p.current_stage, workflow))
+            if p.restart_status == 'Pending':
+                workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=1).first()
+                pending_list.append((p, 1, workflow))
+            else:
+                tracker = ProjectStageTracker.query.filter_by(project_id=p.id, stage_number=p.current_stage).first()
+                if tracker and tracker.status == 'Submitted For Review':
+                    workflow = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=p.current_stage).first()
+                    pending_list.append((p, p.current_stage, workflow))
                 
         return pending_list
 
@@ -472,8 +462,8 @@ def _get_impact_projects_list(user, is_admin):
     query = Project.query.filter(
         Project.org_id == user.org_id,
         Project.current_stage == 8,
-        ~Project.status.in_(['Closed', 'Pending CEO Review', 'Pending CEO Closure', 'Impact Approved']),
-        Project.status.in_(['Stage 8 Submitted', 'Stage 8 Reviewer Approved', 'Stage 8 Approved'])
+        ~Project.status.in_(['Closed', 'Pending CEO Review', 'Pending CEO Closure', 'Impact Approved', 'SOP Created', 'Pending Closure', 'Rejected', 'Stage 1 Rejected']),
+        Project.status.in_(['Stage 8 Reviewer Approved', 'Stage 8 Approved'])
     )
     if approved_impact_ids:
         query = query.filter(~Project.id.in_(approved_impact_ids))
@@ -537,10 +527,19 @@ def _get_impact_projects_list(user, is_admin):
     return result
 
 def _get_closure_projects_list(user, is_admin):
+    from sqlalchemy import or_
+    approved_impact_ids = [s.project_id for s in Stage8Standardization.query.filter_by(status='Approved').all()]
+
+    closure_statuses = ['Impact Approved', 'SOP Created', 'Pending Closure', 'Pending CEO Review', 'Pending CEO Closure']
+    status_conditions = [Project.status.in_(closure_statuses)]
+    if approved_impact_ids:
+        status_conditions.append(Project.id.in_(approved_impact_ids))
+
     query = Project.query.filter(
         Project.org_id == user.org_id,
-        Project.current_stage == 8,
-        Project.status != 'Closed'
+        Project.status != 'Closed',
+        ~Project.status.in_(['Stage 8 Submitted', 'Stage 8 Reviewer Approved', 'Stage 8 Approved', 'Rejected', 'Stage 1 Rejected']),
+        or_(*status_conditions)
     )
     # Apply dept filter if user has a specific dept
     user_dept_id = None

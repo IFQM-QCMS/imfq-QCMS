@@ -1106,7 +1106,8 @@ def bulk_upload_users():
                     plant_map[p_key] = matched_plant
                 except Exception as p_err:
                     db.session.rollback()
-                    reject(f"Could not resolve or create plant location '{plant_raw}': {str(p_err)}")
+                    current_app.logger.error(f"Could not resolve or create plant: {p_err}")
+                    reject(f"Could not resolve or create plant location '{plant_raw}'.")
                     continue
 
         # ── 3. Department validation / auto-matching ───────────────────
@@ -1127,7 +1128,8 @@ def bulk_upload_users():
                     dept_map[d_key] = matched_dept
                 except Exception as d_err:
                     db.session.rollback()
-                    reject(f"Could not resolve or create department '{dept_raw}': {str(d_err)}")
+                    current_app.logger.error(f"Could not resolve or create department: {d_err}")
+                    reject(f"Could not resolve or create department '{dept_raw}'.")
                     continue
 
         # Ensure matched department is linked to matched plant

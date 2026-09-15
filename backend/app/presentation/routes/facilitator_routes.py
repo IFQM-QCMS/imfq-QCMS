@@ -65,7 +65,7 @@ def get_stats():
 
     pending_impact = sum(
         1 for p in projects 
-        if p.current_stage == 8 and p.status not in completed_statuses and p.status not in rejected_statuses
+        if p.current_stage == 8 and p.status in ('Stage 8 Reviewer Approved', 'Stage 8 Approved')
     )
 
     # Inactive Projects (assigned to this facilitator):
@@ -296,8 +296,7 @@ def get_impact_review():
         Project.org_id == user.org_id,
         Project.facilitator_id == user.id,
         Project.current_stage == 8,
-        Project.status != 'Closed',
-        Project.status.in_(['Stage 8 Submitted', 'Stage 8 Reviewer Approved', 'Stage 8 Approved', 'Impact Approved', 'SOP Created', 'Pending Closure'])
+        Project.status.in_(['Stage 8 Reviewer Approved', 'Stage 8 Approved'])
     )
     projects = query.all()
     result = []
@@ -380,8 +379,8 @@ def get_closure_projects():
     query = Project.query.filter(
         Project.org_id == user.org_id,
         Project.facilitator_id == user.id,
-        Project.current_stage == 8,
-        Project.status != 'Closed'
+        Project.status != 'Closed',
+        Project.status.in_(['Impact Approved', 'SOP Created', 'Pending Closure', 'Pending CEO Review', 'Pending CEO Closure'])
     )
     projects = query.all()
     result = []

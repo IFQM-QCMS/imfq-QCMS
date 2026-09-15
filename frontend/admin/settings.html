@@ -433,7 +433,7 @@
                                                      tabindex="0"
                                                      role="button"
                                                      title="Click to upload logo">
-                                                    <img id="logo_preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>" style="max-width: 80%; max-height: 80%; object-fit: contain; pointer-events: none;">
+                                                    <img id="logo_preview" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48Y2lyY2xlIGN4PSI4LjUiIGN5PSI4LjUiIHI9IjEuNSI+PC9jaXJjbGU+PHBvbHlsaW5lIHBvaW50cz0iMjEgMTUgMTYgMTAgNSAyMSI+PC9wb2x5bGluZT48L3N2Zz4=" style="max-width: 80%; max-height: 80%; object-fit: contain; pointer-events: none;">
                                                     <div class="preview-upload-overlay">
                                                         <i data-lucide="upload" style="width:18px;height:18px;"></i>
                                                         <span style="font-size:0.7rem;margin-top:4px;">Upload</span>
@@ -446,7 +446,7 @@
                                                      tabindex="0"
                                                      role="button"
                                                      title="Click to upload favicon">
-                                                    <img id="favicon_preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>" style="width: 32px; height: 32px; object-fit: contain; pointer-events: none;">
+                                                    <img id="favicon_preview" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48Y2lyY2xlIGN4PSI4LjUiIGN5PSI4LjUiIHI9IjEuNSI+PC9jaXJjbGU+PHBvbHlsaW5lIHBvaW50cz0iMjEgMTUgMTYgMTAgNSAyMSI+PC9wb2x5bGluZT48L3N2Zz4=" style="width: 32px; height: 32px; object-fit: contain; pointer-events: none;">
                                                     <div class="preview-upload-overlay" style="border-radius: var(--ds-radius-md);">
                                                         <i data-lucide="upload" style="width:12px;height:12px;"></i>
                                                     </div>
@@ -4924,22 +4924,23 @@ console.log(data);
                 }
                 
                 if (settings) {
-                    if (settings.name) {
-                        try {
-                            const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
-                            if (userStr) {
-                                const uObj = JSON.parse(userStr);
-                                uObj.org_name = settings.name;
-                                const synchedUser = JSON.stringify(sanitizeUserForStorage(uObj));
-                                sessionStorage.setItem('user', synchedUser);
-                                localStorage.setItem('user', synchedUser);
-                                if (window.OctaQube) window.OctaQube.user = uObj;
-                                if (window.OctaQube && typeof window.OctaQube.applyBranding === 'function') {
-                                    window.OctaQube.applyBranding();
-                                }
+                    try {
+                        const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
+                        if (userStr) {
+                            const uObj = JSON.parse(userStr);
+                            if (settings.name) uObj.org_name = settings.name;
+                            if (settings.logo_url) uObj.org_logo_url = settings.logo_url;
+                            if (settings.favicon_url) uObj.org_favicon_url = settings.favicon_url;
+                            if (settings.primary_color) uObj.org_primary_color = settings.primary_color;
+                            const synchedUser = JSON.stringify(sanitizeUserForStorage(uObj));
+                            sessionStorage.setItem('user', synchedUser);
+                            localStorage.setItem('user', synchedUser);
+                            if (window.OctaQube) window.OctaQube.user = uObj;
+                            if (window.OctaQube && typeof window.OctaQube.applyBranding === 'function') {
+                                window.OctaQube.applyBranding();
                             }
-                        } catch(e) {}
-                    }
+                        }
+                    } catch(e) {}
                     // Profile
                     const orgName = document.getElementById('org_name'); if (orgName) orgName.value = settings.name || '';
                     const orgInd = document.getElementById('org_industry');
@@ -4978,14 +4979,15 @@ console.log(data);
                     const colHex = document.getElementById('color_hex'); if (colHex) colHex.innerText = (settings.primary_color || '#2563EB').toUpperCase();
                     const logoUrl = document.getElementById('logo_url'); if (logoUrl) logoUrl.value = settings.logo_url || '';
                     const favUrl = document.getElementById('favicon_url'); if (favUrl) favUrl.value = settings.favicon_url || '';
+                    const FALLBACK_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48Y2lyY2xlIGN4PSI4LjUiIGN5PSI4LjUiIHI9IjEuNSI+PC9jaXJjbGU+PHBvbHlsaW5lIHBvaW50cz0iMjEgMTUgMTYgMTAgNSAyMSI+PC9wb2x5bGluZT48L3N2Zz4=";
                     const logoPrev = document.getElementById('logo_preview');
                     if (logoPrev && settings.logo_url) {
-                        logoPrev.onerror = function() { this.onerror = null; this.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>"; };
+                        logoPrev.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
                         logoPrev.src = settings.logo_url + (settings.logo_url.includes('?') ? '&' : '?') + 't=' + Date.now();
                     }
                     const favPrev = document.getElementById('favicon_preview');
                     if (favPrev && settings.favicon_url) {
-                        favPrev.onerror = function() { this.onerror = null; this.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>"; };
+                        favPrev.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
                         favPrev.src = settings.favicon_url + (settings.favicon_url.includes('?') ? '&' : '?') + 't=' + Date.now();
                     }
                     
@@ -5026,10 +5028,14 @@ console.log(data);
                 if (lUrl) {
                     lUrl.addEventListener('change', (e) => {
                         const prev = document.getElementById('logo_preview');
-                        if (prev && e.target.value) {
-                            const u = e.target.value;
-                            prev.onerror = function() { this.onerror = null; };
-                            prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                        if (prev) {
+                            if (e.target.value) {
+                                const u = e.target.value;
+                                prev.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
+                                prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                            } else {
+                                prev.src = FALLBACK_SVG;
+                            }
                         }
                     });
                 }
@@ -5037,10 +5043,14 @@ console.log(data);
                 if (fUrl) {
                     fUrl.addEventListener('change', (e) => {
                         const prev = document.getElementById('favicon_preview');
-                        if (prev && e.target.value) {
-                            const u = e.target.value;
-                            prev.onerror = function() { this.onerror = null; };
-                            prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                        if (prev) {
+                            if (e.target.value) {
+                                const u = e.target.value;
+                                prev.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
+                                prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                            } else {
+                                prev.src = FALLBACK_SVG;
+                            }
                         }
                     });
                 }
@@ -5662,8 +5672,9 @@ ET`;
             document.getElementById('color_hex').innerText = '#2563EB';
             document.getElementById('logo_url').value = '';
             document.getElementById('favicon_url').value = '';
-            document.getElementById('logo_preview').src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>";
-            document.getElementById('favicon_preview').src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>";
+            const FALLBACK_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48Y2lyY2xlIGN4PSI4LjUiIGN5PSI4LjUiIHI9IjEuNSI+PC9jaXJjbGU+PHBvbHlsaW5lIHBvaW50cz0iMjEgMTUgMTYgMTAgNSAyMSI+PC9wb2x5bGluZT48L3N2Zz4=";
+            document.getElementById('logo_preview').src = FALLBACK_SVG;
+            document.getElementById('favicon_preview').src = FALLBACK_SVG;
             this.markDirty();
             OctaQube.toast('Branding reset to default. Click Save Settings to apply.', 'info');
         },
@@ -5969,6 +5980,29 @@ ET`;
                 return;
             }
 
+            const FALLBACK_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48Y2lyY2xlIGN4PSI4LjUiIGN5PSI4LjUiIHI9IjEuNSI+PC9jaXJjbGU+PHBvbHlsaW5lIHBvaW50cz0iMjEgMTUgMTYgMTAgNSAyMSI+PC9wb2x5bGluZT48L3N2Zz4=";
+
+            // Immediately display client-side preview using object URL so user sees instant feedback
+            try {
+                const localBlobUrl = URL.createObjectURL(file);
+                const previewImg = document.getElementById(`${type}_preview`);
+                if (previewImg) {
+                    previewImg.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
+                    previewImg.src = localBlobUrl;
+                }
+                if (type === 'logo') {
+                    document.querySelectorAll('.sidebar-brand').forEach(sb => {
+                        let img = sb.querySelector('img');
+                        if (img) {
+                            img.style.display = 'block';
+                            img.src = localBlobUrl;
+                        }
+                        const fb = sb.querySelector('.fallback-brand-icon');
+                        if (fb) fb.style.display = 'none';
+                    });
+                }
+            } catch (_) {}
+
             const formData = new FormData();
             formData.append('file', file);
             formData.append('type', type);
@@ -6000,7 +6034,6 @@ ET`;
                 const urlInput = document.getElementById(`${type}_url`);
                 if (urlInput) urlInput.value = res.url;
 
-                const FALLBACK_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>";
                 const timestampedUrl = res.url + (res.url.includes('?') ? '&' : '?') + 't=' + Date.now();
 
                 const previewImg = document.getElementById(`${type}_preview`);
@@ -6011,11 +6044,21 @@ ET`;
 
                 // Immediately update sidebar brand logo so changes are visible without page refresh
                 if (type === 'logo') {
-                    const sidebarImg = document.querySelector('.sidebar-brand img');
-                    if (sidebarImg) {
-                        sidebarImg.onerror = function() { this.onerror = null; this.style.display = 'none'; };
-                        sidebarImg.src = timestampedUrl;
-                    }
+                    document.querySelectorAll('.sidebar-brand').forEach(sb => {
+                        let sidebarImg = sb.querySelector('img');
+                        if (sidebarImg) {
+                            sidebarImg.style.display = 'block';
+                            sidebarImg.onerror = function() {
+                                this.onerror = null;
+                                this.style.display = 'none';
+                                const fb = sb.querySelector('.fallback-brand-icon');
+                                if (fb) fb.style.display = 'flex';
+                            };
+                            sidebarImg.src = timestampedUrl;
+                        }
+                        const fb = sb.querySelector('.fallback-brand-icon');
+                        if (fb) fb.style.display = 'none';
+                    });
                     if (window.OctaQube && window.OctaQube.user) {
                         window.OctaQube.user.org_logo_url = res.url;
                     }
