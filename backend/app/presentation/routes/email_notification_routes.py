@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -8,6 +9,8 @@ from app.infrastructure.database.models.models import (
 )
 from app.domain.services.email_notification_engine import EmailNotificationEngine, DEFAULT_NOTIFICATION_PRESETS
 from app.domain.services.document_branding_service import DocumentBrandingService
+
+logger = logging.getLogger(__name__)
 
 email_notification_bp = Blueprint('email_notifications', __name__, url_prefix='/api/email-notifications')
 

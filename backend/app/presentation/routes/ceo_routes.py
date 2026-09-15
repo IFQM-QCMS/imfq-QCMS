@@ -1164,7 +1164,13 @@ def export_ceo_report():
     try:
         user_id = get_jwt_identity()
         user = db.session.get(User, int(user_id))
+        is_super_admin = bool(user and user.role and user.role.name == 'SuperAdmin')
         org_id = user.org_id if user else None
+        if not org_id and is_super_admin:
+            org_id = request.args.get('org_id', type=int)
+            if not org_id:
+                first_org = Organization.query.first()
+                org_id = first_org.id if first_org else 1
         if not org_id:
             return jsonify({"status": "error", "message": "Org ID not found"}), 404
 

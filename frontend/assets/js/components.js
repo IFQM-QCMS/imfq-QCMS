@@ -1041,7 +1041,11 @@ const OctaQube = {
                     ? logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
                     : logoUrl;
                 const logoSrc = OctaQube.sanitizeUrl(rawLogoSrc);
-                const logoOnError = function() { this.onerror = null; this.style.display = 'none'; };
+                const logoOnError = function() {
+                    this.remove();
+                    const fb = sidebarBrand.querySelector('.brand-icon');
+                    if (fb) fb.style.display = 'flex';
+                };
 
                 if (logoSrc) {
                     let img = sidebarBrand.querySelector('img');
@@ -1050,13 +1054,21 @@ const OctaQube = {
                         if (brandIcon) {
                             const newImg = document.createElement('img');
                             newImg.src = logoSrc;
-                            newImg.alt = 'Logo';
+                            newImg.alt = '';
                             newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
-                            newImg.onerror = logoOnError;
-                            brandIcon.replaceWith(newImg);
+                            newImg.onerror = function() {
+                                this.remove();
+                                brandIcon.style.display = 'flex';
+                            };
+                            brandIcon.style.display = 'none';
+                            brandIcon.parentNode.insertBefore(newImg, brandIcon);
                         } else {
-                            sidebarBrand.innerHTML = `<img src="${logoSrc}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.onerror=null;this.style.display='none';">
+                            sidebarBrand.innerHTML = `<img src="${logoSrc}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.remove(); const fb=this.parentElement?.querySelector('.brand-icon'); if(fb) fb.style.display='flex';">
+                                                      <div class="brand-icon" style="background: var(--ds-accent); display: none; width: 32px; height: 32px; border-radius: 8px; align-items: center; justify-content: center;">
+                                                          <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white; width:18px; height:18px;"></i>
+                                                      </div>
                                                       <div class="brand-text">${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small></div>`;
+                            if (window.lucide) lucide.createIcons();
                         }
                     } else {
                         img.onerror = logoOnError;
@@ -2077,9 +2089,9 @@ const OctaQube = {
             const safeLogoUrl = OctaQube.sanitizeUrl(resolvedLogoUrl);
             if (safeLogoUrl) {
                 logoIconHtml = `
-                    <img src="${safeLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.style.display='none'; const fb = this.parentElement.querySelector('.fallback-brand-icon'); if (fb) fb.style.display='flex';">
-                    <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none;">
-                        <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white;"></i>
+                    <img src="${safeLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.remove(); const fb = this.parentElement ? this.parentElement.querySelector('.fallback-brand-icon') : null; if (fb) fb.style.display='flex';">
+                    <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none; width: 32px; height: 32px; border-radius: 8px; align-items: center; justify-content: center;">
+                        <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white; width:18px; height:18px;"></i>
                     </div>
                 `;
             }

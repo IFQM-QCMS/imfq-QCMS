@@ -445,7 +445,7 @@ const api = {
             let errMsg = `Download failed (HTTP ${response.status})`;
             try {
                 const errData = await response.json();
-                errMsg = errData.message || errData.error || errMsg;
+                errMsg = errData.message || errData.error || errData.msg || errMsg;
             } catch (_) {}
             throw new Error(errMsg);
         }

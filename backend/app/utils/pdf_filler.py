@@ -1,5 +1,6 @@
 import fitz
 import os
+import shutil
 import tempfile
 import subprocess
 import html
@@ -2020,18 +2021,33 @@ def render_html_to_pdf_browser(html_code):
     pdf_path = html_path.replace('.html', '.pdf')
     file_url = 'file:///' + html_path.replace('\\', '/')
 
-    browser_paths = [
-        r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-        r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-        r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
-        r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
-    ]
-
     browser = None
-    for p in browser_paths:
-        if os.path.exists(p):
-            browser = p
+    # 1. Search PATH for installed Chromium/Chrome browsers (Linux, macOS, Windows)
+    for cand in ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium', 'chrome', 'msedge']:
+        found = shutil.which(cand)
+        if found:
+            browser = found
             break
+
+    # 2. Check standard Linux, macOS, and Windows file system paths
+    if not browser:
+        browser_paths = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/snap/bin/chromium',
+            '/usr/local/bin/chrome',
+            '/usr/local/bin/chromium',
+            r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+            r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+            r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+            r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+        ]
+        for p in browser_paths:
+            if os.path.exists(p):
+                browser = p
+                break
 
     if not browser:
         raise RuntimeError("No Chromium or Chrome/Edge browser available for PDF generation")
@@ -2045,6 +2061,7 @@ def render_html_to_pdf_browser(html_code):
         '--no-default-browser-check',
         '--disable-gpu',
         '--no-sandbox',
+        '--disable-dev-shm-usage',
         '--disable-extensions',
         '--disable-background-networking',
         '--no-pdf-header-footer',
@@ -2088,7 +2105,12 @@ def render_html_to_pdf_pymupdf(html_code):
     return out_buf.getvalue()
 
 def generate_qc_story_closure_summary_pdf(project_id):
-    html_code = build_qc_story_html(project_id)
+    try:
+        html_code = build_qc_story_html(project_id)
+    except Exception as e_build:
+        print(f"[PDF_FILLER] build_qc_story_html failed for project {project_id}: {e_build}")
+        return None
+
     if not html_code:
         return None
     try:
