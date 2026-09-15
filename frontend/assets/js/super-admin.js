@@ -2536,7 +2536,7 @@ const SuperAdmin = {
                                 ${inv.invoice_status === 'Paid' ? `
                                     <li><a class="dropdown-item text-danger" href="#" onclick="SuperAdmin.openRefundModal(${inv.id}, '${inv.invoice_number}', ${inv.total_amount}, '${inv.currency}')"><i data-lucide="rotate-ccw" class="me-2" style="width:13px;height:13px;"></i> Issue Refund</a></li>
                                 ` : ''}
-                                <li><a class="dropdown-item" href="#" onclick="SuperAdmin.openCreditNoteModal(${inv.org_id}, '${inv.org_name.replace(/'/g, "\\'")}', ${inv.id})"><i data-lucide="gift" class="me-2" style="width:13px;height:13px;"></i> Issue Credit</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="SuperAdmin.openCreditNoteModal(${inv.org_id}, '${inv.org_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${inv.id})"><i data-lucide="gift" class="me-2" style="width:13px;height:13px;"></i> Issue Credit</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="#" onclick="SuperAdmin.deleteInvoice(${inv.id})"><i data-lucide="trash-2" class="me-2" style="width:13px;height:13px;"></i> Delete</a></li>
                             </ul>
@@ -3332,7 +3332,7 @@ const SuperAdmin = {
 
         listEl.innerHTML = items.map(o => {
             const isSelected = selectedId == o.id;
-            const safeName = (o.name || '').replace(/'/g, "\\'");
+            const safeName = (o.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             
             return `
                 <div class="org-item-option p-2 rounded text-xs d-flex align-items-center justify-content-between text-main hover-highlight"
@@ -9600,7 +9600,7 @@ const SuperAdmin = {
                     <td>${this._planFmt(d.rules.base_fee || 999)}</td>
                     <td><strong class="text-primary font-bold">${this._planFmt(d.total_amount || 0)}</strong></td>
                     <td class="text-end">
-                        <button class="ds-btn ds-btn-sm ds-btn-secondary text-nowrap" onclick="SuperAdmin.executeSinglePaygBill(${d.org_id}, '${d.org_name.replace(/'/g, "\\'")}')">
+                        <button class="ds-btn ds-btn-sm ds-btn-secondary text-nowrap" onclick="SuperAdmin.executeSinglePaygBill(${d.org_id}, '${d.org_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
                             <i data-lucide="send" style="width:12px;height:12px;"></i> Send Bill
                         </button>
                     </td>
@@ -11393,7 +11393,7 @@ const SuperAdmin = {
             if (bulkPlanUl) {
                 bulkPlanUl.innerHTML = createdPlanNames.map(name => {
                     const escapedName = this._escapeHTML(name);
-                    return `<li><a class="dropdown-item" href="#" onclick="SuperAdmin.triggerBulkAssignPlan('${escapedName.replace(/'/g, "\\'")}');return false;">${escapedName}</a></li>`;
+                    return `<li><a class="dropdown-item" href="#" onclick="SuperAdmin.triggerBulkAssignPlan('${escapedName.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}');return false;">${escapedName}</a></li>`;
                 }).join('');
             }
         } catch (e) {
@@ -11600,7 +11600,7 @@ const SuperAdmin = {
         tbody.innerHTML = pageItems.map(item => {
             const planColors = { 'Starter': 'blue', 'Professional': 'purple', 'Enterprise': 'indigo', 'Custom': 'gray' };
             const planColor  = planColors[item.subscription_plan] || 'gray';
-            const nameEsc    = OctaQube.escapeHtml(item.name).replace(/'/g, "\\'");
+            const nameEsc    = OctaQube.escapeHtml(item.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             // Use backend computed days_remaining as primary source of truth, fallback to client-side math
             const deletedAtMs   = item.deleted_at ? new Date(item.deleted_at).getTime() : Date.now();

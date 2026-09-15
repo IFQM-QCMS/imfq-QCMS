@@ -1230,7 +1230,7 @@
                                     ${locBadge}
                                     ${deptBadge}
                                 </div>
-                                <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1" onclick="repoUI.selectCrossDeptRoleUser(${m.id}, '${esc(mName).replace(/'/g, "\\'")}', '${esc(mDept).replace(/'/g, "\\'")}', '${esc(mPlant).replace(/'/g, "\\'")}')">
+                                <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1" onclick="repoUI.selectCrossDeptRoleUser(${m.id}, '${esc(mName).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${esc(mDept).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${esc(mPlant).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
                                     <i data-lucide="check" style="width:12px;height:12px;"></i> Select as ${this.crossDeptRole}
                                 </button>
                             </div>
@@ -2282,7 +2282,7 @@
                                 </li>
                                 ${(p.status === 'Closed' || p.status === 'Completed') ? `
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-xs fw-medium" href="javascript:void(0)" onclick="repoUI.downloadReport(${p.id}, '${p.project_uid}', '${(p.title || '').replace(/'/g, "\\'")}', '${p.status}')">
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-xs fw-medium" href="javascript:void(0)" onclick="repoUI.downloadReport(${p.id}, '${p.project_uid}', '${(p.title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${p.status}')">
                                         <i data-lucide="file-text" style="width:14px;height:14px;" class="text-danger"></i> Download PDF Report
                                     </a>
                                 </li>

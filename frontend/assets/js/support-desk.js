@@ -726,12 +726,12 @@ const SupportDesk = {
                 actionButton = `<button class="ds-btn ds-btn-secondary ds-btn-sm text-nowrap" disabled style="opacity: 0.65; cursor: not-allowed; font-size:11px; padding: 4px 8px;" title="Auto-approval in progress (5 min timer active). Super Admin action is frozen."><i data-lucide="lock" style="width:11px;height:11px;" class="me-1"></i> Frozen</button>`;
             } else if (isPending) {
                 statusBadge = `<span class="badge bg-warning-subtle text-warning font-semibold px-2 py-1 text-nowrap">Pending Review</span>`;
-                actionButton = `<button class="ds-btn ds-btn-primary ds-btn-sm text-nowrap" style="font-size:11px; padding: 4px 10px;" onclick="SupportDesk.openExtendTrialModal(${o.id}, '${(o.name || '').replace(/'/g, "\\'")}', ${pending.days || 14})"><i data-lucide="clock" style="width:11px;height:11px;" class="me-1"></i> Extend Trial</button>`;
+                actionButton = `<button class="ds-btn ds-btn-primary ds-btn-sm text-nowrap" style="font-size:11px; padding: 4px 10px;" onclick="SupportDesk.openExtendTrialModal(${o.id}, '${(o.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${pending.days || 14})"><i data-lucide="clock" style="width:11px;height:11px;" class="me-1"></i> Extend Trial</button>`;
             } else {
                 statusBadge = (o.auto_approved_trial_extensions > 0 || o.manual_approved_trial_extensions > 0)
                     ? `<span class="badge bg-success-subtle text-success font-semibold px-2 py-1 text-nowrap">Extended (${o.total_trial_requests}x)</span>`
                     : `<span class="badge bg-secondary-subtle text-secondary font-semibold px-2 py-1 text-nowrap">Standard Trial</span>`;
-                actionButton = `<button class="ds-btn ds-btn-primary ds-btn-sm text-nowrap" style="font-size:11px; padding: 4px 10px;" onclick="SupportDesk.openExtendTrialModal(${o.id}, '${(o.name || '').replace(/'/g, "\\'")}', ${pending.days || 14})"><i data-lucide="clock" style="width:11px;height:11px;" class="me-1"></i> Extend Trial</button>`;
+                actionButton = `<button class="ds-btn ds-btn-primary ds-btn-sm text-nowrap" style="font-size:11px; padding: 4px 10px;" onclick="SupportDesk.openExtendTrialModal(${o.id}, '${(o.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${pending.days || 14})"><i data-lucide="clock" style="width:11px;height:11px;" class="me-1"></i> Extend Trial</button>`;
             }
 
             const requestedDays = pending.days ? `+${pending.days} Days` : '—';
@@ -1472,9 +1472,9 @@ const SupportDesk = {
 
         listEl.innerHTML = items.map(o => {
             const isSelected = selectedId == o.id;
-            const safeName = (o.name || '').replace(/'/g, "\\'");
-            const safeEmail = (o.email || '').replace(/'/g, "\\'");
-            const safeAdmin = (o.admin_name || '').replace(/'/g, "\\'");
+            const safeName = (o.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeEmail = (o.email || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeAdmin = (o.admin_name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             let displayName = (o.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             if (searchTerm && displayName.toLowerCase().includes(searchTerm)) {
@@ -1659,7 +1659,7 @@ const SupportDesk = {
                     
                     const canEdit = a.can_edit !== false;
                     const canDelete = a.can_delete !== false;
-                    const escapedTitle = (a.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const escapedTitle = (a.title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
                     return `
                     <div class="col-md-6 col-12">

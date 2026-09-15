@@ -405,9 +405,9 @@
                                 <i data-lucide="more-vertical" style="width:16px;"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="z-index: 10050 !important; min-width: 200px;">
-                                <li><a class="dropdown-item py-2 fw-medium" href="#" onclick="deptManager.openEditModal(${d.id}, '${d.name.replace(/'/g, "\\'")}', ${d.plant_id || 'null'})"><i data-lucide="edit-2" class="me-2 text-primary" style="width:15px;height:15px;"></i> Edit / Reassign Plant</a></li>
+                                <li><a class="dropdown-item py-2 fw-medium" href="#" onclick="deptManager.openEditModal(${d.id}, '${d.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', ${d.plant_id || 'null'})"><i data-lucide="edit-2" class="me-2 text-primary" style="width:15px;height:15px;"></i> Edit / Reassign Plant</a></li>
                                 <li><hr class="dropdown-divider my-1"></li>
-                                <li><a class="dropdown-item text-danger py-2 fw-medium" href="#" onclick="deptManager.delete(${d.id}, '${d.name.replace(/'/g, "\\'")}')"><i data-lucide="trash-2" class="me-2" style="width:15px;height:15px;"></i> Remove Dept</a></li>
+                                <li><a class="dropdown-item text-danger py-2 fw-medium" href="#" onclick="deptManager.delete(${d.id}, '${d.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"><i data-lucide="trash-2" class="me-2" style="width:15px;height:15px;"></i> Remove Dept</a></li>
                             </ul>
                         </div>
                     </td>

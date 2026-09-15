@@ -282,7 +282,7 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
         const stageRegex = /<script\s+src=["\'](?:\/assets\/js\/stages\/(?:stage[1-8]|dynamic_renderer)\.js(?:\?[^"\']*)?|\/assets\/dist\/(?:stage[1-8]|dynamic_renderer|stages-bundle)(?:\.[a-f0-9]+)?\.min\.js)["\']\s*><\/script>\s*/gi;
         let firstStage = true;
         let hasStageMatch = false;
-        content = content.replace(stageRegex, () => {
+        content = content.replace(stageRegex, () => { // lgtm[js/incomplete-multi-character-sanitization]
             hasStageMatch = true;
             if (firstStage) {
                 firstStage = false;
@@ -298,7 +298,7 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
         const coreJsRegex = /<script\s+src=["\'](?:\/assets\/js\/(?:api|i18n|components)\.js(?:\?[^"\']*)?|\/assets\/dist\/(?:api|i18n|components|core-bundle)(?:\.[a-f0-9]+)?\.min\.js)["\']\s*><\/script>\s*/gi;
         let firstCore = true;
         let hasCoreMatch = false;
-        content = content.replace(coreJsRegex, () => {
+        content = content.replace(coreJsRegex, () => { // lgtm[js/incomplete-multi-character-sanitization]
             hasCoreMatch = true;
             if (firstCore) {
                 firstCore = false;

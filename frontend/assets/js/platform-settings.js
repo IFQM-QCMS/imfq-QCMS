@@ -2974,14 +2974,14 @@ Object.assign(PlatformSettings, {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 text-xs" style="border-radius:10px; min-width: 170px;">
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-primary" href="javascript:void(0)" onclick="PlatformSettings.openEditAdminModal(${a.id}, '${(a.username || '').replace(/'/g, "\\'")}', '${(a.email || '').replace(/'/g, "\\'")}', '${(a.sub_role || 'Owner').replace(/'/g, "\\'")}')">
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-primary" href="javascript:void(0)" onclick="PlatformSettings.openEditAdminModal(${a.id}, '${(a.username || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${(a.email || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${(a.sub_role || 'Owner').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
                                         <i data-lucide="edit-3" style="width:13px;height:13px;"></i> Edit Role & Account
                                     </a>
                                 </li>
                                 ${!isMe ? `
                                     <li><hr class="dropdown-divider my-1"></li>
                                     <li>
-                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="PlatformSettings.deleteAdminAccount(${a.id}, '${(a.username || '').replace(/'/g, "\\'")}')">
+                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="PlatformSettings.deleteAdminAccount(${a.id}, '${(a.username || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
                                             <i data-lucide="trash-2" style="width:13px;height:13px;"></i> Remove Account
                                         </a>
                                     </li>

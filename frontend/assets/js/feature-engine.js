@@ -282,7 +282,9 @@ var FeatureEngineClient = window.FeatureEngineClient || class FeatureEngineClien
             const bsModal = window.bootstrap.Modal.getOrCreateInstance(modal);
             bsModal.show();
         } else {
-            alert(bodyText.replace(/<[^>]*>?/gm, ''));
+            const _tmpDiv = document.createElement('div');
+            _tmpDiv.textContent = bodyText;
+            alert(_tmpDiv.innerText || bodyText.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]*>?/gm, ''));
         }
     }
 

@@ -1147,7 +1147,7 @@ const AnnouncementsModule = {
                     isActive 
                         ? 'btn-primary text-white shadow-sm font-semibold' 
                         : 'btn-outline-secondary text-main border'
-                }" onclick="AnnouncementsModule.filterByRole('${OctaQube.escapeHtml(r.role).replace(/'/g, "\\'")}')" style="font-size: 12px; height: 30px; ${isActive ? '' : 'background: var(--ds-surface, #fff); border-color: var(--ds-border-color);'}">
+                }" onclick="AnnouncementsModule.filterByRole('${OctaQube.escapeHtml(r.role).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" style="font-size: 12px; height: 30px; ${isActive ? '' : 'background: var(--ds-surface, #fff); border-color: var(--ds-border-color);'}">
                     <span class="d-inline-block rounded-circle flex-shrink-0" style="width: 8px; height: 8px; background: ${r.color || '#6366f1'};"></span>
                     <span>${OctaQube.escapeHtml(r.role)}</span>
                     <span class="badge ${isActive ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary'} rounded-pill px-2 py-0.5 font-bold" style="font-size: 11px;">${r.email_count}</span>
@@ -1201,7 +1201,7 @@ const AnnouncementsModule = {
                         <div class="d-flex align-items-center gap-2 mt-1">
                             ${r.has_valid_email 
                                 ? `<span class="text-primary font-monospace fw-medium text-truncate" style="font-size: 12px;">${OctaQube.escapeHtml(r.email)}</span>
-                                   <button type="button" class="btn btn-link p-0 text-muted hover-text-primary" onclick="navigator.clipboard.writeText('${OctaQube.escapeHtml(r.email).replace(/'/g, "\\'")}');OctaQube.toast('Copied email: ${OctaQube.escapeHtml(r.email)}', 'info');" title="Copy Email ID" style="font-size:11px;"><i data-lucide="copy" style="width:12px;height:12px;"></i></button>`
+                                   <button type="button" class="btn btn-link p-0 text-muted hover-text-primary" onclick="navigator.clipboard.writeText('${OctaQube.escapeHtml(r.email).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}');OctaQube.toast('Copied email: ${OctaQube.escapeHtml(r.email)}', 'info');" title="Copy Email ID" style="font-size:11px;"><i data-lucide="copy" style="width:12px;height:12px;"></i></button>`
                                 : `<span class="text-danger text-xxs fw-semibold"><i data-lucide="alert-circle" style="width:12px;height:12px;" class="me-1"></i>No email address configured</span>`
                             }
                         </div>

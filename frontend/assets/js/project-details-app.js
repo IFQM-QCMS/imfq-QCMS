@@ -1375,7 +1375,7 @@ const ProjectApp = {
                 const parent = el.closest('.ds-field');
                 if (parent && !parent.querySelector('.is-invalid-feedback')) {
                     const label = parent.querySelector('.ds-label');
-                    const labelText = label ? label.textContent.replace('*', '').trim() : 'This field';
+                    const labelText = label ? label.textContent.replace(/\*/g, '').trim() : 'This field';
                     const feedback = document.createElement('div');
                     feedback.className = 'is-invalid-feedback';
                     feedback.textContent = `${labelText} is required.`;
@@ -4096,7 +4096,7 @@ const ProjectApp = {
                                 ${locBadge}
                                 ${deptBadge}
                             </div>
-                            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1" onclick="ProjectApp.selectCrossDeptRoleUser(${m.id}, '${OctaQube.escapeHtml(mName).replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mDept).replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mPlant).replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mRole).replace(/'/g, "\\'")}')">
+                            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 text-xs fw-semibold d-inline-flex align-items-center gap-1" onclick="ProjectApp.selectCrossDeptRoleUser(${m.id}, '${OctaQube.escapeHtml(mName).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mDept).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mPlant).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', '${OctaQube.escapeHtml(mRole).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
                                 <i data-lucide="check" style="width:12px;height:12px;"></i> Select as ${OctaQube.escapeHtml(this.crossDeptRole)}
                             </button>
                         </div>
