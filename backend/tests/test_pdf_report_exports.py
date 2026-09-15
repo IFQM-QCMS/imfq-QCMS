@@ -4,12 +4,21 @@ from app.infrastructure.database.models.models import Project, KPIMetric, Organi
 from app.utils.report_gen import generate_pdf_summary
 
 
-def test_generate_pdf_summary_no_fpdf_align_error(app):
+def test_generate_pdf_summary_no_fpdf_align_error(app, auth_context):
     """Verify that generate_pdf_summary runs cleanly without FPDF alignment error."""
     with app.app_context():
         p = Project.query.first()
-        kpi = KPIMetric.query.filter_by(project_id=p.id).first() if p else None
-        pdf_bytes = generate_pdf_summary(p, kpi, p.org_id if p else 1)
+        if not p:
+            p = Project(
+                org_id=auth_context['org_id'],
+                title="Test Summary Project",
+                status="Closed",
+                project_uid="PRJ-SUMMARY-TEST"
+            )
+            db.session.add(p)
+            db.session.commit()
+        kpi = KPIMetric.query.filter_by(project_id=p.id).first()
+        pdf_bytes = generate_pdf_summary(p, kpi, p.org_id)
         assert pdf_bytes is not None
         assert len(pdf_bytes) > 0
 

@@ -65,13 +65,15 @@ class DynamicBrandedPDF(FPDF):
         self.cell(0, 10, f"{foot_text} | Page {self.page_no()}", 0, 0, 'C')
 
 def generate_pdf_summary(project, kpi, org_id=None):
+    if not project:
+        return None
     pdf = DynamicBrandedPDF(org_id=org_id, template_key='project')
     pdf.add_page()
     pdf.set_font('Arial', '', 11)
     org_name = _clean_for_fpdf(pdf.ctx.get('organization_name', ''))
-    p_uid = _clean_for_fpdf(project.project_uid)
-    p_title = _clean_for_fpdf(project.title)
-    p_status = _clean_for_fpdf(project.status)
+    p_uid = _clean_for_fpdf(getattr(project, 'project_uid', '') or 'PRJ-N/A')
+    p_title = _clean_for_fpdf(getattr(project, 'title', '') or 'Untitled Project')
+    p_status = _clean_for_fpdf(getattr(project, 'status', '') or 'In Progress')
     curr = _clean_for_fpdf(pdf.ctx.get('default_currency', 'Rs.'))
     cost_sav = getattr(kpi, 'cost_saving', 0) if kpi else 0
     prod_gain = getattr(kpi, 'productivity_gain', 0) if kpi else 0
