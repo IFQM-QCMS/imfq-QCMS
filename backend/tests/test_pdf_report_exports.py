@@ -41,18 +41,20 @@ def test_export_pdf_endpoint_multi_tier_fallback(client, auth_context):
 
     headers = auth_context['headers']
 
-    # Tier 1: Normal generation (or PyMuPDF fallback if no browser)
-    res1 = client.get(f'/api/reports/export/pdf/{project_id}', headers=headers)
-    assert res1.status_code == 200
-    assert res1.content_type == 'application/pdf'
-    assert len(res1.data) > 0
+    # Tier 1: Normal browser generation
+    with patch('app.utils.pdf_filler.render_html_to_pdf_browser', return_value=b"%PDF-1.4 Mock Browser PDF Content"):
+        res1 = client.get(f'/api/reports/export/pdf/{project_id}', headers=headers)
+        assert res1.status_code == 200
+        assert res1.content_type == 'application/pdf'
+        assert len(res1.data) > 0
 
     # Tier 2: Force browser failure -> PyMuPDF fallback
     with patch('app.utils.pdf_filler.render_html_to_pdf_browser', side_effect=RuntimeError('No browser')):
-        res2 = client.get(f'/api/reports/export/pdf/{project_id}', headers=headers)
-        assert res2.status_code == 200
-        assert res2.content_type == 'application/pdf'
-        assert len(res2.data) > 0
+        with patch('app.utils.pdf_filler.render_html_to_pdf_pymupdf', return_value=b"%PDF-1.4 Mock PyMuPDF Content"):
+            res2 = client.get(f'/api/reports/export/pdf/{project_id}', headers=headers)
+            assert res2.status_code == 200
+            assert res2.content_type == 'application/pdf'
+            assert len(res2.data) > 0
 
     # Tier 3: Force browser & PyMuPDF failure -> FPDF summary fallback
     with patch('app.utils.pdf_filler.render_html_to_pdf_browser', side_effect=RuntimeError('No browser')):

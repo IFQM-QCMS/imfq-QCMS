@@ -50,10 +50,10 @@ class CacheAdapter:
 
     def _init_redis(self):
         redis_url = os.getenv('REDIS_URL') or os.getenv('REDISCLOUD_URL')
+        host = os.getenv('REDIS_HOST')
+        port = int(os.getenv('REDIS_PORT', 6379))
         if not redis_url:
-            host = os.getenv('REDIS_HOST')
             if host:
-                port = int(os.getenv('REDIS_PORT', 6379))
                 password = os.getenv('REDIS_PASSWORD')
                 redis_url = f"redis://{(':' + password + '@') if password else ''}{host}:{port}/0"
 
@@ -61,7 +61,7 @@ class CacheAdapter:
             try:
                 client = redis.from_url(redis_url, decode_responses=True, socket_timeout=0.5, socket_connect_timeout=0.5)
                 self._redis_client = client
-                logger.info(f"[QCMS Cache] Connected to Redis successfully at {host or 'localhost'}:{port or 6379}")
+                logger.info(f"[QCMS Cache] Connected to Redis successfully at {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
             except Exception as e:
                 logger.warning(f"[QCMS Cache] Redis connection failed ({e}).")
                 self._redis_client = None
