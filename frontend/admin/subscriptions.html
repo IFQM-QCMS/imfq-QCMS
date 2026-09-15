@@ -357,6 +357,11 @@
         .usage-bar { height: 6px; border-radius: 3px; background: var(--ds-border-color); overflow: hidden; }
         .usage-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
     </style>
+<script>
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
 </head>
 
 <body>
@@ -1982,9 +1987,9 @@ const SubMgr = {
         const total = parseFloat(document.getElementById('calcTotal').textContent.replace(/[₹$€,]/g,''))||0;
         document.getElementById('wizReviewContent').innerHTML = `
             <div class="row g-3 text-sm">
-                <div class="col-6"><div class="text-muted text-xs mb-1">Organization</div><strong>${orgText.replace('✓ Selected: ','')}</strong></div>
-                <div class="col-6"><div class="text-muted text-xs mb-1">Plan</div><span class="plan-chip ${plan.toLowerCase()}">${plan}</span></div>
-                <div class="col-6"><div class="text-muted text-xs mb-1">Billing Cycle</div><strong>${cycle}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs mb-1">Organization</div><strong>${escapeHtml(orgText.replace('✓ Selected: ',''))}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs mb-1">Plan</div><span class="plan-chip ${escapeHtml(plan.toLowerCase())}">${escapeHtml(plan)}</span></div>
+                <div class="col-6"><div class="text-muted text-xs mb-1">Billing Cycle</div><strong>${escapeHtml(cycle)}</strong></div>
                 <div class="col-6"><div class="text-muted text-xs mb-1">Max Users</div><strong>${document.getElementById('wizMaxUsers').value}</strong></div>
                 <div class="col-6"><div class="text-muted text-xs mb-1">Storage</div><strong>${document.getElementById('wizStorage').value} GB</strong></div>
                 <div class="col-6"><div class="text-muted text-xs mb-1">Support</div><strong>${document.getElementById('wizSupportLevel').value}</strong></div>

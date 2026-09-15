@@ -304,6 +304,11 @@
             border-radius: 2px;
         }
     </style>
+<script>
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
 </head>
 <body>
     <div class="app-layout">
@@ -1435,10 +1440,10 @@
                     const startDate = document.getElementById('purgeStartDate')?.value;
                     const endDate = document.getElementById('purgeEndDate')?.value;
                     if (startDate && endDate) {
-                        previewText.innerHTML = `Will delete organization audit logs between <strong>${startDate}</strong> and <strong>${endDate}</strong>.`;
+                        previewText.innerHTML = `Will delete organization audit logs between <strong>${escapeHtml(startDate)}</strong> and <strong>${escapeHtml(endDate)}</strong>.`;
                         btnExecute.disabled = false;
                     } else if (startDate) {
-                        previewText.innerHTML = `Will delete organization audit logs created before <strong>${startDate}</strong>.`;
+                        previewText.innerHTML = `Will delete organization audit logs created before <strong>${escapeHtml(startDate)}</strong>.`;
                         btnExecute.disabled = false;
                     } else {
                         previewText.textContent = 'Please pick a start/cutoff date below.';

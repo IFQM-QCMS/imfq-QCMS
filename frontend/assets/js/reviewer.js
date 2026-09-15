@@ -235,7 +235,7 @@ const reviewer = {
             if (!empty) {
                 const el = document.createElement('div');
                 el.id = 'searchEmptyState';
-                el.innerHTML = OctaQube.emptyState('No results found', `No audits match "${q}"`, 'search-x');
+                el.innerHTML = OctaQube.emptyState('No results found', `No audits match "${OctaQube.escapeHtml(q)}"`, 'search-x');
                 document.getElementById('auditQueueList').appendChild(el);
             } else {
                 empty.style.display = 'block';

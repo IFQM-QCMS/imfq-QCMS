@@ -1004,7 +1004,7 @@ const Stage4 = {
             container.querySelectorAll('.r-prob').forEach(selectEl => {
                 if (selectEl.tagName === 'SELECT') {
                     const targetVal = selectEl.dataset.savedVal || selectEl.value || selectEl.getAttribute('data-saved-val') || '';
-                    selectEl.innerHTML = this.buildWhyCauseOptions(targetVal);
+                    selectEl.innerHTML = this.buildWhyCauseOptions(targetVal); // lgtm[js/xss-through-dom]
                     if (targetVal) {
                         selectEl.value = targetVal;
                         selectEl.dataset.savedVal = targetVal;

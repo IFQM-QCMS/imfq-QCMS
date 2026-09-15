@@ -1,3 +1,7 @@
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 /**
  * OctaQube Action Locking & Single-Execution Engine
  * ============================================
@@ -146,7 +150,7 @@
             btn.style.cursor = 'not-allowed';
 
             // Set loading spinner and text
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span><span>${loadingText}</span>`;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span><span>${escapeHtml(loadingText)}</span>`;
 
             this.activeLocks.add(btn);
 

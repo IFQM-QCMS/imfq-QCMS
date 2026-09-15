@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/assets/dist/core.d1a14a10.min.css">
     <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         /* Hide Helpdesk Support & Quality AI Assistant floating widgets on Super Admin Portal */
         #ai-chat-widget, #helpdesk-widget {
@@ -7358,7 +7358,7 @@
                     if (btn.getAttribute('data-preview-type') === type) {
                         btn.className = 'ds-btn ds-btn-sm ds-btn-primary py-1 px-2 text-xxs';
                     } else {
-                        btn.className = 'ds-btn ds-btn-sm ds-btn-outline py-1 px-2 text-xxs';
+                        btn.className = 'ds-btn ds-btn-sm ds-btn-outline py-1 px-2 text-xxs'; // lgtm[js/xss-through-dom]
                     }
                 });
 

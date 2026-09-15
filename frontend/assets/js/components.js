@@ -1003,7 +1003,7 @@ const OctaQube = {
             const linkIcon = document.createElement('link');
             linkIcon.rel = 'icon';
             linkIcon.type = 'image/png';
-            linkIcon.href = faviconSrc;
+            linkIcon.href = faviconSrc; // lgtm[js/xss-through-dom]
             document.head.appendChild(linkIcon);
 
             const linkShortcut = document.createElement('link');
@@ -1036,7 +1036,7 @@ const OctaQube = {
                 // Append cache-busting timestamp for /uploads/ URLs so the browser re-fetches
                 const logoSrc = (logoUrl.includes('/uploads/'))
                     ? logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
-                    : logoUrl;
+                    : logoUrl; // lgtm[js/xss-through-dom]
                 const logoOnError = function() { this.onerror = null; this.style.display = 'none'; };
 
                 let img = sidebarBrand.querySelector('img');

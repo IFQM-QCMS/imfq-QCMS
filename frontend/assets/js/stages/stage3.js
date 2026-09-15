@@ -1181,10 +1181,10 @@ const Stage3 = {
         const r = document.createElement('div');
         r.className = 'row g-2 mb-2 align-items-center dyn-row';
         r.innerHTML = `
-            <div class="col-2"><input type="text" class="ds-input r-id" placeholder="e.g. RC-1" value="${data.id || ''}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
-            <div class="col-2"><input type="text" class="ds-input r-cat" placeholder="e.g. Machine" value="${data.category || ''}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
-            <div class="col-4"><input type="text" class="ds-input r-desc" placeholder="e.g. Crimping pressure fluctuation" value="${data.description || ''}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
-            <div class="col-3"><input type="text" class="ds-input r-orig" placeholder="e.g. Brainstorming" value="${data.origin || ''}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
+            <div class="col-2"><input type="text" class="ds-input r-id" placeholder="e.g. RC-1" value="{OctaQube.escapeHtml(data.id || '')}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
+            <div class="col-2"><input type="text" class="ds-input r-cat" placeholder="e.g. Machine" value="{OctaQube.escapeHtml(data.category || '')}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
+            <div class="col-4"><input type="text" class="ds-input r-desc" placeholder="e.g. Crimping pressure fluctuation" value="{OctaQube.escapeHtml(data.description || '')}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
+            <div class="col-3"><input type="text" class="ds-input r-orig" placeholder="e.g. Brainstorming" value="{OctaQube.escapeHtml(data.origin || '')}" oninput="StageModules[3].syncPrioritizationAndVerificationFromRegister()" required></div>
             <div class="col-1"><button type="button" class="ds-btn ds-btn-ghost text-danger p-1" onclick="this.closest('.dyn-row').remove(); StageModules[3].syncPrioritizationAndVerificationFromRegister()"><i data-lucide="trash-2" style="width:14px;"></i></button></div>`;
         c.appendChild(r);
         if (window.lucide) lucide.createIcons();
@@ -1204,11 +1204,11 @@ const Stage3 = {
         r.className = 'row g-2 mb-2 align-items-center dyn-row';
         const calc = "const p=this.closest('.dyn-row'); p.querySelector('.r-tot').value = (parseInt(p.querySelector('.r-imp').value)||0)*(parseInt(p.querySelector('.r-frq').value)||0)*(parseInt(p.querySelector('.r-con').value)||0);";
         r.innerHTML = `
-            <div class="col-3"><input type="text" class="ds-input r-cause" placeholder="e.g. PM overdue by 2 weeks" value="${data.cause || ''}" required></div>
-            <div class="col-2"><input type="number" class="ds-input r-imp" placeholder="1-10" value="${data.impact || ''}" onchange="${calc}" required></div>
-            <div class="col-2"><input type="number" class="ds-input r-frq" placeholder="1-10" value="${data.frequency || ''}" onchange="${calc}" required></div>
-            <div class="col-2"><input type="number" class="ds-input r-con" placeholder="1-10" value="${data.control || ''}" onchange="${calc}" required></div>
-            <div class="col-2"><input type="number" class="ds-input r-tot" readonly style="background:var(--ds-surface-raised)" value="${data.total || ''}"></div>
+            <div class="col-3"><input type="text" class="ds-input r-cause" placeholder="e.g. PM overdue by 2 weeks" value="{OctaQube.escapeHtml(data.cause || '')}" required></div>
+            <div class="col-2"><input type="number" class="ds-input r-imp" placeholder="1-10" value="{OctaQube.escapeHtml(data.impact || '')}" onchange="${calc}" required></div>
+            <div class="col-2"><input type="number" class="ds-input r-frq" placeholder="1-10" value="{OctaQube.escapeHtml(data.frequency || '')}" onchange="${calc}" required></div>
+            <div class="col-2"><input type="number" class="ds-input r-con" placeholder="1-10" value="{OctaQube.escapeHtml(data.control || '')}" onchange="${calc}" required></div>
+            <div class="col-2"><input type="number" class="ds-input r-tot" readonly style="background:var(--ds-surface-raised)" value="{OctaQube.escapeHtml(data.total || '')}"></div>
             <div class="col-1"><button class="ds-btn ds-btn-ghost text-danger p-1" onclick="this.closest('.dyn-row').remove()"><i data-lucide="trash-2" style="width:14px;"></i></button></div>`;
         c.appendChild(r);
         if (window.lucide) lucide.createIcons();
@@ -1228,11 +1228,11 @@ const Stage3 = {
         const r = document.createElement('div');
         r.className = 'row g-2 mb-2 align-items-center dyn-row';
         r.innerHTML = `
-            <div class="col-2"><input type="text" class="ds-input r-cause" placeholder="e.g. PM overdue by 2 weeks" value="${data.cause || ''}" required></div>
-            <div class="col-2"><input type="text" class="ds-input r-meth" placeholder="e.g. Review maintenance logs" value="${data.method || ''}" required></div>
-            <div class="col-3"><input type="text" class="ds-input r-src" placeholder="e.g. Log sheet ML-2025" value="${data.source || ''}" required></div>
-            <div class="col-2"><input type="text" class="ds-input r-res" placeholder="e.g. Verified PM was missed in Dec" value="${data.result || ''}" required></div>
-            <div class="col-2"><input type="text" class="ds-input r-conc" placeholder="e.g. Confirmed Root Cause" value="${data.conclusion || ''}" required></div>
+            <div class="col-2"><input type="text" class="ds-input r-cause" placeholder="e.g. PM overdue by 2 weeks" value="{OctaQube.escapeHtml(data.cause || '')}" required></div>
+            <div class="col-2"><input type="text" class="ds-input r-meth" placeholder="e.g. Review maintenance logs" value="{OctaQube.escapeHtml(data.method || '')}" required></div>
+            <div class="col-3"><input type="text" class="ds-input r-src" placeholder="e.g. Log sheet ML-2025" value="{OctaQube.escapeHtml(data.source || '')}" required></div>
+            <div class="col-2"><input type="text" class="ds-input r-res" placeholder="e.g. Verified PM was missed in Dec" value="{OctaQube.escapeHtml(data.result || '')}" required></div>
+            <div class="col-2"><input type="text" class="ds-input r-conc" placeholder="e.g. Confirmed Root Cause" value="{OctaQube.escapeHtml(data.conclusion || '')}" required></div>
             <div class="col-1"><button class="ds-btn ds-btn-ghost text-danger p-1" onclick="this.closest('.dyn-row').remove()"><i data-lucide="trash-2" style="width:14px;"></i></button></div>`;
         c.appendChild(r);
         if (window.lucide) lucide.createIcons();

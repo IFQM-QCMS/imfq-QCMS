@@ -734,7 +734,7 @@ const ProjectApp = {
                                             if (id === 's8_sop_scope' && (cleanLbl === 'Section 2: Scope' || cleanLbl === 'Scope' || cleanLbl === 'Section 2')) cleanLbl = 'Section 8.1.2: Scope';
                                             if (id === 's8_sop_responsibilities' && (cleanLbl === 'Section 3: Responsibilities' || cleanLbl === 'Responsibilities' || cleanLbl === 'Section 3')) cleanLbl = 'Section 8.1.3: Responsibilities';
                                             if (cfg.required !== false) {
-                                                label.innerHTML = `${cleanLbl} <span class="text-danger">*</span>`;
+                                                label.innerHTML = `${OctaQube.escapeHtml(cleanLbl)} <span class="text-danger">*</span>`;
                                                 el.required = true;
                                             } else {
                                                 label.textContent = cleanLbl;

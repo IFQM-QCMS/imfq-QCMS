@@ -10,7 +10,7 @@ class EnterpriseValidator {
             email: (val) => !val || /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(String(val).trim()),
             phone: (val) => !val || /^\+?[0-9\s\-()]{7,20}$/.test(String(val).trim()),
             number: (val) => !val || !isNaN(Number(val)),
-            url: (val) => !val || /^(https?:\/\/)?([\w.-]+)+[\w\-_~:/?#[\]@!$&'()*+,;=.]+$/.test(String(val).trim()),
+            url: (val) => !val || /^(https?:\/\/)?([\w.-]+)(\/[\w\-._~:/?#[\]@!$&'()*+,;=.]*)?$/.test(String(val).trim()),
             password: (val) => !val || (
                 val.length >= 8 &&
                 val.length <= 128 &&

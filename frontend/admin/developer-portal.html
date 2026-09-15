@@ -455,6 +455,11 @@
             border: 1px solid var(--docs-border);
         }
     </style>
+<script>
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
 </head>
 <body>
 
@@ -1610,7 +1615,7 @@ export function ImportIdeaButton({ apiKey }) {
             const q = document.getElementById('searchInput').value.toLowerCase();
             const results = document.getElementById('searchResults');
             if (!q) { results.innerHTML = 'Type to start searching...'; return; }
-            results.innerHTML = `Found matching documentation sections for "<strong>${q}</strong>":<br><a href="#endpoint-ideas" onclick="closeSearchModal()" class="d-block mt-2 text-primary">POST /api/v1/integrations/ideas (Import Approved Idea)</a><a href="#authentication" onclick="closeSearchModal()" class="d-block mt-1 text-primary">Authentication & Bearer Token Security</a>`;
+            results.innerHTML = `Found matching documentation sections for "<strong>${escapeHtml(q)}</strong>":<br><a href="#endpoint-ideas" onclick="closeSearchModal()" class="d-block mt-2 text-primary">POST /api/v1/integrations/ideas (Import Approved Idea)</a><a href="#authentication" onclick="closeSearchModal()" class="d-block mt-1 text-primary">Authentication & Bearer Token Security</a>`;
         }
 
         function setActiveNav(el) {

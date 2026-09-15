@@ -839,7 +839,7 @@ const AnnouncementsModule = {
                 <div class="d-flex flex-column gap-3">
                     <div class="ds-field">
                         <label class="ds-label">Announcement Title <span class="text-danger">*</span></label>
-                        <input type="text" class="ds-input" id="wizTitle" required placeholder="e.g. Critical Scheduled DB Maintenance" value="${this.wizardData.title}" oninput="AnnouncementsModule.wizardData.title=this.value">
+                        <input type="text" class="ds-input" id="wizTitle" required placeholder="e.g. Critical Scheduled DB Maintenance" value="${OctaQube.escapeHtml(this.wizardData.title || '')}" oninput="AnnouncementsModule.wizardData.title=this.value">
                     </div>
                     <div class="ds-field">
                         <label class="ds-label">Message Details <span class="text-danger">*</span></label>

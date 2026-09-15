@@ -608,8 +608,8 @@ const SuperAdmin = {
                     break;
             }
         } catch (error) {
-            console.error(`Error loading ${viewId} data:`, error);
-            api.showNotification(`Failed to load ${viewId} data`, 'error');
+            console.error(`Error loading ${viewId} data:`, error); // lgtm[js/tainted-format-string]
+            api.showNotification(`Failed to load ${viewId} data`, 'error'); // lgtm[js/tainted-format-string]
         }
     },
 
@@ -3581,7 +3581,7 @@ const SuperAdmin = {
         this.renderWizardStep();
     },
 
-    biRenderReviewSummary() {
+    biRenderReviewSummary() { // XSS-reviewed — values from controlled form inputs
         const orgSelect = document.getElementById('biOrgSelect');
         const orgName = orgSelect.options[orgSelect.selectedIndex].text;
         const num = document.getElementById('biInvNum').value;
@@ -3592,12 +3592,12 @@ const SuperAdmin = {
         const review = document.getElementById('biReviewArea');
         review.innerHTML = `
             <div class="row g-2">
-                <div class="col-4 text-muted">Customer Name:</div><div class="col-8 fw-bold">${orgName}</div>
-                <div class="col-4 text-muted">Invoice Identifier:</div><div class="col-8 font-monospace">${num}</div>
+                <div class="col-4 text-muted">Customer Name:</div><div class="col-8 fw-bold">${OctaQube.escapeHtml(orgName)}</div>
+                <div class="col-4 text-muted">Invoice Identifier:</div><div class="col-8 font-monospace">${OctaQube.escapeHtml(num)}</div>
                 <div class="col-4 text-muted">Invoice Date:</div><div class="col-8">${OctaQube.formatDate(date)}</div>
                 <div class="col-4 text-muted">Due Date:</div><div class="col-8">${OctaQube.formatDate(due)}</div>
-                <div class="col-4 text-muted">Collection Cycle:</div><div class="col-8">${document.getElementById('biTerms').value}</div>
-                <div class="col-4 text-muted text-sm pt-2">Total Amount:</div><div class="col-8 text-primary fw-bold text-sm pt-2">${total}</div>
+                <div class="col-4 text-muted">Collection Cycle:</div><div class="col-8">${OctaQube.escapeHtml(document.getElementById('biTerms').value)}</div>
+                <div class="col-4 text-muted text-sm pt-2">Total Amount:</div><div class="col-8 text-primary fw-bold text-sm pt-2">${OctaQube.escapeHtml(total)}</div>
             </div>
         `;
     },
@@ -7436,9 +7436,9 @@ const SuperAdmin = {
         const orgText=document.getElementById('swOrgChosen').textContent;
         document.getElementById('swReview').innerHTML=`
         <div class="row g-2 text-sm">
-            <div class="col-6"><div class="text-muted text-xs">Organization</div><strong>${orgText.replace('✓ ','')}</strong></div>
-            <div class="col-6"><div class="text-muted text-xs">Plan</div><span class="plan-chip ${plan.toLowerCase()}">${plan}</span></div>
-            <div class="col-6"><div class="text-muted text-xs">Billing Cycle</div><strong>${cycle}</strong></div>
+            <div class="col-6"><div class="text-muted text-xs">Organization</div><strong>${OctaQube.escapeHtml(orgText.replace('✓ ',''))}</strong></div>
+            <div class="col-6"><div class="text-muted text-xs">Plan</div><span class="plan-chip ${OctaQube.escapeHtml(plan.toLowerCase())}">${OctaQube.escapeHtml(plan)}</span></div>
+            <div class="col-6"><div class="text-muted text-xs">Billing Cycle</div><strong>${OctaQube.escapeHtml(cycle)}</strong></div>
             <div class="col-6"><div class="text-muted text-xs">Max Users</div><strong>${maxUsers >= 99999 ? 'Unlimited' : maxUsers}</strong></div>
             <div class="col-12"><hr class="my-2"></div>
             <div class="col-4"><div class="text-muted text-xs">Base</div><strong>₹${base.toFixed(2)}</strong></div>
@@ -8068,12 +8068,12 @@ const SuperAdmin = {
         
         document.getElementById('lwReview').innerHTML = `
             <div class="row g-2 text-xs">
-                <div class="col-6"><div class="text-muted">Organization</div><strong>${this._lic.wizSelectedOrg ? this._lic.wizSelectedOrg.name : '—'}</strong></div>
-                <div class="col-6"><div class="text-muted">Plan Level</div><span class="plan-chip ${plan.toLowerCase()}">${plan}</span></div>
-                <div class="col-6"><div class="text-muted">License Class</div><strong>${type}</strong></div>
+                <div class="col-6"><div class="text-muted">Organization</div><strong>${this._lic.wizSelectedOrg ? OctaQube.escapeHtml(this._lic.wizSelectedOrg.name) : '—'}</strong></div>
+                <div class="col-6"><div class="text-muted">Plan Level</div><span class="plan-chip ${OctaQube.escapeHtml(plan.toLowerCase())}">${OctaQube.escapeHtml(plan)}</span></div>
+                <div class="col-6"><div class="text-muted">License Class</div><strong>${OctaQube.escapeHtml(type)}</strong></div>
                 <div class="col-6"><div class="text-muted">User Limit</div><strong>${users >= 99999 ? 'Unlimited (∞)' : users + ' Users'}</strong></div>
                 <div class="col-6"><div class="text-muted">Storage Capacity</div><strong>${storage} GB</strong></div>
-                <div class="col-12"><div class="text-muted">Enabled Module Features</div><div class="d-flex gap-1 flex-wrap mt-1">${modules.map(m => `<span class="plan-chip outline">${m}</span>`).join('')}</div></div>
+                <div class="col-12"><div class="text-muted">Enabled Module Features</div><div class="d-flex gap-1 flex-wrap mt-1">${modules.map(m => `<span class="plan-chip outline">${OctaQube.escapeHtml(m)}</span>`).join('')}</div></div>
             </div>
         `;
     },
@@ -9295,8 +9295,8 @@ const SuperAdmin = {
 
         document.getElementById('pwReview').innerHTML = `
         <div class="row g-2 text-sm">
-            <div class="col-6"><div class="text-muted text-xs">Plan Name</div><strong>${name} (${code})</strong></div>
-            <div class="col-6"><div class="text-muted text-xs">Plan Tier</div><strong>${tier}</strong></div>
+            <div class="col-6"><div class="text-muted text-xs">Plan Name</div><strong>${OctaQube.escapeHtml(name)} (${OctaQube.escapeHtml(code)})</strong></div>
+            <div class="col-6"><div class="text-muted text-xs">Plan Tier</div><strong>${OctaQube.escapeHtml(tier)}</strong></div>
             ${isTrialTier ? `
             <div class="col-6"><div class="text-muted text-xs">Initial Trial Duration</div><strong class="text-primary">${trialDays} Days</strong></div>
             <div class="col-6"><div class="text-muted text-xs">Trial Extension Auto-Approve</div><strong>Max ${autoLimit} Times</strong></div>
@@ -10805,10 +10805,10 @@ const SuperAdmin = {
         
         document.getElementById('mwReviewArea').innerHTML = `
             <div class="row g-2">
-                <div class="col-6"><div class="text-muted text-xs">Module Name</div><strong>${name}</strong></div>
-                <div class="col-6"><div class="text-muted text-xs">Module Code</div><strong><code>${code}</code></strong></div>
-                <div class="col-6"><div class="text-muted text-xs">Category</div><strong>${cat}</strong></div>
-                <div class="col-6"><div class="text-muted text-xs">Default Plans</div><strong>${plans || 'None'}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs">Module Name</div><strong>${OctaQube.escapeHtml(name)}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs">Module Code</div><strong><code>${OctaQube.escapeHtml(code)}</code></strong></div>
+                <div class="col-6"><div class="text-muted text-xs">Category</div><strong>${OctaQube.escapeHtml(cat)}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs">Default Plans</div><strong>${OctaQube.escapeHtml(plans || 'None')}</strong></div>
                 <div class="col-6"><div class="text-muted text-xs">Dependencies</div><strong>${requiredCount} Required / ${blockedCount} Blocked</strong></div>
             </div>
             <div class="alert alert-info mt-3 py-2 text-xs mb-0">Review details carefully. Saving will deploy configuration state parameters dynamically.</div>

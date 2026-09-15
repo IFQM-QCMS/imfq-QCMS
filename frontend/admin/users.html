@@ -29,6 +29,11 @@
             opacity: 0.75 !important;
         }
     </style>
+<script>
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
 </head>
 <body>
     <div class="app-layout">
@@ -839,7 +844,7 @@
                         dropzone.addEventListener('click', () => fileInput.click());
                         fileInput.addEventListener('change', (e) => {
                             if (e.target.files && e.target.files.length > 0) {
-                                document.getElementById('bulkDropzoneText').innerHTML = `<strong>Selected:</strong> ${e.target.files[0].name}`;
+                                document.getElementById('bulkDropzoneText').innerHTML = `<strong>Selected:</strong> ${escapeHtml(e.target.files[0].name)}`;
                             }
                         });
                         

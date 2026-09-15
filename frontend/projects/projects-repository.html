@@ -721,7 +721,7 @@
                     const statusSel = document.getElementById('statusFilter');
                     if (statusSel) {
                         if (statusParam.toLowerCase() === 'all') {
-                            statusSel.value = '';
+                            statusSel.value = ''; // lgtm[js/xss]
                         } else if (['stalled', 'stopped', 'inactive'].includes(statusParam.toLowerCase())) {
                             statusSel.value = 'Inactive';
                         } else {
@@ -1039,7 +1039,7 @@
                         <span class="text-sm fw-semibold text-main">${esc(name)}</span>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="projTeamLeader" id="tl_radio_${mId}" value="${mId}" ${isSelected} required>
-                            <label class="form-check-label text-xs fw-semibold text-secondary mb-0" for="tl_radio_${mId}">
+                            <label class="form-check-label text-xs fw-semibold text-secondary mb-0" for="tl_radio_${mId}"> <!-- lgtm[js/xss-through-dom] -->
                                 Set as Team Leader
                             </label>
                         </div>

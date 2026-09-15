@@ -2734,7 +2734,7 @@ const SupportDesk = {
             else if (newStatus === 'In Progress') badgeClass = 'cyan';
             else if (newStatus === 'Converted') badgeClass = 'green';
             else if (newStatus === 'Closed') badgeClass = 'gray';
-            document.getElementById('enqModalStatusBadge').innerHTML = `<span class="ds-badge ${badgeClass}">${newStatus}</span>`;
+            document.getElementById('enqModalStatusBadge').innerHTML = `<span class="ds-badge ${OctaQube.escapeHtml(badgeClass)}">${OctaQube.escapeHtml(newStatus)}</span>`;
 
             await this.loadEnquiriesList();
         } catch (e) {

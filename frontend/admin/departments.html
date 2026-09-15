@@ -366,7 +366,7 @@
                 if (q) {
                     body.innerHTML = `<tr><td colspan="4" class="text-center p-5 text-muted">
                         <i data-lucide="search-x" class="mb-3 text-slate-400" style="width: 48px; height: 48px;"></i>
-                        <p class="mb-0">No results found for "${q}"</p>
+                        <p class="mb-0">No results found for "${OctaQube.escapeHtml(q)}"</p>
                     </td></tr>`;
                 } else {
                     body.innerHTML = `<tr><td colspan="4">${OctaQube.emptyState('No Departments Found', 'Start by adding a department or change your plant filter.', 'building-2')}</td></tr>`;

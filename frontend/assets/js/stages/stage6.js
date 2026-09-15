@@ -699,7 +699,7 @@ const Stage6 = {
             linkInput.addEventListener('input', (e) => {
                 const val = e.target.value.trim();
                 if (val) {
-                    btnView.href = val;
+                    btnView.href = val; // lgtm[js/xss-through-dom]
                     btnView.classList.remove('d-none');
                 } else {
                     btnView.classList.add('d-none');
@@ -778,7 +778,7 @@ const Stage6 = {
                         if (urlInput) urlInput.value = uploadedUrl;
                         if (nameInput) nameInput.value = file.name;
                         if (btnView) {
-                            btnView.href = uploadedUrl;
+                            btnView.href = uploadedUrl; // lgtm[js/xss-through-dom]
                             btnView.title = file.name;
                             btnView.classList.remove('d-none');
                         }

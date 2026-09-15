@@ -1,3 +1,7 @@
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 /**
  * OctaQube Feature Engine Client Library
  * ===================================
@@ -255,8 +259,8 @@ var FeatureEngineClient = window.FeatureEngineClient || class FeatureEngineClien
             <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
                 <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden; background: var(--ds-surface, #ffffff);">
                     <div class="modal-body p-4 text-center">
-                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; background: ${iconBg}; border: 1.5px solid ${iconBorder};">
-                            <i data-lucide="${iconName}" style="width: 32px; height: 32px; color: ${iconColor}; stroke-width: 2.2;"></i>
+                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; background: ${escapeHtml(iconBg)}; border: 1.5px solid ${escapeHtml(iconBorder)};">
+                            <i data-lucide="${escapeHtml(iconName)}" style="width: 32px; height: 32px; color: ${escapeHtml(iconColor)}; stroke-width: 2.2;"></i>
                         </div>
                         <h5 class="fw-bold text-main mb-2">${titleText}</h5>
                         <div class="alert border-0 p-3 mb-3 text-start" style="background: ${alertBg}; border-radius: 10px;">

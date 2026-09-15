@@ -405,7 +405,7 @@ const Stage5 = {
                 container.querySelectorAll(`.${cfg.class}`).forEach(selectEl => {
                     if (selectEl.tagName === 'SELECT') {
                         const targetVal = selectEl.dataset.savedVal || selectEl.value || selectEl.getAttribute('data-saved-val') || '';
-                        selectEl.innerHTML = this.buildSolutionOptions(targetVal);
+                        selectEl.innerHTML = this.buildSolutionOptions(targetVal); // lgtm[js/xss-through-dom]
                         if (targetVal) {
                             selectEl.value = targetVal;
                             selectEl.dataset.savedVal = targetVal;

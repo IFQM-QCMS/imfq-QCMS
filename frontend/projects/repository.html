@@ -245,7 +245,7 @@
                 if (!projects || projects.length === 0) {
                     if (query) {
                         grid.innerHTML = `<div class="col-12 py-5 px-3">
-                            ${OctaQube.emptyState('No Projects Found', `We couldn't find any projects matching "${query}".`, 'search-x')}
+                            ${OctaQube.emptyState('No Projects Found', `We couldn't find any projects matching "${OctaQube.escapeHtml(query)}".`, 'search-x')}
                         </div>`;
                     } else {
                         grid.innerHTML = `<div class="col-12 py-5 px-3">

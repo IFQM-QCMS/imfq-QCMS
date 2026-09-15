@@ -1011,7 +1011,7 @@ const Stage8 = {
             if (attachContainer && attachContent) {
                 if (attachmentUrl) {
                     attachContainer.style.display = 'block';
-                    attachContent.innerHTML = `<a href="${attachmentUrl}" target="_blank" class="ds-btn ds-btn-outline ds-btn-sm text-primary"><i data-lucide="external-link" style="width:13px;height:13px;margin-right:4px;"></i> View Attached Annexure / Document</a>`;
+                    attachContent.innerHTML = `<a href="${OctaQube.escapeHtml(attachmentUrl)}" target="_blank" class="ds-btn ds-btn-outline ds-btn-sm text-primary"><i data-lucide="external-link" style="width:13px;height:13px;margin-right:4px;"></i> View Attached Annexure / Document</a>`;
                 } else {
                     attachContainer.style.display = 'none';
                 }
@@ -1024,10 +1024,10 @@ const Stage8 = {
                 if (steps && steps.length) {
                     list.innerHTML = steps.map(s => `
                         <div class="p-3 border rounded bg-light">
-                            <div class="fw-bold mb-2">Step ${s.step_number}: ${s.step_title || 'Untitled Step'}</div>
-                            <p class="text-sm text-muted mb-2">${s.instructions || 'No instructions provided.'}</p>
-                            ${s.safety_notes ? `<p class="text-xs mb-1"><span class="text-danger fw-bold"><i data-lucide="alert-triangle" style="width:12px;height:12px;vertical-align:text-bottom;"></i> Safety:</span> ${s.safety_notes}</p>` : ''}
-                            ${s.quality_checkpoints ? `<p class="text-xs mb-0"><span class="text-success fw-bold"><i data-lucide="check" style="width:12px;height:12px;vertical-align:text-bottom;"></i> Quality Check:</span> ${s.quality_checkpoints}</p>` : ''}
+                            <div class="fw-bold mb-2">Step ${OctaQube.escapeHtml(s.step_number)}: ${OctaQube.escapeHtml(s.step_title || 'Untitled Step')}</div>
+                            <p class="text-sm text-muted mb-2">${OctaQube.escapeHtml(s.instructions || 'No instructions provided.')}</p>
+                            ${s.safety_notes ? `<p class="text-xs mb-1"><span class="text-danger fw-bold"><i data-lucide="alert-triangle" style="width:12px;height:12px;vertical-align:text-bottom;"></i> Safety:</span> ${OctaQube.escapeHtml(s.safety_notes)}</p>` : ''}
+                            ${s.quality_checkpoints ? `<p class="text-xs mb-0"><span class="text-success fw-bold"><i data-lucide="check" style="width:12px;height:12px;vertical-align:text-bottom;"></i> Quality Check:</span> ${OctaQube.escapeHtml(s.quality_checkpoints)}</p>` : ''}
                         </div>
                     `).join('');
                 } else {

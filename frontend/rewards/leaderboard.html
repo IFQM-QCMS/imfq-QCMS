@@ -890,7 +890,7 @@
                             ${top3.map((emp, i) => {
                                 const rankClass = `rank-${emp.rank || (i + 1)}`;
                                 const safeSrc = this.safeAvatar(emp.avatar, emp.name);
-                                const safeNameEsc = (emp.name || 'User').replace(/'/g, "\'");
+                                const safeNameEsc = (emp.name || 'User').replace(/\u2019/g, "'");
                                 return `
                                     <div class="podium-card ${rankClass} fade-in">
                                         <div class="crown-badge">${crowns[i]}</div>
@@ -919,7 +919,7 @@
                                 const name = p.champion_name || c.name || 'No Leader Yet';
                                 const pts = p.total_points !== undefined ? p.total_points : (c.total_points !== undefined ? c.total_points : 0);
                                 const safeSrc = this.safeAvatar(c.avatar || p.avatar, name);
-                                const safeNameEsc = (name || 'User').replace(/'/g, "\'");
+                                const safeNameEsc = (name || 'User').replace(/\u2019/g, "'");
                                 const badge = c.badge || p.badge || 'Participant';
                                 const dept = c.department || p.department || 'General';
                                 return `
@@ -958,7 +958,7 @@
                                 const name = d.champion_name || c.name || 'No Leader Yet';
                                 const pts = d.total_points !== undefined ? d.total_points : (c.total_points !== undefined ? c.total_points : 0);
                                 const safeSrc = this.safeAvatar(c.avatar || d.avatar, name);
-                                const safeNameEsc = (name || 'User').replace(/'/g, "\'");
+                                const safeNameEsc = (name || 'User').replace(/\u2019/g, "'");
                                 const badge = c.badge || d.badge || 'Participant';
                                 const plant = c.plant || d.plant || 'Main Plant';
                                 const role = c.role || d.role || 'Team Member';
@@ -999,7 +999,7 @@
                                 const name = r.champion_name || c.name || 'No Leader Yet';
                                 const pts = r.total_points !== undefined ? r.total_points : (c.total_points !== undefined ? c.total_points : 0);
                                 const safeSrc = this.safeAvatar(c.avatar || r.avatar, name);
-                                const safeNameEsc = (name || 'User').replace(/'/g, "\'");
+                                const safeNameEsc = (name || 'User').replace(/\u2019/g, "'");
                                 const badge = c.badge || r.badge || 'Participant';
                                 const dept = c.department || r.department || 'General';
                                 const plant = c.plant || r.plant || 'Main Plant';
@@ -1207,7 +1207,7 @@
 
                 tbody.innerHTML = this.leaderboardData.map(e => {
                     const safeSrc = this.safeAvatar(e.avatar, e.name);
-                    const safeNameEsc = (e.name || 'User').replace(/'/g, "\'");
+                    const safeNameEsc = (e.name || 'User').replace(/\u2019/g, "'");
                     return `
                     <tr>
                         <td class="text-center fw-bold fs-6">

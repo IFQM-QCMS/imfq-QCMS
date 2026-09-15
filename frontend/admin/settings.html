@@ -5024,7 +5024,7 @@ console.log(data);
                 if (pColor) {
                     pColor.addEventListener('input', (e) => {
                         const hex = document.getElementById('color_hex');
-                        if (hex) hex.innerText = e.target.value.toUpperCase();
+                        if (hex) hex.textContent = e.target.value.toUpperCase();
                     });
                 }
                 const lUrl = document.getElementById('logo_url');
