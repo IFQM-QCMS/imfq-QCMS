@@ -4774,7 +4774,7 @@ console.log(data);
                     
                     const avatarUrl = profile.profile_picture || '/assets/img/avatar-placeholder.png';
                     const avatarEl = document.getElementById('personal_avatar_preview');
-                    if (avatarEl) avatarEl.innerHTML = `<img src="${avatarUrl}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">`;
+                    if (avatarEl) avatarEl.innerHTML = `<img src="${avatarUrl}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:2px solid var(--ds-primary, #6366f1);" onerror="this.onerror=null; this.src='/api/auth/avatar/${encodeURIComponent(profile.username || 'User')}';" alt="Profile Picture">`;
                 }
             } catch (e) {
                 console.error("Failed to load personal profile", e);
@@ -4784,6 +4784,20 @@ console.log(data);
         async handlePersonalAvatar(input) {
             const file = input.files[0];
             if (!file) return;
+
+            // Client-side validation: Max 5MB
+            if (file.size > 5 * 1024 * 1024) {
+                OctaQube.toast('Avatar file size exceeds 5MB limit. Please select a smaller photo.', 'warning');
+                input.value = '';
+                return;
+            }
+
+            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'image/svg+xml', 'image/avif'];
+            if (!validTypes.includes(file.type) && !file.name.match(/\.(png|jpe?g|webp|gif|svg|jfif|avif)$/i)) {
+                OctaQube.toast('Please select a valid image file (PNG, JPG, WEBP, etc.).', 'warning');
+                input.value = '';
+                return;
+            }
 
             const formData = new FormData();
             formData.append('profile_picture', file);
@@ -4797,9 +4811,13 @@ console.log(data);
                     body: formData
                 });
                 const res = await response.json();
-                if (!response.ok) throw new Error(res.message || 'Upload failed');
+                if (!response.ok) throw new Error(res.message || res.msg || 'Upload failed');
                 
-                document.getElementById('personal_avatar_preview').innerHTML = `<img src="${res.profile_picture || '/assets/img/avatar-placeholder.png'}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">`;
+                const newAvatarUrl = res.profile_picture || '/assets/img/avatar-placeholder.png';
+                const previewEl = document.getElementById('personal_avatar_preview');
+                if (previewEl) {
+                    previewEl.innerHTML = `<img src="${newAvatarUrl}?t=${Date.now()}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:2px solid var(--ds-primary, #6366f1);" onerror="this.onerror=null; this.src='/api/auth/avatar/User';" alt="Profile Avatar">`;
+                }
                 
                 // Update session
                 const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
@@ -4808,10 +4826,14 @@ console.log(data);
                 sessionStorage.setItem('user', synchedUser);
                 localStorage.setItem('user', synchedUser);
                 OctaQube.user = user;
-                OctaQube.renderNavbar(); // Refresh navbar avatar
+                if (typeof OctaQube.renderNavbar === 'function') {
+                    OctaQube.renderNavbar(); // Refresh navbar avatar
+                }
                 OctaQube.toast('Avatar updated successfully.', 'success');
             } catch (e) {
-                OctaQube.toast(e.message, 'error');
+                OctaQube.toast(e.message || 'Avatar upload failed.', 'error');
+            } finally {
+                input.value = '';
             }
         },
 
