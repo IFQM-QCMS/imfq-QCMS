@@ -645,10 +645,10 @@ def send_test_sms_template(template_key):
         print(f"[SMS Log Error] {e}")
 
     if not sms_ok:
-        safe_err = "SMS gateway delivery failed. Please verify credentials and connectivity." if "Exception:" in str(sms_msg) else str(sms_msg)
+        logger.error(f"[SMS Gateway Error] {sms_msg}")
         return jsonify({
             "status": "error",
-            "message": f"Gateway Error: {safe_err}",
+            "message": "Gateway Error: SMS delivery failed. Please verify gateway credentials and connectivity.",
             "rendered_body": body,
             "dlt_template_id": tmpl.template_id,
             "dlt_entity_id": tmpl.entity_id,

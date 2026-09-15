@@ -843,7 +843,7 @@ const AnnouncementsModule = {
                     </div>
                     <div class="ds-field">
                         <label class="ds-label">Message Details <span class="text-danger">*</span></label>
-                        <textarea class="ds-input" id="wizBody" required rows="5" placeholder="Write rich message content here..." oninput="AnnouncementsModule.wizardData.body=this.value">${this.wizardData.body}</textarea>
+                        <textarea class="ds-input" id="wizBody" required rows="5" placeholder="Write rich message content here..." oninput="AnnouncementsModule.wizardData.body=this.value">${OctaQube.escapeHtml(this.wizardData.body || '')}</textarea>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -970,13 +970,13 @@ const AnnouncementsModule = {
                             <div class="col-md-6">
                                 <div class="ds-field">
                                     <label class="ds-label">Publish Date & Time <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" class="ds-input" id="wizPublishAt" value="${this.wizardData.publish_at || ''}" onchange="AnnouncementsModule.wizardData.publish_at=this.value">
+                                    <input type="datetime-local" class="ds-input" id="wizPublishAt" value="${OctaQube.escapeHtml(this.wizardData.publish_at || '')}" onchange="AnnouncementsModule.wizardData.publish_at=this.value">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="ds-field">
                                     <label class="ds-label">Expiry Date & Time</label>
-                                    <input type="datetime-local" class="ds-input" id="wizExpiresAt" value="${this.wizardData.expires_at || ''}" onchange="AnnouncementsModule.wizardData.expires_at=this.value">
+                                    <input type="datetime-local" class="ds-input" id="wizExpiresAt" value="${OctaQube.escapeHtml(this.wizardData.expires_at || '')}" onchange="AnnouncementsModule.wizardData.expires_at=this.value">
                                 </div>
                             </div>
                         </div>
@@ -1020,7 +1020,7 @@ const AnnouncementsModule = {
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 text-xxs text-secondary pt-2 border-top" style="border-color: var(--ds-border-color) !important;">
                             <div>
                                 <span class="text-muted fw-semibold">Action:</span>
-                                <span class="badge bg-secondary-subtle text-main border ms-1 font-monospace">${this.wizardData.action.toUpperCase()}</span>
+                                <span class="badge bg-secondary-subtle text-main border ms-1 font-monospace">${OctaQube.escapeHtml((this.wizardData.action || 'draft').toUpperCase())}</span>
                             </div>
                             <div>
                                 <span class="text-muted fw-semibold">Target Pool:</span>

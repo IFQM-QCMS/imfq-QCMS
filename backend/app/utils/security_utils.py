@@ -73,7 +73,7 @@ def is_safe_webhook_url(url: str) -> Tuple[bool, str]:
                 return False, "Destination IP resolves to an unspecified address."
 
     except (socket.gaierror, ValueError) as e:
-        return False, f"Failed to resolve hostname: {e}"
+        return False, "Failed to resolve destination hostname."
 
     return True, ""
 

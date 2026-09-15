@@ -305,14 +305,18 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
         const stageRegex = /<script\s+src=["\'](?:\/assets\/js\/stages\/(?:stage[1-8]|dynamic_renderer)\.js(?:\?[^"\']*)?|\/assets\/dist\/(?:stage[1-8]|dynamic_renderer|stages-bundle)(?:\.[a-f0-9]+)?\.min\.js)["\']\s*><\/script>\s*/gi;
         let firstStage = true;
         let hasStageMatch = false;
-        content = content.replace(stageRegex, () => { // lgtm[js/incomplete-multi-character-sanitization]
-            hasStageMatch = true;
-            if (firstStage) {
-                firstStage = false;
-                return `<!-- __STAGES_JS_SLOT__ -->\n    `;
-            }
-            return '';
-        });
+        let prevStageContent;
+        do {
+            prevStageContent = content;
+            content = content.replace(stageRegex, () => {
+                hasStageMatch = true;
+                if (firstStage) {
+                    firstStage = false;
+                    return <!-- __STAGES_JS_SLOT__ -->\n    ;
+                }
+                return '';
+            });
+        } while (content !== prevStageContent);
         if (hasStageMatch) {
             content = content.replace('<!-- __STAGES_JS_SLOT__ -->', `<script src="/assets/dist/${stagesJsFile}"></script>`);
         }
@@ -321,14 +325,18 @@ function updateHtmlFiles(manifest, coreCssFile, coreJsFile, stagesJsFile) {
         const coreJsRegex = /<script\s+src=["\'](?:\/assets\/js\/(?:api|i18n|components)\.js(?:\?[^"\']*)?|\/assets\/dist\/(?:api|i18n|components|core-bundle)(?:\.[a-f0-9]+)?\.min\.js)["\']\s*><\/script>\s*/gi;
         let firstCore = true;
         let hasCoreMatch = false;
-        content = content.replace(coreJsRegex, () => { // lgtm[js/incomplete-multi-character-sanitization]
-            hasCoreMatch = true;
-            if (firstCore) {
-                firstCore = false;
-                return `<!-- __CORE_JS_SLOT__ -->\n    `;
-            }
-            return '';
-        });
+        let prevCoreContent;
+        do {
+            prevCoreContent = content;
+            content = content.replace(coreJsRegex, () => {
+                hasCoreMatch = true;
+                if (firstCore) {
+                    firstCore = false;
+                    return <!-- __CORE_JS_SLOT__ -->\n    ;
+                }
+                return '';
+            });
+        } while (content !== prevCoreContent);
         if (hasCoreMatch) {
             content = content.replace('<!-- __CORE_JS_SLOT__ -->', `<script src="/assets/dist/${coreJsFile}"></script>`);
         }

@@ -707,13 +707,13 @@ const PlatformSettings = {
             div.innerHTML = `
                 <div class="row g-2 flex-grow-1">
                     <div class="col-md-3">
-                        <input type="text" class="form-control form-control-sm feat-icon" placeholder="Lucide Icon" value="${f.icon || 'star'}">
+                        <input type="text" class="form-control form-control-sm feat-icon" placeholder="Lucide Icon" value="${OctaQube.escapeHtml(f.icon || 'star')}">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" class="form-control form-control-sm feat-title" placeholder="Feature Title" value="${(f.title||'').replace(/"/g, '&quot;')}">
+                        <input type="text" class="form-control form-control-sm feat-title" placeholder="Feature Title" value="${OctaQube.escapeHtml(f.title || '')}">
                     </div>
                     <div class="col-md-5">
-                        <input type="text" class="form-control form-control-sm feat-desc" placeholder="Feature Description" value="${(f.desc||'').replace(/"/g, '&quot;')}">
+                        <input type="text" class="form-control form-control-sm feat-desc" placeholder="Feature Description" value="${OctaQube.escapeHtml(f.desc || '')}">
                     </div>
                 </div>
                 <button type="button" class="ds-btn ds-btn-outline ds-btn-sm text-danger" onclick="this.parentElement.remove()">
@@ -747,13 +747,13 @@ const PlatformSettings = {
             div.innerHTML = `
                 <div class="row g-2 flex-grow-1">
                     <div class="col-md-2">
-                        <input type="text" class="form-control form-control-sm step-num" placeholder="Step #" value="${s.num || (i+1)}">
+                        <input type="text" class="form-control form-control-sm step-num" placeholder="Step #" value="${OctaQube.escapeHtml(String(s.num || (i+1)))}">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" class="form-control form-control-sm step-title" placeholder="Step Title" value="${(s.title||'').replace(/"/g, '&quot;')}">
+                        <input type="text" class="form-control form-control-sm step-title" placeholder="Step Title" value="${OctaQube.escapeHtml(s.title || '')}">
                     </div>
                     <div class="col-md-6">
-                        <input type="text" class="form-control form-control-sm step-desc" placeholder="Step Description" value="${(s.desc||'').replace(/"/g, '&quot;')}">
+                        <input type="text" class="form-control form-control-sm step-desc" placeholder="Step Description" value="${OctaQube.escapeHtml(s.desc || '')}">
                     </div>
                 </div>
                 <button type="button" class="ds-btn ds-btn-outline ds-btn-sm text-danger" onclick="this.parentElement.remove()">
@@ -1001,8 +1001,8 @@ const PlatformSettings = {
             div.style.borderColor = 'var(--ds-border-color)';
             div.innerHTML = `
                 <div class="flex-grow-1">
-                    <input type="text" class="form-control form-control-sm mb-1 faq-q" placeholder="Question" value="${f.q.replace(/"/g, '&quot;')}">
-                    <textarea class="form-control form-control-sm faq-a" rows="2" placeholder="Answer">${f.a}</textarea>
+                    <input type="text" class="form-control form-control-sm mb-1 faq-q" placeholder="Question" value="${OctaQube.escapeHtml(f.q || '')}">
+                    <textarea class="form-control form-control-sm faq-a" rows="2" placeholder="Answer">${OctaQube.escapeHtml(f.a || '')}</textarea>
                 </div>
                 <button type="button" class="ds-btn ds-btn-outline ds-btn-sm text-danger" onclick="this.parentElement.remove()">
                     <i data-lucide="trash-2"></i>
@@ -2342,12 +2342,13 @@ const PlatformSettings = {
         });
 
         // Apply saved main logo to sidebar immediately
-        const savedLogo = assets['main-logo'] || assets['logo'] || brand.logo_url;
+        const rawSavedLogo = assets['main-logo'] || assets['logo'] || brand.logo_url;
+        const savedLogo = (window.OctaQube && OctaQube.sanitizeUrl) ? OctaQube.sanitizeUrl(rawSavedLogo) : (String(rawSavedLogo || '').startsWith('/') ? rawSavedLogo : '');
         if (savedLogo) {
             document.querySelectorAll('.sidebar-brand').forEach(sb => {
                 let img = sb.querySelector('img');
                 if (img) {
-                    img.src = savedLogo; // lgtm[js/xss-through-dom]
+                    img.src = savedLogo;
                 } else {
                     const iconBox = sb.querySelector('.brand-icon');
                     if (iconBox) {
@@ -2362,13 +2363,14 @@ const PlatformSettings = {
         }
 
         // Apply saved favicon to browser tab
-        const savedFavicon = assets['favicon'] || brand.favicon_url;
+        const rawSavedFavicon = assets['favicon'] || brand.favicon_url;
+        const savedFavicon = (window.OctaQube && OctaQube.sanitizeUrl) ? OctaQube.sanitizeUrl(rawSavedFavicon) : (String(rawSavedFavicon || '').startsWith('/') ? rawSavedFavicon : '');
         if (savedFavicon) {
             document.querySelectorAll("link[rel*='icon']").forEach(el => el.remove());
             const linkIcon = document.createElement('link');
             linkIcon.rel = 'icon';
             linkIcon.type = 'image/png';
-            linkIcon.href = savedFavicon; // lgtm[js/xss-through-dom]
+            linkIcon.href = savedFavicon;
             document.head.appendChild(linkIcon);
 
             const linkShortcut = document.createElement('link');

@@ -608,8 +608,9 @@ const SuperAdmin = {
                     break;
             }
         } catch (error) {
-            console.error(`Error loading ${viewId} data:`, error); // lgtm[js/tainted-format-string]
-            api.showNotification(`Failed to load ${viewId} data`, 'error'); // lgtm[js/tainted-format-string]
+            const safeView = String(viewId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+            console.error('Error loading view data:', safeView, error);
+            api.showNotification(`Failed to load ${safeView} data`, 'error');
         }
     },
 
@@ -3986,7 +3987,8 @@ const SuperAdmin = {
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted text-xs">No ${filter === 'All' ? '' : filter} payment submissions found.</td></tr>`;
+            const safeFilter = OctaQube.escapeHtml(filter === 'All' ? '' : filter);
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted text-xs">No ${safeFilter} payment submissions found.</td></tr>`;
             if (paginationEl) {
                 window.createStandardPagination({
                     containerId: 'offlinePaymentsPagination',
@@ -7428,7 +7430,8 @@ const SuperAdmin = {
     _subWizRenderReview() {
         const plan=document.getElementById('swPlan').value;
         const cycle=document.getElementById('swCycle')?.value || 'Yearly';
-        const maxUsers=document.getElementById('swMaxUsers')?.value || '500';
+        const rawUsers=document.getElementById('swMaxUsers')?.value || '500';
+        const maxUsers=parseInt(rawUsers, 10) || 500;
         const base=parseFloat(document.getElementById('swBase').value)||0;
         const disc=parseFloat(document.getElementById('swDisc').value)||0;
         const gst=parseFloat(document.getElementById('swGst').value)||18;
@@ -8028,9 +8031,9 @@ const SuperAdmin = {
             if (!res || res.status !== 'success') return;
             document.getElementById('lwOrgList').innerHTML = (res.organizations || res.data || []).map(o => `
                 <div style="padding:7px 10px; cursor:pointer; border:1px solid var(--ds-border-color); border-radius:8px; margin-bottom:4px; display:flex; justify-content:space-between; font-size:12.5px; background: var(--ds-bg-card);"
-                     onclick="SuperAdmin._licWizSelectOrg(${o.id},'${(o.name||'').replace(/'/g,"\\'")}', '${(o.email||'').replace(/'/g,"\\'")}')">
-                    <span><strong>${o.name}</strong> <span class="text-muted text-xxs">(${o.org_code || o.id})</span></span>
-                    <span class="plan-chip ${(o.plan||'').toLowerCase()}">${o.plan || '—'}</span>
+                     onclick="SuperAdmin._licWizSelectOrg(${Number(o.id)}, decodeURIComponent('${encodeURIComponent(o.name||'')}'), decodeURIComponent('${encodeURIComponent(o.email||'')}'))">
+                    <span><strong>${OctaQube.escapeHtml(o.name)}</strong> <span class="text-muted text-xxs">(${OctaQube.escapeHtml(o.org_code || o.id)})</span></span>
+                    <span class="plan-chip ${OctaQube.escapeHtml((o.plan||'').toLowerCase())}">${OctaQube.escapeHtml(o.plan || '—')}</span>
                 </div>
             `).join('') || '<div class="text-xs text-muted p-2">No organizations found</div>';
         } catch(e) {}
@@ -8062,8 +8065,10 @@ const SuperAdmin = {
     _licWizRenderReview() {
         const plan = document.getElementById('lwPlan').value;
         const type = document.getElementById('lwType').value;
-        const users = document.getElementById('lwMaxUsers').value;
-        const storage = document.getElementById('lwStorage').value;
+        const rawUsers = document.getElementById('lwMaxUsers').value;
+        const rawStorage = document.getElementById('lwStorage').value;
+        const safeUsers = parseInt(rawUsers, 10);
+        const safeStorage = parseInt(rawStorage, 10);
         const modules = Array.from(document.querySelectorAll('#lwModules input:checked')).map(c => c.value);
         
         document.getElementById('lwReview').innerHTML = `
@@ -8071,8 +8076,8 @@ const SuperAdmin = {
                 <div class="col-6"><div class="text-muted">Organization</div><strong>${this._lic.wizSelectedOrg ? OctaQube.escapeHtml(this._lic.wizSelectedOrg.name) : '—'}</strong></div>
                 <div class="col-6"><div class="text-muted">Plan Level</div><span class="plan-chip ${OctaQube.escapeHtml(plan.toLowerCase())}">${OctaQube.escapeHtml(plan)}</span></div>
                 <div class="col-6"><div class="text-muted">License Class</div><strong>${OctaQube.escapeHtml(type)}</strong></div>
-                <div class="col-6"><div class="text-muted">User Limit</div><strong>${users >= 99999 ? 'Unlimited (∞)' : users + ' Users'}</strong></div>
-                <div class="col-6"><div class="text-muted">Storage Capacity</div><strong>${storage} GB</strong></div>
+                <div class="col-6"><div class="text-muted">User Limit</div><strong>${safeUsers >= 99999 ? 'Unlimited (∞)' : (isNaN(safeUsers) ? '—' : safeUsers + ' Users')}</strong></div>
+                <div class="col-6"><div class="text-muted">Storage Capacity</div><strong>${isNaN(safeStorage) ? '—' : safeStorage} GB</strong></div>
                 <div class="col-12"><div class="text-muted">Enabled Module Features</div><div class="d-flex gap-1 flex-wrap mt-1">${modules.map(m => `<span class="plan-chip outline">${OctaQube.escapeHtml(m)}</span>`).join('')}</div></div>
             </div>
         `;
@@ -9281,8 +9286,8 @@ const SuperAdmin = {
 
         const isTrialTier = tier.toLowerCase().includes('trial');
         const isPaygTier = tier.toLowerCase().includes('pay');
-        const trialDays = document.getElementById('pwTrialDays')?.value || '14';
-        const autoLimit = document.getElementById('pwTrialAutoApproveLimit')?.value || '2';
+        const trialDays = parseInt(document.getElementById('pwTrialDays')?.value, 10) || 14;
+        const autoLimit = parseInt(document.getElementById('pwTrialAutoApproveLimit')?.value, 10) || 2;
 
         const paygBase = parseFloat(document.getElementById('pwPaygBaseFee')?.value) || 999;
         const paygTax = parseFloat(document.getElementById('pwPaygTax')?.value) || 18;
@@ -10029,18 +10034,18 @@ const SuperAdmin = {
             const isForce   = isSel && !pmatch &&  forcePlanOrgs.has(org.id);
             const pc        = pColorMap[org.plan] || { bg:'rgba(107,114,128,.1)', c:'#6b7280' };
             const sc        = org.status==='Active'?'#10b981':org.status==='Trialing'?'#f59e0b':'#ef4444';
-            const safePlan  = (org.plan||'').replace(/'/g,"\\'");
-            return `<div class="mod-oa-row${isSel?' selected':''}" id="modOaRow-${org.id}">
+            const safePlanEnc = encodeURIComponent(org.plan || '');
+            return `<div class="mod-oa-row${isSel?' selected':''}" id="modOaRow-${Number(org.id)}">
   <div class="d-flex align-items-start gap-3">
-    <input type="checkbox" class="form-check-input mod-oa-cb mt-1 flex-shrink-0" id="oaCb-${org.id}" ${isSel?'checked':''}
-      onchange="SuperAdmin._modOrgToggle(${org.id},this.checked,'${safePlan}')">
+    <input type="checkbox" class="form-check-input mod-oa-cb mt-1 flex-shrink-0" id="oaCb-${Number(org.id)}" ${isSel?'checked':''}
+      onchange="SuperAdmin._modOrgToggle(${Number(org.id)},this.checked,decodeURIComponent('${safePlanEnc}'))">
     <div class="flex-grow-1">
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span class="fw-semibold text-sm text-main">${org.name}</span>
-        <span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${pc.bg};color:${pc.c};">${org.plan||'—'}</span>
-        <span class="rounded-circle" style="width:7px;height:7px;background:${sc};display:inline-block;" title="${org.status}"></span>
+        <span class="fw-semibold text-sm text-main">${OctaQube.escapeHtml(org.name)}</span>
+        <span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${pc.bg};color:${pc.c};">${OctaQube.escapeHtml(org.plan||'—')}</span>
+        <span class="rounded-circle" style="width:7px;height:7px;background:${sc};display:inline-block;" title="${OctaQube.escapeHtml(org.status)}"></span>
       </div>
-      <div class="text-xxs text-muted mt-1">${org.email} · ${org.user_count} users · ${org.industry||'—'}</div>
+      <div class="text-xxs text-muted mt-1">${OctaQube.escapeHtml(org.email)} · ${Number(org.user_count||0)} users · ${OctaQube.escapeHtml(org.industry||'—')}</div>
     </div>
   </div>
   ${isMis?`<div class="mod-oa-warn-box mt-2 p-2 rounded-2">

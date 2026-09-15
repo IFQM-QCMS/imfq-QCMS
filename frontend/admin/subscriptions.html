@@ -905,8 +905,7 @@ function escapeHtml(s) {
 
 <!-- SCRIPTS -->
 <script src="/assets/dist/bootstrap.bundle.min.js"></script>
-<script src="/assets/dist/core-bundle.33f14812.min.js"></script>
-    <script>
+undefined<script>
 /* ═══════════════════════════════════════════════════════════════════════════
    SubMgr — Enterprise Subscription Management Controller
    Talks exclusively to /api/subscriptions/*
@@ -1985,9 +1984,9 @@ const SubMgr = {
                 <div class="col-6"><div class="text-muted text-xs mb-1">Organization</div><strong>${escapeHtml(orgText.replace('✓ Selected: ',''))}</strong></div>
                 <div class="col-6"><div class="text-muted text-xs mb-1">Plan</div><span class="plan-chip ${escapeHtml(plan.toLowerCase())}">${escapeHtml(plan)}</span></div>
                 <div class="col-6"><div class="text-muted text-xs mb-1">Billing Cycle</div><strong>${escapeHtml(cycle)}</strong></div>
-                <div class="col-6"><div class="text-muted text-xs mb-1">Max Users</div><strong>${document.getElementById('wizMaxUsers').value}</strong></div>
-                <div class="col-6"><div class="text-muted text-xs mb-1">Storage</div><strong>${document.getElementById('wizStorage').value} GB</strong></div>
-                <div class="col-6"><div class="text-muted text-xs mb-1">Support</div><strong>${document.getElementById('wizSupportLevel').value}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs mb-1">Max Users</div><strong>${escapeHtml(document.getElementById('wizMaxUsers')?.value || '—')}</strong></div>
+                <div class="col-6"><div class="text-muted text-xs mb-1">Storage</div><strong>${escapeHtml(document.getElementById('wizStorage')?.value || '—')} GB</strong></div>
+                <div class="col-6"><div class="text-muted text-xs mb-1">Support</div><strong>${escapeHtml(document.getElementById('wizSupportLevel')?.value || '—')}</strong></div>
                 <div class="col-12"><hr></div>
                 <div class="col-4"><div class="text-muted text-xs">Base Price</div><strong>₹${base.toFixed(2)}</strong></div>
                 <div class="col-4"><div class="text-muted text-xs">Discount (${disc}%)</div><strong class="text-danger">- ₹${(base*disc/100).toFixed(2)}</strong></div>

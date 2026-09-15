@@ -247,9 +247,14 @@ var FeatureEngineClient = window.FeatureEngineClient || class FeatureEngineClien
         const iconBorder = isUpgrade ? 'rgba(99, 102, 241, 0.3)' : 'rgba(245, 158, 11, 0.3)';
         const alertBg = isUpgrade ? 'rgba(99, 102, 241, 0.08)' : 'rgba(245, 158, 11, 0.08)';
 
-        const titleText = isUpgrade ? `Upgrade Plan to Access ${modName}` : `${modName} Disabled`;
+        const safeModName = escapeHtml(modName);
+        const safeReqPlan = escapeHtml(requiredPlan);
+        const plainAlertMsg = isUpgrade
+            ? `Upgrade your plan to continue with this module. To use this feature, please upgrade to the ${requiredPlan} plan.`
+            : `This module is under maintenance. Please contact the Support team to enable this.`;
+        const titleText = isUpgrade ? `Upgrade Plan to Access ${safeModName}` : `${safeModName} Disabled`;
         const bodyText = isUpgrade 
-            ? `Upgrade your plan to continue with this module. To use this feature, please upgrade to the <strong>${requiredPlan}</strong> plan.`
+            ? `Upgrade your plan to continue with this module. To use this feature, please upgrade to the <strong>${safeReqPlan}</strong> plan.`
             : `This module is under maintenance. Please contact the Support team to enable this.`;
         const actionBtn = isUpgrade 
             ? `<a href="/admin/subscriptions.html" class="ds-btn ds-btn-primary btn-sm px-4">Upgrade Plan</a>`
@@ -286,9 +291,7 @@ var FeatureEngineClient = window.FeatureEngineClient || class FeatureEngineClien
             const bsModal = window.bootstrap.Modal.getOrCreateInstance(modal);
             bsModal.show();
         } else {
-            const _tmpDiv = document.createElement('div');
-            _tmpDiv.textContent = bodyText;
-            alert(_tmpDiv.innerText || bodyText.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]*>?/gm, ''));
+            alert(plainAlertMsg);
         }
     }
 

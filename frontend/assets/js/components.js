@@ -1003,14 +1003,17 @@ const OctaQube = {
             const linkIcon = document.createElement('link');
             linkIcon.rel = 'icon';
             linkIcon.type = 'image/png';
-            linkIcon.href = faviconSrc; // lgtm[js/xss-through-dom]
-            document.head.appendChild(linkIcon);
+            const safeFav = OctaQube.sanitizeUrl(faviconSrc);
+            if (safeFav) {
+                linkIcon.href = safeFav;
+                document.head.appendChild(linkIcon);
 
-            const linkShortcut = document.createElement('link');
-            linkShortcut.rel = 'shortcut icon';
-            linkShortcut.type = 'image/x-icon';
-            linkShortcut.href = faviconSrc;
-            document.head.appendChild(linkShortcut);
+                const linkShortcut = document.createElement('link');
+                linkShortcut.rel = 'shortcut icon';
+                linkShortcut.type = 'image/x-icon';
+                linkShortcut.href = safeFav;
+                document.head.appendChild(linkShortcut);
+            }
         } else {
             let link = document.querySelector("link[rel~='icon']");
             if (!link) {
@@ -1034,28 +1037,31 @@ const OctaQube = {
         if (sidebarBrand) {
             if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
                 // Append cache-busting timestamp for /uploads/ URLs so the browser re-fetches
-                const logoSrc = (logoUrl.includes('/uploads/'))
+                const rawLogoSrc = (logoUrl.includes('/uploads/'))
                     ? logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
-                    : logoUrl; // lgtm[js/xss-through-dom]
+                    : logoUrl;
+                const logoSrc = OctaQube.sanitizeUrl(rawLogoSrc);
                 const logoOnError = function() { this.onerror = null; this.style.display = 'none'; };
 
-                let img = sidebarBrand.querySelector('img');
-                if (!img) {
-                    const brandIcon = sidebarBrand.querySelector('.brand-icon');
-                    if (brandIcon) {
-                        const newImg = document.createElement('img');
-                        newImg.src = logoSrc;
-                        newImg.alt = 'Logo';
-                        newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
-                        newImg.onerror = logoOnError;
-                        brandIcon.replaceWith(newImg);
+                if (logoSrc) {
+                    let img = sidebarBrand.querySelector('img');
+                    if (!img) {
+                        const brandIcon = sidebarBrand.querySelector('.brand-icon');
+                        if (brandIcon) {
+                            const newImg = document.createElement('img');
+                            newImg.src = logoSrc;
+                            newImg.alt = 'Logo';
+                            newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
+                            newImg.onerror = logoOnError;
+                            brandIcon.replaceWith(newImg);
+                        } else {
+                            sidebarBrand.innerHTML = `<img src="${logoSrc}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.onerror=null;this.style.display='none';">
+                                                      <div class="brand-text">${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small></div>`;
+                        }
                     } else {
-                        sidebarBrand.innerHTML = `<img src="${logoSrc}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.onerror=null;this.style.display='none';">
-                                                  <div class="brand-text">${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small></div>`;
+                        img.onerror = logoOnError;
+                        img.src = logoSrc;
                     }
-                } else {
-                    img.onerror = logoOnError;
-                    img.src = logoSrc;
                 }
             }
         }
@@ -1967,8 +1973,8 @@ const OctaQube = {
                             ${this.renderAvatar(user, 28)}
                         </div>
                         <div class="user-meta d-none d-sm-block text-start" style="line-height: 1.2;">
-                            <div class="fw-bold" style="font-size: 13px; color: #FFFFFF;">${user.full_name || user.username || 'User'}</div>
-                            <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: #C4A25A; letter-spacing: 0.05em;" data-i18n="roles.${(user.role || 'Team Member').toLowerCase().replace(' ', '_')}">${user.role || 'Member'}</div>
+                            <div class="fw-bold" style="font-size: 13px; color: #FFFFFF;">${OctaQube.escapeHtml(user.full_name || user.username || 'User')}</div>
+                            <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; color: #C4A25A; letter-spacing: 0.05em;" data-i18n="roles.${OctaQube.escapeHtml((user.role || 'Team Member').toLowerCase().replace(' ', '_'))}">${OctaQube.escapeHtml(user.role || 'Member')}</div>
                         </div>
                     </div>
                 </div>
@@ -2068,12 +2074,15 @@ const OctaQube = {
 
         if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
             const resolvedLogoUrl = logoUrl.includes('/uploads/') ? (logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()) : logoUrl;
-            logoIconHtml = `
-                <img src="${resolvedLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.style.display='none'; const fb = this.parentElement.querySelector('.fallback-brand-icon'); if (fb) fb.style.display='flex';">
-                <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none;">
-                    <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white;"></i>
-                </div>
-            `;
+            const safeLogoUrl = OctaQube.sanitizeUrl(resolvedLogoUrl);
+            if (safeLogoUrl) {
+                logoIconHtml = `
+                    <img src="${safeLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.style.display='none'; const fb = this.parentElement.querySelector('.fallback-brand-icon'); if (fb) fb.style.display='flex';">
+                    <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none;">
+                        <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white;"></i>
+                    </div>
+                `;
+            }
         }
 
         const brandHtml = `
@@ -2341,16 +2350,20 @@ const OctaQube = {
         window.location.replace('/auth/login.html?logout=true');
     },
 
+    _btnOrigMap: new WeakMap(),
     setLoading(btnId, isLoading) {
         const btn = document.getElementById(btnId);
         if (!btn) return;
         if (isLoading) {
-            btn.setAttribute('data-original-html', btn.innerHTML);
+            this._btnOrigMap.set(btn, btn.innerHTML);
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Loading...`;
         } else {
-            const originalHtml = btn.getAttribute('data-original-html');
-            if (originalHtml) btn.innerHTML = originalHtml;
+            const originalHtml = this._btnOrigMap.get(btn);
+            if (originalHtml !== undefined) {
+                btn.innerHTML = originalHtml;
+                this._btnOrigMap.delete(btn);
+            }
             btn.disabled = false;
         }
     },

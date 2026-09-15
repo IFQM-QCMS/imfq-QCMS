@@ -975,16 +975,17 @@ const Stage4 = {
         let opts = '';
         let hasSelected = false;
 
+        const esc = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml : s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         if (list.length) {
             opts += list.map(c => {
                 const isSel = (c === selectedVal);
                 if (isSel) hasSelected = true;
-                return `<option value="${c.replace(/"/g, '&quot;')}" ${isSel ? 'selected' : ''}>${c}</option>`;
+                return `<option value="${esc(c)}" ${isSel ? 'selected' : ''}>${esc(c)}</option>`;
             }).join('');
         }
 
         if (selectedVal && !hasSelected) {
-            opts = `<option value="${selectedVal.replace(/"/g, '&quot;')}" selected>${selectedVal}</option>` + opts;
+            opts = `<option value="${esc(selectedVal)}" selected>${esc(selectedVal)}</option>` + opts;
             hasSelected = true;
         }
 

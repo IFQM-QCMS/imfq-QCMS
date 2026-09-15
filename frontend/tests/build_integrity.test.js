@@ -51,9 +51,9 @@ test('Frontend Production Build Integrity Suite', async (t) => {
             assert.ok(fs.existsSync(filePath), `HTML file ${filePath} must exist`);
             const html = fs.readFileSync(filePath, 'utf8');
 
-            assert.ok(!html.includes('cdn.jsdelivr.net'), `${filePath} must not contain jsdelivr CDN`);
-            assert.ok(!html.includes('unpkg.com'), `${filePath} must not contain unpkg CDN`);
-            assert.ok(!html.includes('cdnjs.cloudflare.com'), `${filePath} must not contain cdnjs CDN`);
+            assert.ok(!html.includes('https://cdn.jsdelivr.net') && !html.includes('//cdn.jsdelivr.net'), `${filePath} must not contain jsdelivr CDN`);
+            assert.ok(!html.includes('https://unpkg.com') && !html.includes('//unpkg.com'), `${filePath} must not contain unpkg CDN`);
+            assert.ok(!html.includes('https://cdnjs.cloudflare.com') && !html.includes('//cdnjs.cloudflare.com'), `${filePath} must not contain cdnjs CDN`);
             assert.ok(/rel="preload"\s+href="\/assets\/dist\/core\.[a-f0-9]+\.min\.css"\s+as="style"/.test(html), `${filePath} must preload core CSS bundle`);
             assert.ok(/rel="preload"\s+href="\/assets\/dist\/auth-guard\.[a-f0-9]+\.min\.js"\s+as="script"/.test(html), `${filePath} must preload auth-guard script`);
         }

@@ -784,33 +784,43 @@ def create_app():
             if filename.endswith('.html') or '.' not in filename:
                 safe_name = filename.replace('\\', '/').lstrip('/')
                 if safe_name and not safe_name.startswith(('http:', 'https:', '//')) and '..' not in safe_name:
-                    return redirect(f"{vercel_url.rstrip('/')}/{safe_name}")
+                    from urllib.parse import urlparse, quote
+                    clean_target_path = quote(safe_name.strip('/'))
+                    target_url = f"{vercel_url.rstrip('/')}/{clean_target_path}"
+                    parsed_target = urlparse(target_url)
+                    parsed_base = urlparse(vercel_url)
+                    if parsed_target.scheme in ('http', 'https') and parsed_target.netloc == parsed_base.netloc:
+                        return redirect(target_url)
             return jsonify({"code": 404, "message": "File not found", "status": "error"}), 404
 
         if (filename == 'index.html' or filename == 'index' or filename == '') and not is_landing_page_enabled():
             return redirect('/auth/login.html')
 
         # 1. Direct match at root or exact path (e.g. assets, favicon)
-        from app.utils.security_utils import safe_resolve_path
-        filepath = safe_resolve_path(frontend_dir, filename)
-        if filepath and os.path.isfile(filepath):
-            return send_from_directory(frontend_dir, filename)
+        from werkzeug.utils import safe_join
+        safe_file = safe_join(frontend_dir, filename)
+        if safe_file and os.path.isfile(safe_file):
+            return send_from_directory(frontend_dir, os.path.relpath(safe_file, frontend_dir).replace('\\', '/'))
             
         # Check if requesting i18n translation assets even with nested route prefix
         if 'assets/i18n/' in filename:
-            clean_i18n = filename.split('assets/i18n/')[-1]
-            i18n_path = os.path.join(frontend_dir, 'assets', 'i18n', clean_i18n)
-            if os.path.isfile(i18n_path):
-                return send_from_directory(os.path.join(frontend_dir, 'assets', 'i18n'), clean_i18n)
+            clean_i18n = os.path.basename(filename)
+            i18n_dir = os.path.join(frontend_dir, 'assets', 'i18n')
+            safe_i18n = safe_join(i18n_dir, clean_i18n)
+            if safe_i18n and os.path.isfile(safe_i18n):
+                return send_from_directory(i18n_dir, clean_i18n)
             
         # 2. Check within feature folders
         if filename.endswith('.html') or '.' not in filename:
-            html_name = filename if filename.endswith('.html') else f"{filename}.html"
+            html_name = os.path.basename(filename)
+            if not html_name.endswith('.html'):
+                html_name = f"{html_name}.html"
             subdirs = ['auth', 'dashboard', 'projects', 'admin', 'analytics', 'resources', 'rewards', 'help']
             for s in subdirs:
-                sub_path = os.path.join(frontend_dir, s, html_name)
-                if os.path.isfile(sub_path):
-                    return send_from_directory(os.path.join(frontend_dir, s), html_name)
+                subdir_path = os.path.join(frontend_dir, s)
+                sub_path = safe_join(subdir_path, html_name)
+                if sub_path and os.path.isfile(sub_path):
+                    return send_from_directory(subdir_path, html_name)
 
         # Fallback to index.html for SPA-like behavior
         if not is_landing_page_enabled():
@@ -901,13 +911,13 @@ def create_app():
         alt_tmp_dir = '/tmp/uploads'
         search_dirs = [d for d in (primary_dir, root_uploads_dir, backend_uploads_dir, frontend_dir_local, fallback_tmp_dir, alt_tmp_dir) if d and os.path.isdir(d)]
 
+        from werkzeug.utils import safe_join
         def check_file(d, p):
             if not d or not p:
                 return None
-            from app.utils.security_utils import safe_resolve_path
-            safe_full = safe_resolve_path(d, p)
+            safe_full = safe_join(d, p)
             if safe_full and os.path.isfile(safe_full):
-                return (d, p)
+                return (d, os.path.relpath(safe_full, d).replace('\\', '/'))
             return None
 
         resolved = None
@@ -1151,8 +1161,7 @@ def create_app():
         }
         if app.config.get('TESTING') or app.config.get('DEBUG'):
             import traceback
-            response["debug_error"] = str(e)
-            response["traceback"] = traceback.format_exc()
+            app.logger.error("Internal error: %s", traceback.format_exc())
         return jsonify(response), 500
 
     @app.after_request

@@ -4238,8 +4238,7 @@ console.log(data);
     </style>
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.33f14812.min.js"></script>
-    <script src="/assets/dist/platform-settings.46f350da.min.js"></script>
+    undefined<script src="/assets/dist/platform-settings.05729cbd.min.js"></script>
     <script>
     const settingsManager = {
         isDirty: false,
@@ -5029,10 +5028,11 @@ console.log(data);
                     lUrl.addEventListener('change', (e) => {
                         const prev = document.getElementById('logo_preview');
                         if (prev) {
-                            if (e.target.value) {
-                                const u = e.target.value;
+                            const raw = (e.target.value || '').trim();
+                            const safe = (raw.startsWith('/') && !raw.startsWith('//')) || /^https?:\/\//i.test(raw) ? raw : '';
+                            if (safe) {
                                 prev.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
-                                prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                                prev.src = safe.includes('/uploads/') ? (safe + (safe.includes('?') ? '&' : '?') + 't=' + Date.now()) : safe;
                             } else {
                                 prev.src = FALLBACK_SVG;
                             }
@@ -5044,10 +5044,11 @@ console.log(data);
                     fUrl.addEventListener('change', (e) => {
                         const prev = document.getElementById('favicon_preview');
                         if (prev) {
-                            if (e.target.value) {
-                                const u = e.target.value;
+                            const raw = (e.target.value || '').trim();
+                            const safe = (raw.startsWith('/') && !raw.startsWith('//')) || /^https?:\/\//i.test(raw) ? raw : '';
+                            if (safe) {
                                 prev.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
-                                prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                                prev.src = safe.includes('/uploads/') ? (safe + (safe.includes('?') ? '&' : '?') + 't=' + Date.now()) : safe;
                             } else {
                                 prev.src = FALLBACK_SVG;
                             }

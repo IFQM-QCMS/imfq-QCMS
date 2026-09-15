@@ -3090,7 +3090,7 @@ def test_webhook():
     from app.utils.security_utils import is_safe_webhook_url
     is_safe, error_msg = is_safe_webhook_url(url)
     if not is_safe:
-        return jsonify({"status": "error", "message": f"Restricted or invalid webhook URL: {error_msg}"}), 400
+        return jsonify({"status": "error", "message": "Restricted or invalid webhook URL."}), 400
 
     port_part = f":{parsed.port}" if parsed.port and parsed.port not in (80, 443) else ""
     path_part = parsed.path if parsed.path else "/"

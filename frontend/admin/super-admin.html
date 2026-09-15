@@ -6568,12 +6568,11 @@
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
     <script src="/assets/dist/chart.min.js"></script>
-    <script src="/assets/dist/core-bundle.33f14812.min.js"></script>
-    <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
+    undefined<script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.81f4486e.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
-    <script src="/assets/dist/platform-settings.46f350da.min.js"></script>
-    <script src="/assets/dist/super-admin.f9a3609e.min.js"></script>
+    <script src="/assets/dist/platform-settings.05729cbd.min.js"></script>
+    <script src="/assets/dist/super-admin.76ee25c0.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
@@ -7361,7 +7360,8 @@
                 const result = await res.json();
                 if (result.status === 'success') {
                     const titleText = titleMap[type] || `${type.toUpperCase()} Live Preview`;
-                    document.getElementById('sa-doc-preview-title').innerHTML = `<i data-lucide="eye" class="me-1 text-primary" style="width:16px;height:16px;"></i> Live Preview: ${titleText}`;
+                    const safeTitle = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(titleText) : titleText;
+                    document.getElementById('sa-doc-preview-title').innerHTML = `<i data-lucide="eye" class="me-1 text-primary" style="width:16px;height:16px;"></i> Live Preview: ${safeTitle}`;
                     document.getElementById('sa-doc-preview-body').innerHTML = result.preview_html;
                     
                     const modalEl = document.getElementById('sa-doc-preview-modal');

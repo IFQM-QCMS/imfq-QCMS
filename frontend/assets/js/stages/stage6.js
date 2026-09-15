@@ -698,8 +698,9 @@ const Stage6 = {
         if (linkInput && btnView) {
             linkInput.addEventListener('input', (e) => {
                 const val = e.target.value.trim();
-                if (val) {
-                    btnView.href = val; // lgtm[js/xss-through-dom]
+                const safe = (window.OctaQube && OctaQube.sanitizeUrl) ? OctaQube.sanitizeUrl(val) : (val.startsWith('/') || /^https?:\/\//i.test(val) ? val : '');
+                if (safe) {
+                    btnView.href = safe;
                     btnView.classList.remove('d-none');
                 } else {
                     btnView.classList.add('d-none');
@@ -778,7 +779,8 @@ const Stage6 = {
                         if (urlInput) urlInput.value = uploadedUrl;
                         if (nameInput) nameInput.value = file.name;
                         if (btnView) {
-                            btnView.href = uploadedUrl; // lgtm[js/xss-through-dom]
+                            const safeUpUrl = (window.OctaQube && OctaQube.sanitizeUrl) ? OctaQube.sanitizeUrl(uploadedUrl) : uploadedUrl;
+                            if (safeUpUrl) btnView.href = safeUpUrl;
                             btnView.title = file.name;
                             btnView.classList.remove('d-none');
                         }

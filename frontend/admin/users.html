@@ -565,8 +565,7 @@ function escapeHtml(s) {
 
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.33f14812.min.js"></script>
-    <script>
+    undefined<script>
         const Users = {
             currentFilter: 'all',
             editingUserId: null,
@@ -1273,8 +1272,9 @@ function escapeHtml(s) {
 
                     const totalCols = 6 + extraCustomFields.length;
                     if (!users || users.length === 0) {
+                        const safeQuery = OctaQube.escapeHtml(query);
                         tbody.innerHTML = `<tr><td colspan="${totalCols}" class="py-5">
-                            ${OctaQube.emptyState('No Members Found', `We couldn't find any stakeholders matching "${query}".`, 'search-x')}
+                            ${OctaQube.emptyState('No Members Found', `We couldn't find any stakeholders matching "${safeQuery}".`, 'search-x')}
                         </td></tr>`;
                         if (pagContainer) pagContainer.innerHTML = '';
                         if (window.lucide) lucide.createIcons();

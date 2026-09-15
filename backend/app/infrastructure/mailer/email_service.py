@@ -324,11 +324,7 @@ class EmailUtils:
             try:
                 logger.info("\n" + "="*50)
                 logger.info(f"DEVELOPMENT MODE: EMAIL SENT VIA {provider_type.upper()}")
-                logger.info(f"FROM: {sender_name} <{clean_from}>")
-                logger.info(f"TO: {to_email}")
                 logger.info("SUBJECT: [EMAIL DISPATCHED]")
-                if reply_to:
-                    logger.info(f"REPLY-TO: {reply_to}")
                 logger.info("-" * 50)
 
                 otp_match = re.search(r'>\s*(\d{6})\s*<', html_content)

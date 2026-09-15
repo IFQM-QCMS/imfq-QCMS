@@ -594,8 +594,7 @@
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
     <script src="/assets/dist/chart.min.js"></script>
-    <script src="/assets/dist/core-bundle.33f14812.min.js"></script>
-    <script>
+    undefined<script>
         const adminDash = {
             allProjects: [],
             closeTargetId: null,
@@ -1804,7 +1803,8 @@
                     const res = await api.uploadFile('/admin/upload-evidence', file);
 
                     document.getElementById('projEvidence').value = res.url;
-                    statusEl.innerHTML = `<span class="text-success"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> ${file.name} uploaded</span>`;
+                    const safeFileName = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(file.name) : file.name;
+                    statusEl.innerHTML = `<span class="text-success"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> ${safeFileName} uploaded</span>`;
                     if (window.lucide) lucide.createIcons();
                     OctaQube.toast('File uploaded successfully', 'success');
                 } catch (e) {

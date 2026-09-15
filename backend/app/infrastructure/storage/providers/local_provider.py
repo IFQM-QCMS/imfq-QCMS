@@ -112,13 +112,15 @@ class LocalStorageProvider(BaseStorageProvider):
     def _get_safe_candidates(self, filename_or_path: str, subfolder: str = "") -> list:
         clean_sub = subfolder.strip("/\\")
         target_path = f"{clean_sub}/{filename_or_path}" if clean_sub and not filename_or_path.startswith(clean_sub) else filename_or_path
-        from app.utils.security_utils import safe_resolve_path
+        from werkzeug.utils import safe_join
         candidates = []
-        for base in (self.upload_folder, FALLBACK_UPLOAD_FOLDER):
-            if base:
-                safe_cand = safe_resolve_path(base, target_path)
-                if safe_cand:
-                    candidates.append(safe_cand)
+        clean_target = os.path.normpath(target_path.replace('\\', '/')).lstrip('/\\')
+        if clean_target and '..' not in clean_target:
+            for base in (self.upload_folder, FALLBACK_UPLOAD_FOLDER):
+                if base:
+                    safe_cand = safe_join(base, clean_target)
+                    if safe_cand:
+                        candidates.append(safe_cand)
         return candidates
 
     def get_file_bytes(self, filename_or_path: str, subfolder: str = "") -> Tuple[Optional[bytes], Optional[str]]:
