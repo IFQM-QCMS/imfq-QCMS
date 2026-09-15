@@ -24,6 +24,14 @@
             font-weight: 600;
         }
     </style>
+    <script>
+    function sanitizeUserForStorage(userObj) {
+        if (!userObj || typeof userObj !== 'object') return userObj;
+        var safe = Object.assign({}, userObj);
+        delete safe.is_temp_password;
+        return safe;
+    }
+    </script>
 </head>
 
 <body>
@@ -591,7 +599,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/core-bundle.b416ffce.min.js"></script>
+    <script src="/assets/dist/core-bundle.44ba0553.min.js"></script>
     <script>
         const adminDash = {
             allProjects: [],
@@ -628,7 +636,7 @@
                     if (profile.org_logo_url !== undefined) userObj.org_logo_url = profile.org_logo_url;
                     if (profile.org_favicon_url !== undefined) userObj.org_favicon_url = profile.org_favicon_url;
                     if (profile.org_name !== undefined) userObj.org_name = profile.org_name;
-                    sessionStorage.setItem('user', JSON.stringify(userObj));
+                    sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(userObj)));
                     
                     if (profile.subscription_status === 'Suspended') {
                         const container = document.querySelector('.app-content-inner');

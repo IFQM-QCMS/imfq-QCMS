@@ -3,6 +3,14 @@
  * Manages global platform oversight and multi-tenant control.
  */
 
+// Removes sensitive fields before storing user object in Web Storage
+function sanitizeUserForStorage(userObj) {
+    if (!userObj || typeof userObj !== 'object') return userObj;
+    var safe = Object.assign({}, userObj);
+    delete safe.is_temp_password;
+    return safe;
+}
+
 const SuperAdmin = {
     activeView: 'overview',
     charts: {},
@@ -115,7 +123,7 @@ const SuperAdmin = {
                         u.sa_sub_role = this.saSubRole;
                         if (!u.custom_fields) u.custom_fields = {};
                         u.custom_fields.super_admin_role = this.saSubRole;
-                        const uJson = JSON.stringify(u);
+                        const uJson = JSON.stringify(sanitizeUserForStorage(u));
                         sessionStorage.setItem('user', uJson);
                         localStorage.setItem('user', uJson);
                         if (window.OctaQube) window.OctaQube.user = u;

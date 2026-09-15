@@ -56,6 +56,14 @@
             gap: 16px;
         }
     </style>
+    <script>
+    function sanitizeUserForStorage(userObj) {
+        if (!userObj || typeof userObj !== 'object') return userObj;
+        var safe = Object.assign({}, userObj);
+        delete safe.is_temp_password;
+        return safe;
+    }
+    </script>
 </head>
 
 <body class="ds-light">
@@ -251,7 +259,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/assets/dist/core-bundle.b416ffce.min.js"></script>
+    <script src="/assets/dist/core-bundle.44ba0553.min.js"></script>
     <script>
         let profileFormManager = null;
 
@@ -392,10 +400,20 @@
                     document.getElementById('profile-display-email').textContent = response.email;
 
                     if (response.profile_picture) {
-                        document.getElementById('avatar-icon').style.display = 'none';
                         const avatarImg = document.getElementById('avatar-preview');
-                        avatarImg.src = response.profile_picture;
+                        const avatarIcon = document.getElementById('avatar-icon');
+                        const picUrl = response.profile_picture;
+                        const picSrc = picUrl.includes('/uploads/')
+                            ? picUrl + (picUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
+                            : picUrl;
+                        avatarImg.onerror = function() {
+                            this.onerror = null;
+                            this.style.display = 'none';
+                            if (avatarIcon) avatarIcon.style.display = 'flex';
+                        };
+                        avatarImg.src = picSrc;
                         avatarImg.style.display = 'block';
+                        if (avatarIcon) avatarIcon.style.display = 'none';
                     }
                     if (response.banner_image) {
                         const bannerContainer = document.getElementById('profile-banner-container');
@@ -452,9 +470,24 @@
                     document.getElementById('profile-full-name').textContent = newName;
                     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
                     user.full_name = newName;
-                    if (response.profile_picture) user.profile_picture = response.profile_picture;
+                    if (response.profile_picture) {
+                        user.profile_picture = response.profile_picture;
+                        // Update avatar preview immediately with cache-busting
+                        const avatarImg = document.getElementById('avatar-preview');
+                        const avatarIcon = document.getElementById('avatar-icon');
+                        if (avatarImg) {
+                            const picUrl = response.profile_picture;
+                            const picSrc = picUrl.includes('/uploads/')
+                                ? picUrl + (picUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
+                                : picUrl;
+                            avatarImg.onerror = function() { this.onerror = null; this.style.display = 'none'; if (avatarIcon) avatarIcon.style.display = 'flex'; };
+                            avatarImg.src = picSrc;
+                            avatarImg.style.display = 'block';
+                            if (avatarIcon) avatarIcon.style.display = 'none';
+                        }
+                    }
                     if (response.banner_image) user.banner_image = response.banner_image;
-                    sessionStorage.setItem('user', JSON.stringify(user));
+                    sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(user)));
 
                     // Navbar refresh
                     OctaQube.renderNavbar();

@@ -2,12 +2,20 @@
     const _currentPath = (window.location.pathname || '').toLowerCase();
     const _isAuthPath = _currentPath.includes('login') || _currentPath.includes('register') || _currentPath.includes('reset-password') || _currentPath.includes('forgot-password');
 
+    // Removes sensitive fields before storing user object in Web Storage
+    function sanitizeUserForStorage(u) {
+        if (!u || typeof u !== 'object') return u;
+        var s = Object.assign({}, u);
+        delete s.is_temp_password;
+        return s;
+    }
+
     // Seed this tab's sessionStorage from localStorage only on protected pages when this tab is uninitialized
     if (!_isAuthPath && !sessionStorage.getItem('token') && localStorage.getItem('token')) {
         try {
             sessionStorage.setItem('token', localStorage.getItem('token'));
             if (localStorage.getItem('access_token')) sessionStorage.setItem('access_token', localStorage.getItem('access_token'));
-            if (localStorage.getItem('user')) sessionStorage.setItem('user', localStorage.getItem('user'));
+            if (localStorage.getItem('user')) { try { sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(JSON.parse(localStorage.getItem('user'))))); } catch (_e) { sessionStorage.setItem('user', localStorage.getItem('user')); } }
             if (localStorage.getItem('role_permissions')) sessionStorage.setItem('role_permissions', localStorage.getItem('role_permissions'));
             sessionStorage.setItem('octaqube_authenticated', 'true');
         } catch (_) {}
@@ -713,7 +721,7 @@
                     try {
                         const cachedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
                         cachedUser.role_permissions = profile.role_permissions;
-                        sessionStorage.setItem('user', JSON.stringify(cachedUser));
+                        sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(cachedUser)));
                     } catch (_) {}
                 }
 

@@ -4,6 +4,14 @@
  * Integrates with /api/super-admin/settings/* endpoints.
  */
 
+// Removes sensitive fields before storing user object in Web Storage
+function sanitizeUserForStorage(userObj) {
+    if (!userObj || typeof userObj !== 'object') return userObj;
+    var safe = Object.assign({}, userObj);
+    delete safe.is_temp_password;
+    return safe;
+}
+
 const PlatformSettings = {
     _data: {},          // Live settings data
     _pendingCategory: null, // Last category edited
@@ -2169,7 +2177,7 @@ const PlatformSettings = {
                         if (uStr) {
                             const uObj = JSON.parse(uStr);
                             uObj.platform_logo_url = dataUrl;
-                            const uJson = JSON.stringify(uObj);
+                            const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                             if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                             if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                             if (window.OctaQube && OctaQube.user) OctaQube.user.platform_logo_url = dataUrl;
@@ -2195,7 +2203,7 @@ const PlatformSettings = {
                         if (uStr) {
                             const uObj = JSON.parse(uStr);
                             uObj.platform_favicon_url = dataUrl;
-                            const uJson = JSON.stringify(uObj);
+                            const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                             if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                             if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                             if (window.OctaQube && OctaQube.user) OctaQube.user.platform_favicon_url = dataUrl;
@@ -2293,7 +2301,7 @@ const PlatformSettings = {
                 const uObj = JSON.parse(uStr);
                 if (type === 'main-logo' || type === 'logo') uObj.platform_logo_url = null;
                 if (type === 'favicon') uObj.platform_favicon_url = null;
-                const uJson = JSON.stringify(uObj);
+                const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                 if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                 if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                 if (window.OctaQube && OctaQube.user) {
@@ -2403,7 +2411,7 @@ const PlatformSettings = {
                     const uObj = JSON.parse(uStr);
                     if (brand.logo_url) uObj.platform_logo_url = brand.logo_url;
                     if (brand.favicon_url) uObj.platform_favicon_url = brand.favicon_url;
-                    const uJson = JSON.stringify(uObj);
+                    const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                     if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                     if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                     if (window.OctaQube && OctaQube.user) {
@@ -3073,7 +3081,7 @@ Object.assign(PlatformSettings, {
                 // Update session memory
                 const userObj = JSON.parse(sessionStorage.getItem('user') || '{}');
                 if (newEmail) userObj.email = newEmail;
-                sessionStorage.setItem('user', JSON.stringify(userObj));
+                sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(userObj)));
 
                 // Clear password fields
                 document.getElementById('ownAdminCurrentPassword').value = '';

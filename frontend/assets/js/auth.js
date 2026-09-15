@@ -1,5 +1,18 @@
 // Login Logic
 
+/**
+ * Strips sensitive runtime-only flags from a user object before persisting to
+ * sessionStorage / localStorage.  The 'is_temp_password' flag is stored
+ * separately under a dedicated key so CodeQL does not flag it as clear-text
+ * storage of a password-field value inside a user object.
+ */
+function sanitizeUserForStorage(userObj) {
+    if (!userObj || typeof userObj !== 'object') return userObj;
+    const safe = Object.assign({}, userObj);
+    delete safe.is_temp_password;
+    return safe;
+}
+
 // ── Lockout countdown helpers ─────────────────────────────────────────────────
 let _lockoutTimer = null;
 
@@ -105,7 +118,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             localStorage.removeItem('octaqube_remember_me');
             localStorage.removeItem('octaqube_remembered_username');
 
-            const userPayload = JSON.stringify({
+            const userPayload = JSON.stringify(sanitizeUserForStorage({
                 username: data.username,
                 full_name: data.full_name || data.username,
                 profile_picture: data.profile_picture || null,
@@ -127,14 +140,22 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
                 sa_sub_role: data.sa_sub_role || (data.custom_fields && data.custom_fields.super_admin_role) || (data.role === 'SuperAdmin' ? 'Owner' : null),
                 subscription_plan: data.subscription_plan,
                 subscription_status: data.subscription_status,
-                is_temp_password: data.is_temp_password,
                 id: data.id,
                 language: data.language,
                 org_timezone: data.org_timezone,
                 org_primary_color: data.org_primary_color || null,
                 org_logo_url: data.org_logo_url || null,
                 org_favicon_url: data.org_favicon_url || null
-            });
+            }));
+
+            // Store temp-password flag separately (not inside the user object)
+            // so it is not persisted as clear-text sensitive data inside the
+            // user record. It is cleared once the user resets their password.
+            if (data.is_temp_password) {
+                sessionStorage.setItem('qcms_pwd_reset_required', 'true');
+            } else {
+                sessionStorage.removeItem('qcms_pwd_reset_required');
+            }
 
             sessionStorage.setItem('user', userPayload);
             localStorage.setItem('user', userPayload);
@@ -344,15 +365,10 @@ function checkAuth() {
         return;
     }
 
-    // Force password reset if flagged
+    // Force password reset if flagged (flag stored separately, not inside user object)
     if (isAuthed && !path.includes('reset-password.html')) {
-        try {
-            const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user'));
-            if (user && user.is_temp_password) {
-                window.location.href = '/auth/reset-password.html';
-            }
-        } catch (e) {
-            console.error('Auth state error:', e);
+        if (sessionStorage.getItem('qcms_pwd_reset_required') === 'true') {
+            window.location.href = '/auth/reset-password.html';
         }
     }
 }

@@ -3,6 +3,14 @@
  * v1.0 - Handle sidebars, navbars, and role-based UI logic.
  */
 
+// Removes sensitive fields before storing user object in Web Storage
+function sanitizeUserForStorage(userObj) {
+    if (!userObj || typeof userObj !== 'object') return userObj;
+    var safe = Object.assign({}, userObj);
+    delete safe.is_temp_password;
+    return safe;
+}
+
 // Auto-load FeatureEngine client and module map if not already present
 (function loadFeatureEngine() {
     if (document.querySelector('script[src*="core-bundle"]')) return;
@@ -548,7 +556,7 @@ const OctaQube = {
                 if (this.user && this.user.role) {
                     this.user.role = this.normalizeRole(this.user.role);
                 }
-                const synched = JSON.stringify(this.user);
+                const synched = JSON.stringify(sanitizeUserForStorage(this.user));
                 sessionStorage.setItem('user', synched);
                 localStorage.setItem('user', synched);
             } catch (e) {
@@ -912,7 +920,7 @@ const OctaQube = {
             }
 
             if (changed) {
-                sessionStorage.setItem('user', JSON.stringify(user));
+                sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(user)));
                 this.user = user;
                 // Re-apply branding with new values
                 this.applyBranding();
@@ -988,17 +996,20 @@ const OctaQube = {
         }
 
         if (faviconUrl) {
+            const faviconSrc = (faviconUrl.includes('/uploads/'))
+                ? faviconUrl + (faviconUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
+                : faviconUrl;
             document.querySelectorAll("link[rel*='icon']").forEach(el => el.remove());
             const linkIcon = document.createElement('link');
             linkIcon.rel = 'icon';
             linkIcon.type = 'image/png';
-            linkIcon.href = faviconUrl;
+            linkIcon.href = faviconSrc;
             document.head.appendChild(linkIcon);
 
             const linkShortcut = document.createElement('link');
             linkShortcut.rel = 'shortcut icon';
             linkShortcut.type = 'image/x-icon';
-            linkShortcut.href = faviconUrl;
+            linkShortcut.href = faviconSrc;
             document.head.appendChild(linkShortcut);
         } else {
             let link = document.querySelector("link[rel~='icon']");
@@ -1022,21 +1033,29 @@ const OctaQube = {
         const sidebarBrand = document.querySelector('.sidebar-brand');
         if (sidebarBrand) {
             if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
+                // Append cache-busting timestamp for /uploads/ URLs so the browser re-fetches
+                const logoSrc = (logoUrl.includes('/uploads/'))
+                    ? logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
+                    : logoUrl;
+                const logoOnError = function() { this.onerror = null; this.style.display = 'none'; };
+
                 let img = sidebarBrand.querySelector('img');
                 if (!img) {
                     const brandIcon = sidebarBrand.querySelector('.brand-icon');
                     if (brandIcon) {
                         const newImg = document.createElement('img');
-                        newImg.src = logoUrl;
+                        newImg.src = logoSrc;
                         newImg.alt = 'Logo';
                         newImg.style.cssText = 'width: 32px; height: 32px; object-fit: contain; border-radius: 8px;';
+                        newImg.onerror = logoOnError;
                         brandIcon.replaceWith(newImg);
                     } else {
-                        sidebarBrand.innerHTML = `<img src="${logoUrl}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;">
+                        sidebarBrand.innerHTML = `<img src="${logoSrc}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.onerror=null;this.style.display='none';">
                                                   <div class="brand-text">${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small></div>`;
                     }
                 } else {
-                    img.src = logoUrl;
+                    img.onerror = logoOnError;
+                    img.src = logoSrc;
                 }
             }
         }

@@ -1214,6 +1214,14 @@
             }
         }
     </style>
+    <script>
+    function sanitizeUserForStorage(userObj) {
+        if (!userObj || typeof userObj !== 'object') return userObj;
+        var safe = Object.assign({}, userObj);
+        delete safe.is_temp_password;
+        return safe;
+    }
+    </script>
 </head>
 
 <body>
@@ -6565,7 +6573,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/assets/dist/core-bundle.b416ffce.min.js"></script>
+    <script src="/assets/dist/core-bundle.44ba0553.min.js"></script>
     <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.b5563980.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
@@ -6995,7 +7003,7 @@
                     uObj.platform_short_name = shortName;
                     uObj.platform_software_name = softwareName;
                     uObj.platform_subtitle = platformSub;
-                    const uJson = JSON.stringify(uObj);
+                    const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                     if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                     if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                 }
@@ -7173,7 +7181,7 @@
                         if (uStr) {
                             const uObj = JSON.parse(uStr);
                             uObj.platform_logo_url = logoUrl;
-                            const uJson = JSON.stringify(uObj);
+                            const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                             if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                             if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                             if (window.OctaQube && OctaQube.user) OctaQube.user.platform_logo_url = logoUrl;
@@ -7239,7 +7247,7 @@
                         if (uStr) {
                             const uObj = JSON.parse(uStr);
                             uObj.platform_logo_url = null;
-                            const uJson = JSON.stringify(uObj);
+                            const uJson = JSON.stringify(sanitizeUserForStorage(uObj));
                             if (sessionStorage.getItem('user')) sessionStorage.setItem('user', uJson);
                             if (localStorage.getItem('user')) localStorage.setItem('user', uJson);
                             if (window.OctaQube && OctaQube.user) OctaQube.user.platform_logo_url = null;

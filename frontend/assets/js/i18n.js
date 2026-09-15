@@ -8,6 +8,14 @@
  * localStorage under their user ID key, so switching users restores their setting.
  */
 
+// Removes sensitive fields before storing user object in Web Storage
+function sanitizeUserForStorage(userObj) {
+    if (!userObj || typeof userObj !== 'object') return userObj;
+    var safe = Object.assign({}, userObj);
+    delete safe.is_temp_password;
+    return safe;
+}
+
 class LanguageManager {
     constructor() {
         this.translations = {};
@@ -677,7 +685,7 @@ class LanguageManager {
                     localStorage.setItem(`octaqube-language-${userId}`, lang);
                 }
                 user.language = lang;
-                sessionStorage.setItem('user', JSON.stringify(user));
+                sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(user)));
             }
         } catch (e) {}
 

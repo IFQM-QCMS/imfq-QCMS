@@ -149,7 +149,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/assets/dist/core-bundle.b416ffce.min.js"></script>
+    <script src="/assets/dist/core-bundle.44ba0553.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             OctaQube.init();
@@ -189,10 +189,16 @@
                     document.getElementById('profile-username').textContent = '@' + response.username;
 
                     if (response.profile_picture) {
-                        document.getElementById('avatar-icon').style.display = 'none';
                         const avatarImg = document.getElementById('avatar-preview');
-                        avatarImg.src = response.profile_picture;
+                        const avatarIcon = document.getElementById('avatar-icon');
+                        const picUrl = response.profile_picture;
+                        const picSrc = picUrl.includes('/uploads/')
+                            ? picUrl + (picUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
+                            : picUrl;
+                        avatarImg.onerror = function() { this.onerror = null; this.style.display = 'none'; if (avatarIcon) avatarIcon.style.display = 'flex'; };
+                        avatarImg.src = picSrc;
                         avatarImg.style.display = 'block';
+                        if (avatarIcon) avatarIcon.style.display = 'none';
                     }
                     if (response.banner_image) {
                         const bannerContainer = document.getElementById('profile-banner-container');

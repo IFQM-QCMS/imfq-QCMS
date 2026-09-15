@@ -19,6 +19,14 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+    function sanitizeUserForStorage(userObj) {
+        if (!userObj || typeof userObj !== 'object') return userObj;
+        var safe = Object.assign({}, userObj);
+        delete safe.is_temp_password;
+        return safe;
+    }
+    </script>
 </head>
 <body>
     <div class="app-layout">
@@ -4235,7 +4243,7 @@ console.log(data);
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.b416ffce.min.js"></script>
+    <script src="/assets/dist/core-bundle.44ba0553.min.js"></script>
     <script src="/assets/dist/platform-settings.2e5459f8.min.js"></script>
     <script>
     const settingsManager = {
@@ -4822,7 +4830,7 @@ console.log(data);
                 // Update session
                 const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
                 user.profile_picture = res.profile_picture;
-                const synchedUser = JSON.stringify(user);
+                const synchedUser = JSON.stringify(sanitizeUserForStorage(user));
                 sessionStorage.setItem('user', synchedUser);
                 localStorage.setItem('user', synchedUser);
                 OctaQube.user = user;
@@ -4927,7 +4935,7 @@ console.log(data);
                             if (userStr) {
                                 const uObj = JSON.parse(userStr);
                                 uObj.org_name = settings.name;
-                                const synchedUser = JSON.stringify(uObj);
+                                const synchedUser = JSON.stringify(sanitizeUserForStorage(uObj));
                                 sessionStorage.setItem('user', synchedUser);
                                 localStorage.setItem('user', synchedUser);
                                 if (window.OctaQube) window.OctaQube.user = uObj;
@@ -4975,8 +4983,16 @@ console.log(data);
                     const colHex = document.getElementById('color_hex'); if (colHex) colHex.innerText = (settings.primary_color || '#2563EB').toUpperCase();
                     const logoUrl = document.getElementById('logo_url'); if (logoUrl) logoUrl.value = settings.logo_url || '';
                     const favUrl = document.getElementById('favicon_url'); if (favUrl) favUrl.value = settings.favicon_url || '';
-                    const logoPrev = document.getElementById('logo_preview'); if (logoPrev && settings.logo_url) logoPrev.src = settings.logo_url;
-                    const favPrev = document.getElementById('favicon_preview'); if (favPrev && settings.favicon_url) favPrev.src = settings.favicon_url;
+                    const logoPrev = document.getElementById('logo_preview');
+                    if (logoPrev && settings.logo_url) {
+                        logoPrev.onerror = function() { this.onerror = null; this.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>"; };
+                        logoPrev.src = settings.logo_url + (settings.logo_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                    }
+                    const favPrev = document.getElementById('favicon_preview');
+                    if (favPrev && settings.favicon_url) {
+                        favPrev.onerror = function() { this.onerror = null; this.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>"; };
+                        favPrev.src = settings.favicon_url + (settings.favicon_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                    }
                     
                     // Localization
                     const tz = document.getElementById('org_timezone'); if (tz) tz.value = settings.timezone || 'UTC';
@@ -5015,14 +5031,22 @@ console.log(data);
                 if (lUrl) {
                     lUrl.addEventListener('change', (e) => {
                         const prev = document.getElementById('logo_preview');
-                        if (prev) prev.src = e.target.value;
+                        if (prev && e.target.value) {
+                            const u = e.target.value;
+                            prev.onerror = function() { this.onerror = null; };
+                            prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                        }
                     });
                 }
                 const fUrl = document.getElementById('favicon_url');
                 if (fUrl) {
                     fUrl.addEventListener('change', (e) => {
                         const prev = document.getElementById('favicon_preview');
-                        if (prev) prev.src = e.target.value;
+                        if (prev && e.target.value) {
+                            const u = e.target.value;
+                            prev.onerror = function() { this.onerror = null; };
+                            prev.src = u.includes('/uploads/') ? (u + (u.includes('?') ? '&' : '?') + 't=' + Date.now()) : u;
+                        }
                     });
                 }
                 const apiAcc = document.getElementById('api_access');
@@ -5449,7 +5473,7 @@ ET`;
                     const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
                     user.full_name = name;
                     user.language = lang;
-                    const synchedUser = JSON.stringify(user);
+                    const synchedUser = JSON.stringify(sanitizeUserForStorage(user));
                     sessionStorage.setItem('user', synchedUser);
                     localStorage.setItem('user', synchedUser);
                     OctaQube.user = user;
@@ -5539,7 +5563,7 @@ ET`;
                     user.org_logo_url = payload.logo_url;
                     user.org_favicon_url = payload.favicon_url;
                     user.org_name = payload.name;
-                    const synchedUser = JSON.stringify(user);
+                    const synchedUser = JSON.stringify(sanitizeUserForStorage(user));
                     sessionStorage.setItem('user', synchedUser);
                     localStorage.setItem('user', synchedUser);
                     
@@ -5976,12 +6000,31 @@ ET`;
                     OctaQube.toast(`${type.charAt(0).toUpperCase() + type.slice(1)} uploaded successfully!`, 'success');
                 }
                 
-                // Update input and preview
+                // Update input and preview with cache-busting timestamp so the browser
+                // re-fetches the newly uploaded image even if the URL is identical to the old one.
                 const urlInput = document.getElementById(`${type}_url`);
                 if (urlInput) urlInput.value = res.url;
-                
+
+                const FALLBACK_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><polyline points='21 15 16 10 5 21'></polyline></svg>";
+                const timestampedUrl = res.url + (res.url.includes('?') ? '&' : '?') + 't=' + Date.now();
+
                 const previewImg = document.getElementById(`${type}_preview`);
-                if (previewImg) previewImg.src = res.url;
+                if (previewImg) {
+                    previewImg.onerror = function() { this.onerror = null; this.src = FALLBACK_SVG; };
+                    previewImg.src = timestampedUrl;
+                }
+
+                // Immediately update sidebar brand logo so changes are visible without page refresh
+                if (type === 'logo') {
+                    const sidebarImg = document.querySelector('.sidebar-brand img');
+                    if (sidebarImg) {
+                        sidebarImg.onerror = function() { this.onerror = null; this.style.display = 'none'; };
+                        sidebarImg.src = timestampedUrl;
+                    }
+                    if (window.OctaQube && window.OctaQube.user) {
+                        window.OctaQube.user.org_logo_url = res.url;
+                    }
+                }
 
                 // Sync with currentUser in session/local storage for real-time header reflection
                 try {
@@ -5990,8 +6033,8 @@ ET`;
                         const u = JSON.parse(uStr);
                         if (type === 'logo') u.org_logo_url = res.url;
                         if (type === 'favicon') u.org_favicon_url = res.url;
-                        sessionStorage.setItem('user', JSON.stringify(u));
-                        localStorage.setItem('user', JSON.stringify(u));
+                        sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(u)));
+                        localStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(u)));
                     }
                 } catch (_) {}
                 
@@ -6096,8 +6139,8 @@ ET`;
                 if (res && res.status === 'success') {
                     const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
                     user.role_permissions = newPerms;
-                    sessionStorage.setItem('user', JSON.stringify(user));
-                    localStorage.setItem('user', JSON.stringify(user));
+                    sessionStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(user)));
+                    localStorage.setItem('user', JSON.stringify(sanitizeUserForStorage(user)));
                     sessionStorage.setItem('role_permissions', JSON.stringify(newPerms));
                     localStorage.setItem('role_permissions', JSON.stringify(newPerms));
 

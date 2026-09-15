@@ -79,6 +79,11 @@ const api = {
                     localStorage.setItem('token', val);
                     localStorage.setItem('access_token', val);
                 }
+                // Sync to cookie so native browser requests (<img>, <iframe>, window.open, <a target=_blank>)
+                // can authenticate against protected /uploads/ endpoints without an Authorization header.
+                try {
+                    document.cookie = 'auth_token=' + encodeURIComponent(val) + '; path=/; max-age=604800; SameSite=Lax';
+                } catch (_) {}
             } else {
                 if (typeof sessionStorage !== 'undefined') {
                     sessionStorage.removeItem('token');
@@ -88,8 +93,45 @@ const api = {
                     localStorage.removeItem('token');
                     localStorage.removeItem('access_token');
                 }
+                // Clear auth cookie on logout
+                try {
+                    document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+                } catch (_) {}
             }
         } catch (_) {}
+    },
+
+    /**
+     * Returns a URL with the JWT token appended as ?token= query parameter.
+     * Use for document/file links (PDF, DOCX, XLSX) that open in new tabs,
+     * where Authorization headers cannot be sent by the browser.
+     * External URLs (http/https) and data: / blob: URLs are returned unchanged.
+     */
+    getFileUrl(url) {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+        let clean = url.startsWith('/') ? url : '/' + url;
+        const token = this.token;
+        if (token && clean.includes('/uploads/') && !clean.includes('token=')) {
+            clean += (clean.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+        }
+        return clean;
+    },
+
+    /**
+     * Returns a URL with an optional cache-busting ?t= timestamp appended.
+     * Use for <img> src values so browsers re-fetch after an upload replaces
+     * a file at the same URL (otherwise the cached broken-image is reused).
+     * External URLs and data: / blob: URLs are returned unchanged.
+     */
+    getImageUrl(url, bustCache = false) {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+        let clean = url.startsWith('/') ? url : '/' + url;
+        if (bustCache && clean.includes('/uploads/')) {
+            clean += (clean.includes('?') ? '&' : '?') + 't=' + Date.now();
+        }
+        return clean;
     },
 
     generateIdempotencyKey() {
@@ -627,5 +669,16 @@ if (typeof window !== 'undefined') {
 
 if (typeof window !== 'undefined') {
     window.api = api;
+
+    // On every page load, ensure auth_token cookie is set if a JWT exists in storage.
+    // This allows browser-native requests (<img>, <a target="_blank">) to authenticate
+    // against protected /uploads/ endpoints without needing an Authorization header.
+    try {
+        const existingToken = (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('token') || sessionStorage.getItem('access_token')))
+            || (typeof localStorage !== 'undefined' && (localStorage.getItem('token') || localStorage.getItem('access_token')));
+        if (existingToken && !document.cookie.includes('auth_token=')) {
+            document.cookie = 'auth_token=' + encodeURIComponent(existingToken) + '; path=/; max-age=604800; SameSite=Lax';
+        }
+    } catch (_) {}
 }
 
