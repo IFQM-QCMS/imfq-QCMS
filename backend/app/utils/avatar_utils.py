@@ -43,12 +43,15 @@ def get_profile_picture_url(user_or_path):
     frontend_uploads = os.path.abspath(os.path.join(current_app.root_path, '..', '..', 'frontend', 'uploads')) if current_app else None
     search_dirs = [d for d in (upload_folder, fallback_tmp_dir, alt_tmp_dir, frontend_uploads) if d and os.path.isdir(d)]
 
-    base_name = os.path.basename(clean_name)
+    from werkzeug.utils import secure_filename
+    base_name = secure_filename(os.path.basename(clean_name))
+    if not base_name:
+        return f"/api/auth/avatar/{username}"
+
     candidates = [
-        clean_name,
         base_name,
-        f"avatars/{base_name}",
-        f"branding/{base_name}"
+        os.path.join("avatars", base_name),
+        os.path.join("branding", base_name)
     ]
 
     from app.utils.security_utils import safe_resolve_path
@@ -56,11 +59,11 @@ def get_profile_picture_url(user_or_path):
         for cand in candidates:
             safe_cand = safe_resolve_path(s_dir, cand)
             if safe_cand and os.path.isfile(safe_cand):
-                return f"/uploads/{clean_name}"
+                return f"/uploads/{cand.replace(os.sep, '/')}"
 
     # If the user has a saved avatar path (starts with avatar_ or in avatars/),
     # return the /uploads/ path so the backend /uploads/<filename> route can serve it
-    if clean_name and ('avatar_' in clean_name or 'avatars/' in clean_name):
-        return f"/uploads/{clean_name}"
+    if 'avatar_' in base_name:
+        return f"/uploads/avatars/{base_name}"
 
     return f"/api/auth/avatar/{username}"

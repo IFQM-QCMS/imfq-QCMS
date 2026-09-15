@@ -1,0 +1,8 @@
+name: "QCMS CodeQL Custom Configuration"
+
+paths-ignore:
+  - 'backend/tests/**'
+  - 'backend/scratch/**'
+  - 'backend/scripts/**'
+  - 'backend/migrations/**'
+  - 'frontend/assets/vendor/**'

@@ -1203,184 +1203,169 @@ def _hard_delete_organization(org):
     """
     org_id = org.id
     try:
-        user_ids = [u.id for u in org.users]
-        u_clause = None
-        if user_ids:
-            u_clause = f"({user_ids[0]})" if len(user_ids) == 1 else str(tuple(user_ids))
+        p = {"org_id": org_id}
 
         # ── STEP 1: Nullify cross-org/global FK references on non-org tables ──
-        if u_clause:
-            db.session.execute(text(f"UPDATE subscriptions SET created_by_id = NULL WHERE created_by_id IN {u_clause};"))
-            db.session.execute(text(f"UPDATE feature_versions SET created_by_id = NULL WHERE created_by_id IN {u_clause};"))
-            db.session.execute(text(f"UPDATE modules SET created_by_id = NULL WHERE created_by_id IN {u_clause};"))
-            db.session.execute(text(f"UPDATE saas_plan_versions SET created_by_id = NULL WHERE created_by_id IN {u_clause};"))
-            db.session.execute(text(f"UPDATE support_knowledge SET created_by_id = NULL WHERE created_by_id IN {u_clause};"))
+        db.session.execute(text("UPDATE subscriptions SET created_by_id = NULL WHERE created_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("UPDATE feature_versions SET created_by_id = NULL WHERE created_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("UPDATE modules SET created_by_id = NULL WHERE created_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("UPDATE saas_plan_versions SET created_by_id = NULL WHERE created_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("UPDATE support_knowledge SET created_by_id = NULL WHERE created_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
 
         # ── STEP 2: Subscription & billing ───────────────────────────────────
-        db.session.execute(text(f"DELETE FROM subscription_payments WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM subscription_invoices WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM subscription_credit_notes WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM offline_payment_proofs WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM subscriptions WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM subscription_payments WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM subscription_invoices WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM subscription_credit_notes WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM offline_payment_proofs WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM subscriptions WHERE org_id = :org_id;"), p)
 
         # ── STEP 3: Sessions & audit logs ────────────────────────────────────
-        db.session.execute(text(f"DELETE FROM saas_user_sessions WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM audit_export_logs WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM audit_logs WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM audit_risk_alerts WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM billing_audits WHERE org_id = {org_id};"))
-        if u_clause:
-            db.session.execute(text(f"DELETE FROM super_admin_logs WHERE admin_id IN {u_clause};"))
+        db.session.execute(text("DELETE FROM saas_user_sessions WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM audit_export_logs WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM audit_logs WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM audit_risk_alerts WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM billing_audits WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM super_admin_logs WHERE admin_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
 
         # ── STEP 4: Announcements (children before parent) ───────────────────
-        db.session.execute(text(f"DELETE FROM announcement_delivery WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM announcement_reads WHERE org_id = {org_id};"))
-        if u_clause:
-            db.session.execute(text(f"DELETE FROM announcement_attachments WHERE uploaded_by IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM announcement_audit WHERE user_id IN {u_clause};"))
-        db.session.execute(text(f"DELETE FROM announcements WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM announcement_delivery WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM announcement_reads WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM announcement_attachments WHERE uploaded_by IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM announcement_audit WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM announcements WHERE org_id = :org_id;"), p)
 
         # ── STEP 5: Notifications ─────────────────────────────────────────────
-        db.session.execute(text(f"DELETE FROM notifications WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM notifications WHERE org_id = :org_id;"), p)
 
         # ── STEP 6: Support tickets (children before parent) ──────────────────
-        db.session.execute(text(f"DELETE FROM support_comments WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM support_attachments WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM support_escalations WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM support_audits WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM support_tickets WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM support_comments WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM support_attachments WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM support_escalations WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM support_audits WHERE ticket_id IN (SELECT id FROM support_tickets WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM support_tickets WHERE org_id = :org_id;"), p)
 
         # ── STEP 7: Employee & facilitator ────────────────────────────────────
-        db.session.execute(text(f"DELETE FROM employee_points WHERE organization_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM employee_leaderboard WHERE organization_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM facilitator_notes WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM facilitator_assistance_requests WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM employee_points WHERE organization_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM employee_leaderboard WHERE organization_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM facilitator_notes WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM facilitator_assistance_requests WHERE org_id = :org_id;"), p)
 
         # ── STEP 8: Assessment results (user-scoped, no org_id) ───────────────
-        if u_clause:
-            db.session.execute(text(f"DELETE FROM assessment_results WHERE user_id IN {u_clause};"))
+        db.session.execute(text("DELETE FROM assessment_results WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
 
         # ── STEP 9: NULL plant_id on users & departments BEFORE deleting plants
-        db.session.execute(text(f"UPDATE users SET plant_id = NULL WHERE org_id = {org_id};"))
-        db.session.execute(text(f"UPDATE departments SET plant_id = NULL WHERE org_id = {org_id};"))
+        db.session.execute(text("UPDATE users SET plant_id = NULL WHERE org_id = :org_id;"), p)
+        db.session.execute(text("UPDATE departments SET plant_id = NULL WHERE org_id = :org_id;"), p)
 
         # ── STEP 10: Plants ───────────────────────────────────────────────────
-        db.session.execute(text(f"DELETE FROM plants WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM plants WHERE org_id = :org_id;"), p)
 
         # ── STEP 11: Project members (before deleting projects) ───────────────
-        db.session.execute(text(f"""
-            DELETE FROM project_members
-            WHERE project_id IN (SELECT id FROM projects WHERE org_id = {org_id});
-        """))
+        db.session.execute(text("DELETE FROM project_members WHERE project_id IN (SELECT id FROM projects WHERE org_id = :org_id);"), p)
 
         # ── STEP 12: Project stage trackers ───────────────────────────────────
-        db.session.execute(text(f"DELETE FROM stage_1_problem_definition_project_initiation WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_2_observation_data_collection WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_3_cause_identification WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_4_root_cause_analysis_verification WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_5_countermeasure_planning_solution_development WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_6_implementation_change_management WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_7_performance_verification_benefits_realization WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM stage_8_standardization_knowledge_sharing_project_closure WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM project_stage_tracker WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM stage_1_problem_definition_project_initiation WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_2_observation_data_collection WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_3_cause_identification WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_4_root_cause_analysis_verification WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_5_countermeasure_planning_solution_development WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_6_implementation_change_management WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_7_performance_verification_benefits_realization WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM stage_8_standardization_knowledge_sharing_project_closure WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM project_stage_tracker WHERE org_id = :org_id;"), p)
 
         # ── STEP 13: QC tools (children first, then parents) ──────────────────
-        db.session.execute(text(f"DELETE FROM qc_check_sheet_entries WHERE check_sheet_id IN (SELECT id FROM qc_check_sheets WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_check_sheet_rows WHERE check_sheet_id IN (SELECT id FROM qc_check_sheets WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_pareto_items WHERE pareto_chart_id IN (SELECT id FROM qc_pareto_charts WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_stratification_items WHERE stratification_id IN (SELECT id FROM qc_stratifications WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_process_steps WHERE process_map_id IN (SELECT id FROM qc_process_maps WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_fishbone_branches WHERE fishbone_id IN (SELECT id FROM qc_fishbone_diagrams WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_scatter_points WHERE scatter_diagram_id IN (SELECT id FROM qc_scatter_diagrams WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM qc_control_points WHERE control_chart_id IN (SELECT id FROM qc_control_charts WHERE org_id = {org_id});"))
+        db.session.execute(text("DELETE FROM qc_check_sheet_entries WHERE check_sheet_id IN (SELECT id FROM qc_check_sheets WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_check_sheet_rows WHERE check_sheet_id IN (SELECT id FROM qc_check_sheets WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_pareto_items WHERE pareto_chart_id IN (SELECT id FROM qc_pareto_charts WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_stratification_items WHERE stratification_id IN (SELECT id FROM qc_stratifications WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_process_steps WHERE process_map_id IN (SELECT id FROM qc_process_maps WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_fishbone_branches WHERE fishbone_id IN (SELECT id FROM qc_fishbone_diagrams WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_scatter_points WHERE scatter_diagram_id IN (SELECT id FROM qc_scatter_diagrams WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM qc_control_points WHERE control_chart_id IN (SELECT id FROM qc_control_charts WHERE org_id = :org_id);"), p)
 
-        db.session.execute(text(f"DELETE FROM qc_check_sheets WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM qc_control_charts WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM qc_fishbone_diagrams WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM qc_pareto_charts WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM qc_process_maps WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM qc_scatter_diagrams WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM qc_stratifications WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM qc_check_sheets WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM qc_control_charts WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM qc_fishbone_diagrams WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM qc_pareto_charts WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM qc_process_maps WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM qc_scatter_diagrams WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM qc_stratifications WHERE org_id = :org_id;"), p)
 
         # ── STEP 14: Project meetings, reviews, workflow ───────────────────────
-        db.session.execute(text(f"DELETE FROM project_meetings WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM project_reviews WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM project_workflow WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM project_meetings WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM project_reviews WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM project_workflow WHERE org_id = :org_id;"), p)
 
         # ── STEP 15: KPI ──────────────────────────────────────────────────────
-        db.session.execute(text(f"DELETE FROM kpi_metrics WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM kpi_dashboard_cache WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM kpi_metrics WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM kpi_dashboard_cache WHERE org_id = :org_id;"), p)
 
         # ── STEP 16: Training (user-scoped, most have no org_id) ──────────────
-        if u_clause:
-            db.session.execute(text(f"DELETE FROM training_acknowledgements WHERE user_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM training_archive WHERE archived_by_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM training_assignments WHERE user_id IN {u_clause} OR assigned_by_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM training_notifications WHERE user_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM training_certificates WHERE user_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM email_notification_rules WHERE created_by_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM email_notification_logs WHERE sent_by_id IN {u_clause};"))
-            db.session.execute(text(f"DELETE FROM sms_notification_logs WHERE sent_by_id IN {u_clause};"))
-        db.session.execute(text(f"DELETE FROM training_audit_reports WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM training_acknowledgements WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM training_archive WHERE archived_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM training_assignments WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id) OR assigned_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM training_notifications WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM training_certificates WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM email_notification_rules WHERE created_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM email_notification_logs WHERE sent_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM sms_notification_logs WHERE sent_by_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM training_audit_reports WHERE org_id = :org_id;"), p)
 
         # ── STEP 17: SOP children BEFORE sop_master ───────────────────────────
-        db.session.execute(text(f"DELETE FROM sop_steps WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM sop_approvals WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM sop_comments WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM sop_versions WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM training_assessments WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM assessment_questions WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = {org_id});"))
-        db.session.execute(text(f"DELETE FROM sop_master WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM sop_categories WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM sop_types WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM sop_steps WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM sop_approvals WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM sop_comments WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM sop_versions WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM training_assessments WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM assessment_questions WHERE sop_id IN (SELECT id FROM sop_master WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM sop_master WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM sop_categories WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM sop_types WHERE org_id = :org_id;"), p)
 
         # ── STEP 18: Knowledge & compliance ───────────────────────────────────
-        db.session.execute(text(f"DELETE FROM knowledge_repository WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM compliance_standard_records WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM knowledge_repository WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM compliance_standard_records WHERE org_id = :org_id;"), p)
 
         # ── STEP 19: NULL department_id on users BEFORE deleting departments ──
-        db.session.execute(text(f"UPDATE users SET department_id = NULL WHERE org_id = {org_id};"))
+        db.session.execute(text("UPDATE users SET department_id = NULL WHERE org_id = :org_id;"), p)
 
         # ── STEP 20: Projects (all child tables already gone) ─────────────────
-        db.session.execute(text(f"DELETE FROM projects WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM projects WHERE org_id = :org_id;"), p)
 
         # ── STEP 21: Departments (after projects deleted, users dept-nulled) ──
-        db.session.execute(text(f"DELETE FROM departments WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM departments WHERE org_id = :org_id;"), p)
 
         # ── STEP 22: User custom fields & imported ideas ───────────────────────
-        db.session.execute(text(f"DELETE FROM user_custom_fields WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM imported_ideas WHERE organization_id = {org_id};"))
+        db.session.execute(text("DELETE FROM user_custom_fields WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM imported_ideas WHERE organization_id = :org_id;"), p)
 
         # ── STEP 23: Org identity & settings ──────────────────────────────────
-        db.session.execute(text(f"DELETE FROM platform_identity WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM company_information WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM company_addresses WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM company_contacts WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM branding_assets WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM document_templates WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM organization_features WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM billing_settings WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM org_api_keys WHERE organization_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM integration_api_logs WHERE organization_id = {org_id};"))
+        db.session.execute(text("DELETE FROM platform_identity WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM company_information WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM company_addresses WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM company_contacts WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM branding_assets WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM document_templates WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM organization_features WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM billing_settings WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM org_api_keys WHERE organization_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM integration_api_logs WHERE organization_id = :org_id;"), p)
 
         # ── STEP 24: Analytics ─────────────────────────────────────────────────
-        db.session.execute(text(f"DELETE FROM analytics_ai_insights WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM analytics_exports WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM analytics_reports WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM analytics_schedules WHERE org_id = {org_id};"))
-        db.session.execute(text(f"DELETE FROM analytics_usage WHERE org_id = {org_id};"))
-        db.session.execute(text(f"UPDATE module_analytics SET org_id = NULL WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM analytics_ai_insights WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM analytics_exports WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM analytics_reports WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM analytics_schedules WHERE org_id = :org_id;"), p)
+        db.session.execute(text("DELETE FROM analytics_usage WHERE org_id = :org_id;"), p)
+        db.session.execute(text("UPDATE module_analytics SET org_id = NULL WHERE org_id = :org_id;"), p)
 
         # ── STEP 25: Delete all users belonging to this organization ──────────
-        # NOTE: We do NOT reassign users to another org — all org users are
-        # permanently removed. SuperAdmin users (org_id IS NULL) are unaffected.
-        # First null-out any FK refs in global tables pointing to these users.
-        if user_ids:
-            db.session.execute(text(f"DELETE FROM saas_user_sessions WHERE user_id IN {u_clause};"))
-        db.session.execute(text(f"DELETE FROM users WHERE org_id = {org_id};"))
+        db.session.execute(text("DELETE FROM saas_user_sessions WHERE user_id IN (SELECT id FROM users WHERE org_id = :org_id);"), p)
+        db.session.execute(text("DELETE FROM users WHERE org_id = :org_id;"), p)
 
         # ── STEP 26: Delete the organization itself ───────────────────────────
-        db.session.execute(text(f"DELETE FROM organizations WHERE id = {org_id};"))
+        db.session.execute(text("DELETE FROM organizations WHERE id = :org_id;"), p)
 
         db.session.commit()
         print(f"[HARD DELETE] Organization ID {org_id} permanently purged.")
@@ -3091,10 +3076,26 @@ def test_webhook():
     if not url:
         return jsonify({"status": "error", "message": "Webhook URL is required"}), 400
 
+    import urllib.parse
+    import re
+    parsed = urllib.parse.urlparse(url)
+    scheme = parsed.scheme.lower()
+    if scheme not in ('http', 'https'):
+        return jsonify({"status": "error", "message": "Only HTTP and HTTPS protocols are permitted."}), 400
+
+    host = (parsed.hostname or '').strip()
+    if not host or not re.fullmatch(r'^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$', host):
+        return jsonify({"status": "error", "message": "Invalid webhook destination hostname."}), 400
+
     from app.utils.security_utils import is_safe_webhook_url
     is_safe, error_msg = is_safe_webhook_url(url)
     if not is_safe:
         return jsonify({"status": "error", "message": f"Restricted or invalid webhook URL: {error_msg}"}), 400
+
+    port_part = f":{parsed.port}" if parsed.port and parsed.port not in (80, 443) else ""
+    path_part = parsed.path if parsed.path else "/"
+    query_part = f"?{parsed.query}" if parsed.query else ""
+    sanitized_url = f"{scheme}://{host}{port_part}{path_part}{query_part}"
 
     try:
         import urllib.request as urlreq
@@ -3104,7 +3105,7 @@ def test_webhook():
             "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "message": "This is a test webhook ping from QCMS"
         }).encode()
-        req = urlreq.Request(url, data=payload, method='POST',
+        req = urlreq.Request(sanitized_url, data=payload, method='POST',
                              headers={'Content-Type': 'application/json', 'X-QCMS-Event': 'test'})
         with urlreq.urlopen(req, timeout=10) as resp:
             status_code = resp.getcode()

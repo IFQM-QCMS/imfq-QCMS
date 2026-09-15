@@ -891,8 +891,8 @@ def get_login_config():
                 try:
                     from sqlalchemy import text
                     result = db.session.execute(
-                        text(f"SELECT id FROM users WHERE LOWER({key}::text) = LOWER(:val) LIMIT 1"),
-                        {"val": identifier}
+                        text("SELECT id FROM users WHERE LOWER(custom_fields ->> :key) = LOWER(:val) LIMIT 1"),
+                        {"key": key, "val": identifier}
                     ).fetchone()
                     if result:
                         user = db.session.get(User, result[0])
@@ -1081,8 +1081,8 @@ def login():
                 # Check if this column exists in users table and search it
                 try:
                     result = db.session.execute(
-                        text(f"SELECT id FROM users WHERE LOWER({key}::text) = LOWER(:val) LIMIT 1"),
-                        {"val": identifier}
+                        text("SELECT id FROM users WHERE LOWER(custom_fields ->> :key) = LOWER(:val) LIMIT 1"),
+                        {"key": key, "val": identifier}
                     ).fetchone()
                     if result:
                         user = db.session.get(User, result[0])

@@ -549,14 +549,6 @@ def create_user():
         )
         db.session.add(new_user)
         db.session.commit()
-        
-        if custom_values:
-            update_cols = ", ".join(f"{k} = :val_{k}" for k in custom_values.keys())
-            params = {f"val_{k}": v for k, v in custom_values.items()}
-            params["user_id"] = new_user.id
-            from sqlalchemy import text
-            db.session.execute(text(f"UPDATE users SET {update_cols} WHERE id = :user_id"), params)
-            db.session.commit()
     except Exception as e:
         db.session.rollback()
         return internal_server_error(e, "Failed to create user.")
@@ -669,20 +661,9 @@ def add_custom_field():
     if UserCustomField.query.filter_by(org_id=org_id, field_key=field_key).first():
         return jsonify({"message": "A field with this name already exists"}), 400
         
-    from sqlalchemy import text
-    try:
-        if field_key not in ('email', 'phone', 'username', 'role', 'department', 'plant_location'):
-            if not re.fullmatch(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$', field_key):
-                return jsonify({"message": "Field key must start with a letter and contain only alphanumeric characters and underscores."}), 400
-            insp = db.inspect(db.engine)
-            existing_cols = {c['name'].lower() for c in insp.get_columns('users')}
-            clean_col = "".join(c for c in field_key if c.isalnum() or c == '_')
-            if clean_col.lower() not in existing_cols:
-                db.session.execute(text(f'ALTER TABLE users ADD COLUMN "{clean_col}" TEXT'))
-                db.session.commit()
-    except Exception as ddl_err:
-        db.session.rollback()
-        return internal_server_error(ddl_err, "Failed to update database schema.")
+    if field_key not in ('email', 'phone', 'username', 'role', 'department', 'plant_location'):
+        if not re.fullmatch(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$', field_key):
+            return jsonify({"message": "Field key must start with a letter and contain only alphanumeric characters and underscores."}), 400
         
     new_field = UserCustomField(
         org_id=org_id,

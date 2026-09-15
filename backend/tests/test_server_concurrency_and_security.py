@@ -50,7 +50,7 @@ def test_production_security_headers_enforced(client):
     # 6. Content-Security-Policy
     csp = res.headers.get('Content-Security-Policy', '')
     assert "default-src 'self'" in csp
-    assert any('cdn.jsdelivr.net' in token for token in csp.split())
+    assert "https://cdn.jsdelivr.net" in csp
 
 
 def test_proxy_fix_client_ip_resolution(client):

@@ -156,11 +156,17 @@ def get_geo_location(ip, user=None, req=None):
         _geo_cache[cache_key] = loc_str
         return loc_str
 
-    # 3. IP Geolocation API Lookup
-    url = f"http://ip-api.com/json/{ip}"
+    # 3. IP Geolocation API Lookup (strictly validated public IP only)
     loc_str = None
     try:
-        req_obj = urllib.request.urlopen(url, timeout=1.5)
+        import ipaddress
+        clean_ip = re.sub(r'[^a-fA-F0-9\.:]', '', ip or '').strip()
+        parsed_ip = ipaddress.ip_address(clean_ip)
+        if parsed_ip.is_private or parsed_ip.is_loopback or parsed_ip.is_link_local or parsed_ip.is_reserved or parsed_ip.is_multicast:
+            loc_str = "Private Network"
+        else:
+            url = f"https://ip-api.com/json/{parsed_ip}"
+            req_obj = urllib.request.urlopen(url, timeout=1.5)
         data = json.loads(req_obj.read().decode('utf-8'))
         if data.get('status') == 'success':
             city = data.get('city') or ''

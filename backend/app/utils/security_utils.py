@@ -46,7 +46,7 @@ def is_safe_webhook_url(url: str) -> Tuple[bool, str]:
         return False, "Localhost addresses are strictly forbidden."
 
     # Prevent common cloud metadata DNS or numeric representations
-    if "169.254" in lower_host or "metadata.google.internal" in lower_host:
+    if lower_host.startswith("169.254.") or lower_host == "metadata.google.internal" or lower_host.endswith(".metadata.google.internal"):
         return False, "Cloud instance metadata endpoints are strictly forbidden."
 
     try:

@@ -2067,7 +2067,13 @@ const OctaQube = {
         let brandNameHtml = `${OctaQube.escapeHtml(shortName)} <small style="color:var(--ds-accent); opacity:1;">${OctaQube.escapeHtml(displaySub)}</small>`;
 
         if (logoUrl && logoUrl !== 'null' && logoUrl !== 'None' && !logoUrl.includes('/assets/img/logo.png')) {
-            logoIconHtml = `<img src="${logoUrl}" alt="Logo" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;">`;
+            const resolvedLogoUrl = logoUrl.includes('/uploads/') ? (logoUrl + (logoUrl.includes('?') ? '&' : '?') + 't=' + Date.now()) : logoUrl;
+            logoIconHtml = `
+                <img src="${resolvedLogoUrl}" alt="" style="width: 32px; height: 32px; object-fit: contain; border-radius: 8px;" onerror="this.style.display='none'; const fb = this.parentElement.querySelector('.fallback-brand-icon'); if (fb) fb.style.display='flex';">
+                <div class="brand-icon fallback-brand-icon" style="background: var(--ds-accent); display: none;">
+                    <i data-lucide="${isSuperAdmin ? 'shield-check' : 'building-2'}" style="color:white;"></i>
+                </div>
+            `;
         }
 
         const brandHtml = `
