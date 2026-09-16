@@ -156,6 +156,21 @@ const api = {
             }
         }
 
+        // Format URL with query parameters if options.params provided
+        let urlPath = endpoint;
+        if (options.params && typeof options.params === 'object') {
+            const searchParams = new URLSearchParams();
+            Object.entries(options.params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== '') {
+                    searchParams.append(k, v);
+                }
+            });
+            const qs = searchParams.toString();
+            if (qs) {
+                urlPath += (urlPath.includes('?') ? '&' : '?') + qs;
+            }
+        }
+
         // 1. Compute Request Key for deduplication
         let bodyKey = '';
         if (options.body) {
@@ -163,7 +178,7 @@ const api = {
                 bodyKey = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
             } catch (_) {}
         }
-        const requestKey = `${method}:${endpoint}:${bodyKey}`;
+        const requestKey = `${method}:${urlPath}:${bodyKey}`;
 
         // 2. Client-Side Request Deduplication (Return pending promise if identical request is in flight)
         if (isWriteMethod && this.inFlightRequests.has(requestKey)) {
@@ -195,12 +210,12 @@ const api = {
                 headers['Content-Type'] = 'application/json';
             }
 
-            const isPublicAuthEndpoint = endpoint.includes('/auth/login') ||
-                endpoint.includes('/auth/register') ||
-                endpoint.includes('/auth/login-config') ||
-                endpoint.includes('/auth/forgot-password') ||
-                endpoint.includes('/auth/reset-password-confirm') ||
-                endpoint.includes('/auth/sso/');
+            const isPublicAuthEndpoint = urlPath.includes('/auth/login') ||
+                urlPath.includes('/auth/register') ||
+                urlPath.includes('/auth/login-config') ||
+                urlPath.includes('/auth/forgot-password') ||
+                urlPath.includes('/auth/reset-password-confirm') ||
+                urlPath.includes('/auth/sso/');
 
             if (token && !isPublicAuthEndpoint) {
                 headers['Authorization'] = `Bearer ${token}`;
@@ -217,7 +232,7 @@ const api = {
             const timeoutId = setTimeout(() => controller.abort(), options.timeout || 120000);
 
             try {
-                const response = await fetch(`${API_BASE}${endpoint}`, {
+                const response = await fetch(`${API_BASE}${urlPath}`, {
                     ...options,
                     headers,
                     credentials: options.credentials || 'same-origin',

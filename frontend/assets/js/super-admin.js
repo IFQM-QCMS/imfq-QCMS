@@ -4496,8 +4496,12 @@ const SuperAdmin = {
 
     onPurgeRetentionChange(val) {
         const dateBox = document.getElementById('superPurgeCustomDateBox');
+        const customDateInput = document.getElementById('superPurgeCustomDate');
         if (dateBox) {
             dateBox.style.display = (val === 'custom') ? 'block' : 'none';
+        }
+        if (val === 'custom' && customDateInput && !customDateInput.value) {
+            customDateInput.value = new Date().toISOString().split('T')[0];
         }
         this.updatePurgePreview();
     },
@@ -4523,9 +4527,12 @@ const SuperAdmin = {
         if (window.lucide) lucide.createIcons();
 
         try {
-            const res = await api.get('/admin/audit/purge-preview', { params });
+            const queryStr = new URLSearchParams(params).toString();
+            const res = await api.get(`/admin/audit/purge-preview?${queryStr}`, { params });
             if (res && res.status === 'success') {
-                summaryText.innerHTML = `<strong>${res.match_count.toLocaleString()}</strong> audit logs created prior to <strong>${res.cutoff_date}</strong> will be permanently deleted.`;
+                const relation = (val === 'custom') ? 'on or before' : 'prior to';
+                const periodNote = (val !== 'custom') ? ` (older than ${val} year${val === '1' ? '' : 's'})` : '';
+                summaryText.innerHTML = `<strong>${res.match_count.toLocaleString()}</strong> audit logs created ${relation} <strong>${res.cutoff_date}</strong>${periodNote} will be permanently deleted.`;
             } else {
                 summaryText.innerText = 'Unable to estimate log count.';
             }

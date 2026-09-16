@@ -1,4 +1,4 @@
-﻿import io
+import io
 import zipfile
 import uuid
 import pytest
@@ -28,12 +28,14 @@ class TestProjectDocumentsZip:
 
     def test_zip_empty_project_documents(self, client, app):
         with app.app_context():
-            user = User.query.first()
+            user = User.query.filter(User.org_id.isnot(None)).first() or User.query.first()
+            org = Organization.query.first()
+            org_id = user.org_id or (org.id if org else 1)
             token = create_access_token(identity=str(user.id), additional_claims={"session_id": str(uuid.uuid4())})
 
             # Create a project with no workflows
             proj = Project(
-                org_id=user.org_id,
+                org_id=org_id,
                 project_uid=f"PRJ-EMPTY-{uuid.uuid4().hex[:6].upper()}",
                 title="Empty Project for Zip Test",
                 creator_id=user.id,
@@ -52,13 +54,15 @@ class TestProjectDocumentsZip:
 
     def test_zip_download_with_post_payload(self, client, app, tmp_path):
         with app.app_context():
-            user = User.query.first()
+            user = User.query.filter(User.org_id.isnot(None)).first() or User.query.first()
+            org = Organization.query.first()
+            org_id = user.org_id or (org.id if org else 1)
             token = create_access_token(identity=str(user.id), additional_claims={"session_id": str(uuid.uuid4())})
 
             proj_uid = f"PRJ-ZIP-{uuid.uuid4().hex[:6].upper()}"
             proj_title = "Zip Payload Project"
             proj = Project(
-                org_id=user.org_id,
+                org_id=org_id,
                 project_uid=proj_uid,
                 title=proj_title,
                 creator_id=user.id,
@@ -128,11 +132,13 @@ class TestProjectDocumentsZip:
 
     def test_zip_download_extracted_from_db_workflows(self, client, app):
         with app.app_context():
-            user = User.query.first()
+            user = User.query.filter(User.org_id.isnot(None)).first() or User.query.first()
+            org = Organization.query.first()
+            org_id = user.org_id or (org.id if org else 1)
             token = create_access_token(identity=str(user.id), additional_claims={"session_id": str(uuid.uuid4())})
 
             proj = Project(
-                org_id=user.org_id,
+                org_id=org_id,
                 project_uid=f"PRJ-DBZIP-{uuid.uuid4().hex[:6].upper()}",
                 title="Database Extracted Zip Project",
                 creator_id=user.id,
@@ -153,7 +159,7 @@ class TestProjectDocumentsZip:
             # Create workflow data with file references
             wf2 = ProjectWorkflow(
                 project_id=proj.id,
-                org_id=user.org_id,
+                org_id=org_id,
                 stage_id=2,
                 data={
                     "process_observation": {
@@ -168,7 +174,7 @@ class TestProjectDocumentsZip:
             )
             wf8 = ProjectWorkflow(
                 project_id=proj.id,
-                org_id=user.org_id,
+                org_id=org_id,
                 stage_id=8,
                 data={
                     "sop": {
@@ -199,8 +205,9 @@ class TestProjectDocumentsZip:
 
     def test_zip_cross_tenant_isolation(self, client, app):
         with app.app_context():
-            # Create second organization with email
-            org2 = Organization(name="Other Tenant Org", email="other_org@example.com")
+            # Create second organization with unique email
+            org_uid = uuid.uuid4().hex[:8]
+            org2 = Organization(name=f"Other Tenant Org {org_uid}", email=f"other_org_{org_uid}@example.com")
             db.session.add(org2)
             db.session.flush()
 
@@ -216,9 +223,11 @@ class TestProjectDocumentsZip:
             db.session.add(other_user)
 
             # Create project belonging to org 1
-            user1 = User.query.filter_by(org_id=1).first() or User.query.first()
+            user1 = User.query.filter(User.org_id.isnot(None)).first() or User.query.first()
+            org1 = Organization.query.first()
+            org1_id = user1.org_id or (org1.id if org1 else 1)
             proj = Project(
-                org_id=user1.org_id,
+                org_id=org1_id,
                 project_uid=f"PRJ-TENANT-{uuid.uuid4().hex[:6].upper()}",
                 title="Tenant Isolation Project",
                 creator_id=user1.id,

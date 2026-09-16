@@ -6568,12 +6568,12 @@
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
     <script src="/assets/dist/chart.min.js"></script>
-    <script src="/assets/dist/core-bundle.54ce2424.min.js"></script>
+    <script src="/assets/dist/core-bundle.6ee752ae.min.js"></script>
     <script src="/assets/dist/enterprise-analytics.015c477c.min.js"></script>
     <script src="/assets/dist/support-desk.81f4486e.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
     <script src="/assets/dist/platform-settings.05729cbd.min.js"></script>
-    <script src="/assets/dist/super-admin.206e00e1.min.js"></script>
+    <script src="/assets/dist/super-admin.386b2cb2.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
@@ -8266,12 +8266,12 @@ body.dark-mode #sa-doc-preview-body > div {
                             <option value="5">Keep 5 Years of Logs (Delete logs older than 5 years)</option>
                             <option value="3">Keep 3 Years of Logs (Delete logs older than 3 years)</option>
                             <option value="1">Keep 1 Year of Logs (Delete logs older than 1 year)</option>
-                            <option value="custom">Custom Cutoff Date (Delete all logs prior to selected date)</option>
+                            <option value="custom">Custom Cutoff Date (Delete all logs on or before selected date)</option>
                         </select>
                     </div>
                     <div class="mb-3" id="superPurgeCustomDateBox" style="display: none;">
                         <label class="ds-label text-xs fw-semibold mb-1">Select Custom Cutoff Date</label>
-                        <input type="date" class="ds-input text-xs" id="superPurgeCustomDate" onchange="SuperAdmin.updatePurgePreview()">
+                        <input type="date" class="ds-input text-xs" id="superPurgeCustomDate" onchange="SuperAdmin.updatePurgePreview()" oninput="SuperAdmin.updatePurgePreview()">
                     </div>
                     <div class="p-3 rounded border bg-light-subtle text-xs mb-3" id="superPurgePreviewBox">
                         <div class="fw-bold text-main mb-1"><i data-lucide="info" style="width:13px;height:13px;" class="me-1 text-primary"></i> Purge Target Summary:</div>

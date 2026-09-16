@@ -1425,9 +1425,15 @@ def preview_audit_log_purge():
     if not user:
         return jsonify({"message": "Unauthorized"}), 401
 
-    data = request.get_json(silent=True) or request.args
+    data = {}
+    if request.args:
+        data.update(request.args.to_dict())
+    json_data = request.get_json(silent=True)
+    if isinstance(json_data, dict):
+        data.update(json_data)
+
     retention_years = data.get('retention_years')
-    custom_before_date = data.get('before_date') or data.get('start_date')
+    custom_before_date = data.get('before_date') or data.get('start_date') or data.get('cutoff_date')
 
     role_name = user.role.name if (user and user.role) else ''
     is_super = (role_name in ('SuperAdmin', 'Super Admin')) or getattr(user, 'is_super_admin', False)
@@ -1437,7 +1443,11 @@ def preview_audit_log_purge():
 
     if custom_before_date:
         try:
-            cutoff_date = datetime.fromisoformat(str(custom_before_date).replace('Z', ''))
+            date_str = str(custom_before_date).strip().replace('Z', '')
+            if len(date_str) == 10:
+                cutoff_date = datetime.fromisoformat(date_str + 'T23:59:59.999999')
+            else:
+                cutoff_date = datetime.fromisoformat(date_str)
         except Exception:
             return jsonify({"message": "Invalid custom cutoff date format. Use YYYY-MM-DD."}), 400
     elif retention_years is not None:
@@ -1452,7 +1462,7 @@ def preview_audit_log_purge():
         default_years = 7.0 if is_super else 8.0
         cutoff_date = now - timedelta(days=int(default_years * 365.25))
 
-    query = AuditLog.query.filter(AuditLog.created_at < cutoff_date)
+    query = AuditLog.query.filter(AuditLog.created_at <= cutoff_date)
 
     if not is_super:
         if not user.org_id:
@@ -1481,10 +1491,15 @@ def purge_audit_logs():
     if not user:
         return jsonify({"message": "Unauthorized"}), 401
 
-    data = request.get_json(silent=True) or request.args
+    data = {}
+    if request.args:
+        data.update(request.args.to_dict())
+    json_data = request.get_json(silent=True)
+    if isinstance(json_data, dict):
+        data.update(json_data)
+
     retention_years = data.get('retention_years')
-    custom_before_date = data.get('before_date') or data.get('start_date')
-    mode = data.get('mode')
+    custom_before_date = data.get('before_date') or data.get('start_date') or data.get('cutoff_date')
     days = data.get('days')
 
     role_name = user.role.name if (user and user.role) else ''
@@ -1495,7 +1510,11 @@ def purge_audit_logs():
 
     if custom_before_date:
         try:
-            cutoff_date = datetime.fromisoformat(str(custom_before_date).replace('Z', ''))
+            date_str = str(custom_before_date).strip().replace('Z', '')
+            if len(date_str) == 10:
+                cutoff_date = datetime.fromisoformat(date_str + 'T23:59:59.999999')
+            else:
+                cutoff_date = datetime.fromisoformat(date_str)
         except Exception:
             return jsonify({"message": "Invalid custom cutoff date format."}), 400
     elif retention_years is not None:
@@ -1520,7 +1539,7 @@ def purge_audit_logs():
         max_8yr_cutoff = now - timedelta(days=int(8 * 365.25))
         AuditLog.query.filter(AuditLog.org_id == user.org_id, AuditLog.created_at < max_8yr_cutoff).delete(synchronize_session=False)
 
-    query = AuditLog.query.filter(AuditLog.created_at < cutoff_date)
+    query = AuditLog.query.filter(AuditLog.created_at <= cutoff_date)
 
     if not is_super:
         if not user.org_id:
