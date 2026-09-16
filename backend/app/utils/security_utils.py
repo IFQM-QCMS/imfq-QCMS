@@ -59,6 +59,10 @@ def is_safe_webhook_url(url: str) -> Tuple[bool, str]:
             ip_str = addr_info[4][0]
             ip = ipaddress.ip_address(ip_str)
 
+            # Handle RFC 6052 / RFC 6146 NAT64 well-known prefix (64:ff9b::/96)
+            if ip.version == 6 and ip in ipaddress.IPv6Network('64:ff9b::/96'):
+                ip = ipaddress.IPv4Address(ip.packed[-4:])
+
             if ip.is_loopback:
                 return False, "Destination IP resolves to a loopback address."
             if ip.is_private:
