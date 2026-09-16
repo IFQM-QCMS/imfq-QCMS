@@ -3514,18 +3514,43 @@ const ProjectApp = {
         if (window.lucide) setTimeout(() => lucide.createIcons(), 100);
     },
 
-    downloadAllDocuments() {
+    async downloadAllDocuments() {
         const docs = this.extractAllProjectDocuments();
-        if (docs.length === 0) {
+        if (!docs || docs.length === 0) {
             OctaQube.toast("No documents available to download.", "info");
             return;
         }
-        OctaQube.toast(`Opening ${docs.length} documents...`, "info");
-        docs.forEach((doc, idx) => {
-            setTimeout(() => {
-                this.openDocument(doc.url);
-            }, idx * 250);
-        });
+
+        const btn = document.getElementById('downloadAllDocsBtn');
+        const origHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Creating ZIP...`;
+        }
+
+        try {
+            OctaQube.toast(`Preparing ZIP archive for ${docs.length} document${docs.length === 1 ? '' : 's'}...`, "info");
+            const rawId = (this.projectData && this.projectData.project_uid) ? this.projectData.project_uid : `Project_${this.projectId}`;
+            const cleanTitle = `${rawId.replace(/[^a-zA-Z0-9_\-]/g, '_')}_Documents.zip`;
+
+            await api.downloadFile(`/projects/${this.projectId}/documents/zip`, cleanTitle, {
+                method: 'POST',
+                body: { documents: docs }
+            });
+
+            OctaQube.toast("Project documents downloaded successfully as ZIP archive.", "success");
+        } catch (err) {
+            console.error("Error downloading documents ZIP:", err);
+            OctaQube.toast(err.message || "Failed to download documents ZIP archive.", "error");
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+                if (window.lucide) {
+                    try { lucide.createIcons(); } catch (_) {}
+                }
+            }
+        }
     },
 
     openRequestRestartModal() {

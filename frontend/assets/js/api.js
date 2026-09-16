@@ -404,7 +404,7 @@ const api = {
         return this.post(endpoint, formData);
     },
 
-    downloadFile: async function(endpoint, filename) {
+    downloadFile: async function(endpoint, filename, options = {}) {
         // Global PDF Module Access Check
         if (window.FeatureEngine) {
             const isPdf = endpoint.includes('/reports/export/pdf') || (filename && filename.toLowerCase().endsWith('.pdf'));
@@ -418,13 +418,22 @@ const api = {
         }
 
         const token = this.token;
-        const headers = {};
-        if (token) {
+        const headers = Object.assign({}, options.headers || {});
+        if (token && !headers['Authorization']) {
             headers['Authorization'] = `Bearer ${token}`;
         }
+
+        const method = (options.method || 'GET').toUpperCase();
+        let body = options.body;
+        if (body && typeof body === 'object' && !(body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify(body);
+        }
+
         const response = await fetch(`${API_BASE}${endpoint}`, {
-            method: 'GET',
+            method: method,
             headers: headers,
+            body: body,
             credentials: 'same-origin'
         });
         if (response.status === 401) {

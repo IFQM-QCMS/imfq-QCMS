@@ -1,13 +1,18 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.infrastructure.database.models.models import Project, User, ProjectMember, KPIMetric, ProjectStageTracker, ProjectWorkflow, Department, AuditLog, db
 from app.presentation.middleware.middleware import role_required
 from app.domain.services.subscription_service import SubscriptionManager
 from app.domain.services.feature_engine import feature_module_required
 from app.presentation.middleware.idempotency_middleware import idempotent
+from app.infrastructure.storage.storage_service import storage
 from datetime import datetime, timezone, timedelta
 import uuid
 import copy
+import os
+import re
+import io
+import zipfile
 from sqlalchemy.orm.attributes import flag_modified
 from app.presentation.routes.error_helpers import internal_server_error
 
@@ -1636,6 +1641,422 @@ def review_stage_generic(id, stage_id):
     mapped_decision = decision_map.get(decision)
     from app.presentation.routes.reviewer_routes import _process_decision_logic
     return _process_decision_logic(user, id, mapped_decision, comments, stage_id)
+
+
+def _extract_project_documents_from_db(project):
+    """
+    Extracts all uploaded and referenced documents across all workflow stages of a project.
+    Returns a list of dicts: [{'stage': int, 'stage_name': str, 'title': str, 'url': str, 'category': str}]
+    """
+    stage_names = {
+        1: 'Stage 1 - Project Charter & Team',
+        2: 'Stage 2 - Define Problem & Observation',
+        3: 'Stage 3 - Interim Containment & Causes',
+        4: 'Stage 4 - Root Cause Analysis',
+        5: 'Stage 5 - Permanent Corrections',
+        6: 'Stage 6 - Implementation & Action Plans',
+        7: 'Stage 7 - Preventive Measures & Verification',
+        8: 'Stage 8 - SOP Standardization & Closure'
+    }
+    docs = []
+    seen_urls = set()
+
+    def add_doc(stg, title, raw_url, cat='Evidence'):
+        if not raw_url or not isinstance(raw_url, str):
+            return
+        u = raw_url.strip()
+        if not u or u.lower() in ('#', 'n/a', 'none', 'null', 'undefined', 'uploading...'):
+            return
+        if u.startswith('ev_'):
+            u = f"/uploads/project_evidence/{u}"
+        elif u.startswith('sop_'):
+            u = f"/uploads/sop/{u}"
+        elif not (u.startswith('http://') or u.startswith('https://') or u.startswith('/uploads/') or u.startswith('uploads/')):
+            if any(u.lower().endswith(ext) for ext in ('.pdf', '.png', '.jpg', '.jpeg', '.docx', '.xlsx', '.xls', '.csv', '.pptx', '.txt', '.mp4')):
+                u = f"/uploads/{u}"
+            else:
+                return
+
+        if u in seen_urls:
+            return
+        seen_urls.add(u)
+
+        clean_t = (title or '').strip()
+        if not clean_t or clean_t.startswith('http') or clean_t.startswith('/uploads'):
+            clean_t = os.path.basename(u.split('?')[0])
+            clean_t = re.sub(r'^(ev_\d+_\d+_|sop_\d+_)', '', clean_t)
+            clean_t = os.path.splitext(clean_t)[0] or 'Document'
+
+        docs.append({
+            'stage': stg,
+            'stage_name': stage_names.get(stg, f"Stage {stg}"),
+            'title': clean_t,
+            'url': u,
+            'category': cat
+        })
+
+    workflows = ProjectWorkflow.query.filter_by(project_id=project.id).all()
+    for wf in workflows:
+        stg = wf.stage_id
+        d = wf.data or {}
+        if not isinstance(d, dict):
+            continue
+
+        if stg == 2:
+            for parent_key in ('current_state', 'customer_statement', 'problem_definition'):
+                sub = d.get(parent_key)
+                if isinstance(sub, dict):
+                    for m in (sub.get('media_files') or []):
+                        if isinstance(m, dict):
+                            add_doc(2, m.get('name') or m.get('file_name') or 'Problem Definition Evidence', m.get('url') or m.get('file_path'), 'Problem Evidence')
+                        elif isinstance(m, str):
+                            add_doc(2, 'Problem Definition Evidence', m, 'Problem Evidence')
+            for m in (d.get('media_files') or []):
+                if isinstance(m, dict):
+                    add_doc(2, m.get('name') or m.get('file_name') or 'Problem Evidence', m.get('url') or m.get('file_path'), 'Problem Evidence')
+                elif isinstance(m, str):
+                    add_doc(2, 'Problem Evidence', m, 'Problem Evidence')
+            po = d.get('process_observation')
+            if isinstance(po, dict):
+                if po.get('flow_upload'): add_doc(2, 'Process Flow Diagram', po.get('flow_upload'), 'Flow Diagram')
+                if po.get('gemba_evidence'): add_doc(2, 'Gemba Walk Evidence', po.get('gemba_evidence'), 'Gemba Evidence')
+                if po.get('gembutsu_evidence'): add_doc(2, 'Gembutsu Evidence', po.get('gembutsu_evidence'), 'Gembutsu Evidence')
+            pf = d.get('process_flow')
+            if isinstance(pf, dict) and pf.get('evidence'):
+                add_doc(2, 'Process Flow Evidence', pf.get('evidence'), 'Process Flow')
+            dc = d.get('data_collection')
+            if isinstance(dc, dict) and dc.get('csv_file'):
+                add_doc(2, 'Data Collection CSV Sheet', dc.get('csv_file'), 'Data Sheet')
+
+        elif stg == 6:
+            for ev in (d.get('implementation_evidence') or []):
+                if isinstance(ev, dict):
+                    add_doc(6, ev.get('document_name') or ev.get('name') or 'Implementation Evidence', ev.get('link') or ev.get('url'), 'Implementation Evidence')
+            for cm in (d.get('countermeasures') or []):
+                if isinstance(cm, dict):
+                    if cm.get('evidence_url'):
+                        add_doc(6, cm.get('countermeasure') or 'Countermeasure Evidence', cm.get('evidence_url'), 'Action Evidence')
+                    if cm.get('doc_url'):
+                        add_doc(6, cm.get('countermeasure') or 'Implementation Document', cm.get('doc_url'), 'Implementation Doc')
+
+        elif stg == 8:
+            sop = d.get('sop')
+            if isinstance(sop, dict):
+                if sop.get('attachment_url'): add_doc(8, 'SOP Supporting Annexure Document', sop.get('attachment_url'), 'SOP Annexure')
+                if sop.get('attachment'): add_doc(8, 'SOP Supporting Annexure Document', sop.get('attachment'), 'SOP Annexure')
+            if d.get('sop_attachment'): add_doc(8, 'SOP Annexure Document', d.get('sop_attachment'), 'SOP Annexure')
+            for std in (d.get('standardization') or []):
+                if isinstance(std, dict) and std.get('document'):
+                    add_doc(8, std.get('document'), std.get('document'), 'Standardization Doc')
+            for repo in (d.get('knowledge_repository') or []):
+                if isinstance(repo, dict) and (repo.get('link') or repo.get('url')):
+                    add_doc(8, repo.get('summary') or repo.get('keyword') or 'Knowledge Repository Asset', repo.get('link') or repo.get('url'), 'Knowledge Repository')
+            for tr in (d.get('training_adoption') or []):
+                if isinstance(tr, dict) and tr.get('document'):
+                    add_doc(8, tr.get('target_group') or 'Training Attendance Record', tr.get('document'), 'Training Record')
+            pub = d.get('ip_patent_publication')
+            if isinstance(pub, dict) and pub.get('paper_title_link'):
+                add_doc(8, pub.get('patent_title') or pub.get('forum_name') or 'Research Paper / Patent Document', pub.get('paper_title_link'), 'Research & Patent')
+
+        # Generic deep scan fallback
+        def _scan_deep(val, cur_stg):
+            if isinstance(val, str):
+                if '/uploads/' in val or val.startswith('ev_') or val.startswith('sop_') or any(val.lower().endswith(x) for x in ('.pdf', '.png', '.jpg', '.jpeg', '.xlsx', '.docx', '.csv', '.pptx')):
+                    add_doc(cur_stg, os.path.basename(val.split('?')[0]), val, 'Stage Attachment')
+            elif isinstance(val, dict):
+                for v in val.values():
+                    _scan_deep(v, cur_stg)
+            elif isinstance(val, list):
+                for item in val:
+                    _scan_deep(item, cur_stg)
+
+        _scan_deep(d, stg)
+
+    return docs
+
+
+def _fetch_document_bytes(raw_url, org_id, is_super_admin=False):
+    """
+    Safely retrieves the raw bytes and filename for a given document URL or upload path.
+    Enforces tenant isolation (rejects cross-tenant org_X files).
+    Returns (bytes_data, safe_filename) or (None, None)
+    """
+    if not raw_url or not isinstance(raw_url, str):
+        return None, None
+
+    u = raw_url.strip()
+    clean_path = u
+    if clean_path.startswith('/uploads/'):
+        clean_path = clean_path[len('/uploads/'):]
+    elif clean_path.startswith('uploads/'):
+        clean_path = clean_path[len('uploads/'):]
+    elif clean_path.startswith('ev_'):
+        clean_path = f"project_evidence/{clean_path}"
+    elif clean_path.startswith('sop_'):
+        clean_path = f"sop/{clean_path}"
+
+    clean_path = os.path.normpath(clean_path).replace('\\', '/').lstrip('/')
+    if '..' in clean_path:
+        return None, None
+
+    # Enforce tenant isolation on files with org_<id>
+    if not is_super_admin:
+        org_match = re.search(r'org_(\d+)', clean_path)
+        if org_match and int(org_match.group(1)) != org_id:
+            return None, None
+
+    # 1. Try unified StorageService
+    try:
+        data, _ = storage.get_file_bytes(clean_path)
+        if data:
+            return data, os.path.basename(clean_path)
+    except Exception:
+        pass
+
+    # 2. Try direct local filesystem resolution across known upload directories
+    primary_dir = current_app.config.get('UPLOAD_FOLDER')
+    root_uploads = os.path.abspath(os.path.join(current_app.root_path, '..', '..', 'uploads'))
+    backend_uploads = os.path.abspath(os.path.join(current_app.root_path, '..', 'uploads'))
+    frontend_uploads = os.path.abspath(os.path.join(current_app.root_path, '..', '..', 'frontend', 'uploads'))
+    import tempfile
+    fallback_tmp = os.path.join(tempfile.gettempdir(), 'qcms_uploads')
+    alt_tmp = '/tmp/uploads'
+
+    search_dirs = [d for d in (primary_dir, root_uploads, backend_uploads, frontend_uploads, fallback_tmp, alt_tmp) if d and os.path.isdir(d)]
+    from werkzeug.utils import safe_join
+
+    base_name = os.path.basename(clean_path)
+    for s_dir in search_dirs:
+        cand = safe_join(s_dir, clean_path)
+        if cand and os.path.isfile(cand):
+            try:
+                with open(cand, 'rb') as f:
+                    return f.read(), base_name
+            except Exception:
+                pass
+        cand_base = safe_join(s_dir, base_name)
+        if cand_base and os.path.isfile(cand_base):
+            try:
+                with open(cand_base, 'rb') as f:
+                    return f.read(), base_name
+            except Exception:
+                pass
+        for sub in ('project_evidence', 'sop', 'evidence', 'reports', 'avatars', 'branding', 'support_attachments', 'projects'):
+            cand_sub = safe_join(s_dir, sub, base_name)
+            if cand_sub and os.path.isfile(cand_sub):
+                try:
+                    with open(cand_sub, 'rb') as f:
+                        return f.read(), base_name
+                except Exception:
+                    pass
+
+    # 3. Handle external HTTP/HTTPS URLs
+    if u.startswith('http://') or u.startswith('https://'):
+        if '/uploads/' in u:
+            relative = u.split('/uploads/', 1)[1]
+            return _fetch_document_bytes(f"/uploads/{relative}", org_id, is_super_admin)
+        try:
+            import requests
+            resp = requests.get(u, timeout=10, headers={'User-Agent': 'QCMS-Document-Archiver/1.0'})
+            if resp.status_code == 200 and resp.content:
+                c_type = resp.headers.get('Content-Type', '').lower()
+                if 'text/html' not in c_type or any(u.lower().endswith(ext) for ext in ('.pdf', '.png', '.jpg', '.jpeg', '.xlsx', '.docx')):
+                    url_base = os.path.basename(u.split('?')[0]) or 'document'
+                    return resp.content, url_base
+        except Exception:
+            pass
+
+    return None, None
+
+
+@project_bp.route('/<id_or_uid>/documents/zip', methods=['GET', 'POST'])
+def download_project_documents_zip(id_or_uid):
+    """
+    Packages all project documents, attachments, evidence, SOP annexures, and
+    presentations into a structured ZIP archive and streams it to the user.
+    """
+    from flask_jwt_extended import verify_jwt_in_request
+
+    user_id = None
+    token = request.args.get('token')
+    if not token:
+        token = request.cookies.get('auth_token') or request.cookies.get('access_token_cookie') or request.cookies.get('token')
+
+    if token:
+        try:
+            from flask_jwt_extended import decode_token
+            decoded = decode_token(token)
+            sub = decoded.get('sub')
+            if isinstance(sub, dict):
+                sub = sub.get('id') or sub.get('user_id')
+            user_id = int(sub) if sub else None
+        except Exception:
+            pass
+
+    if not user_id:
+        try:
+            verify_jwt_in_request(optional=True)
+            ident = get_jwt_identity()
+            if isinstance(ident, dict):
+                ident = ident.get('id') or ident.get('user_id')
+            user_id = int(ident) if ident else None
+        except Exception:
+            pass
+
+    if not user_id:
+        return jsonify({"msg": "Authentication required to download project documents.", "code": "UNAUTHORIZED"}), 401
+
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    # Resolve project
+    proj_query = Project.query
+    project = None
+    if str(id_or_uid).isdigit():
+        project = proj_query.filter_by(id=int(id_or_uid)).first()
+    if not project:
+        project = proj_query.filter(
+            db.func.lower(Project.project_uid) == str(id_or_uid).lower()
+        ).first()
+
+    if not project:
+        return jsonify({"msg": "Project not found"}), 404
+
+    is_super_admin = bool(user.role and user.role.name == 'SuperAdmin')
+    if not is_super_admin and project.org_id != user.org_id:
+        return jsonify({"msg": "Project not found"}), 404
+
+    # Permission check: assigned users, admins, or if closed/archived/completed any user in org
+    is_archived_or_closed = project.status in ('Closed', 'Completed', 'Archived') or (project.current_stage == 8 and 'Approved' in (project.status or ''))
+    if not is_super_admin and not is_archived_or_closed:
+        role = user.role.name if user.role else ''
+        if role == 'Team Member':
+            is_member = ProjectMember.query.filter_by(project_id=project.id, user_id=user.id).first()
+            if not is_member and project.creator_id != user.id:
+                return jsonify({"msg": "Unauthorized access. You are not assigned to this project."}), 403
+        elif role == 'Team Leader':
+            is_member = ProjectMember.query.filter_by(project_id=project.id, user_id=user.id).first()
+            if project.team_leader_id != user.id and project.creator_id != user.id and not is_member and (user.dept and user.dept.name not in ['All', 'N/A'] and project.department_id != user.department_id):
+                return jsonify({"msg": "Unauthorized access. You are not assigned to this project."}), 403
+        elif role == 'Facilitator':
+            if project.facilitator_id and project.facilitator_id != user.id:
+                return jsonify({"msg": "Unauthorized access. You are not the facilitator for this project."}), 403
+        elif role == 'Reviewer':
+            if project.reviewer_id and project.reviewer_id != user.id:
+                return jsonify({"msg": "Unauthorized access. You are not the reviewer for this project."}), 403
+
+    # Gather documents: from client POST payload or extracted from DB
+    client_docs = []
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        if isinstance(payload.get('documents'), list):
+            client_docs = payload['documents']
+
+    docs_to_bundle = client_docs if client_docs else _extract_project_documents_from_db(project)
+
+    if not docs_to_bundle:
+        return jsonify({"msg": "No documents found to download for this project."}), 404
+
+    zip_buffer = io.BytesIO()
+    used_zip_paths = set()
+    files_added = 0
+    readme_lines = [
+        f"Project Documents Archive: {project.title}",
+        f"Project UID: {project.project_uid}",
+        f"Category: {project.category or 'N/A'}",
+        f"Department: {project.department.name if project.department else 'N/A'}",
+        f"Status: {project.status}",
+        f"Downloaded By: {user.full_name or user.username} on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        "=" * 70,
+        "ARCHIVED DOCUMENTS:",
+        ""
+    ]
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for idx, doc in enumerate(docs_to_bundle, 1):
+            if not isinstance(doc, dict):
+                continue
+            raw_url = doc.get('url') or doc.get('file_path')
+            if not raw_url:
+                continue
+
+            stage = doc.get('stage') or 0
+            stage_name = doc.get('stageName') or doc.get('stage_name') or (f"Stage {stage}" if stage else "General Documents")
+            clean_folder = re.sub(r'[\\/*?:"<>|]', '_', stage_name).strip()
+
+            raw_title = doc.get('title') or f"document_{idx}"
+            clean_title = re.sub(r'[\\/*?:"<>|]', '_', raw_title).strip()
+            if not clean_title:
+                clean_title = f"document_{idx}"
+
+            file_bytes, disk_name = _fetch_document_bytes(raw_url, project.org_id, is_super_admin)
+
+            ext = ''
+            if disk_name and '.' in disk_name:
+                ext = '.' + disk_name.split('.')[-1].lower()
+            elif '.' in raw_url.split('?')[0]:
+                ext = '.' + raw_url.split('?')[0].split('.')[-1].lower()
+            elif doc.get('ext'):
+                ext = '.' + str(doc['ext']).lower()
+
+            if ext and not clean_title.lower().endswith(ext):
+                clean_title += ext
+
+            base_zip_path = f"{clean_folder}/{clean_title}"
+            zip_path = base_zip_path
+            counter = 1
+            while zip_path in used_zip_paths:
+                name_part, ext_part = os.path.splitext(clean_title)
+                zip_path = f"{clean_folder}/{name_part}_{counter}{ext_part}"
+                counter += 1
+            used_zip_paths.add(zip_path)
+
+            if file_bytes:
+                zf.writestr(zip_path, file_bytes)
+                files_added += 1
+                readme_lines.append(f"[{idx}] {zip_path} (Size: {len(file_bytes)} bytes) - URL: {raw_url}")
+            else:
+                info_content = (
+                    f"Document Reference: {raw_title}\n"
+                    f"Stage: {stage_name}\n"
+                    f"Category: {doc.get('category', 'Document')}\n"
+                    f"Source URL: {raw_url}\n"
+                    f"Note: This resource is an external link or was not stored as local binary data.\n"
+                )
+                txt_zip_path = os.path.splitext(zip_path)[0] + " - Link.txt"
+                zf.writestr(txt_zip_path, info_content.encode('utf-8'))
+                readme_lines.append(f"[{idx}] {txt_zip_path} (External / Reference Link) - URL: {raw_url}")
+
+        readme_text = "\n".join(readme_lines) + "\n"
+        zf.writestr("README_Project_Documents_Index.txt", readme_text.encode('utf-8'))
+
+    try:
+        db.session.add(AuditLog(
+            org_id=user.org_id,
+            user_id=user.id,
+            project_id=project.id,
+            action="PROJECT_DOCUMENTS_ZIP_DOWNLOAD",
+            target_table="projects",
+            target_id=project.id,
+            details=f"Downloaded ZIP containing {files_added} document(s) for project {project.project_uid}."
+        ))
+        db.session.commit()
+    except Exception as audit_err:
+        db.session.rollback()
+        current_app.logger.warning(f"[ZIP Documents Export] Audit log failed: {audit_err}")
+
+    zip_buffer.seek(0)
+    safe_uid = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(project.project_uid or f'Project_{project.id}'))
+    download_filename = f"{safe_uid}_Documents.zip"
+
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=download_filename
+    )
+
 
 @project_bp.route('/<id_or_uid>', methods=['GET'])
 @jwt_required()
