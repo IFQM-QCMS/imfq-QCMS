@@ -71,7 +71,15 @@ def test_purge_audit_logs_execution(client, super_admin_context):
     cutoff_str = (now - timedelta(days=5)).strftime('%Y-%m-%d')
     res = client.post('/api/admin/audit/purge', json={"before_date": cutoff_str}, headers=headers)
     assert res.status_code == 200
+    data = res.get_json()
+    assert data['status'] == 'success'
+    assert data['deleted_count'] >= 1
 
-    # Verify the test log was deleted
-    deleted_check = db.session.get(AuditLog, log_id)
+    # Expire session so SQLAlchemy queries database instead of returning stale identity map
+    db.session.expire_all()
+    deleted_check = AuditLog.query.filter_by(action="PURGE_TEST_ENTRY").first()
     assert deleted_check is None
+
+    # Verify purge event was logged
+    purge_event = AuditLog.query.filter_by(action="PURGE_AUDIT_LOGS").first()
+    assert purge_event is not None
