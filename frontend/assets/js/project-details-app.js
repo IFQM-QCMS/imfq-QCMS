@@ -1236,7 +1236,11 @@ const ProjectApp = {
             if (lockedNotice) lockedNotice.classList.add('d-none');
             document.getElementById('stageContentContainer')?.classList.remove('d-none');
             if (meetingsSec) {
-                meetingsSec.classList.remove('d-none');
+                if (isProjectClosed) {
+                    meetingsSec.classList.add('d-none');
+                } else {
+                    meetingsSec.classList.remove('d-none');
+                }
                 this.loadMeetings();
             }
             if (scheduleMeetingBtn) {
@@ -2001,7 +2005,9 @@ const ProjectApp = {
         const listContainer = document.getElementById('stageMeetingsList');
         if (!listContainer) return;
 
-        const isProjectClosed = this.projectData && (this.projectData.status === 'Closed' || this.projectData.status === 'Completed');
+        const meetingsSec = document.getElementById('stageMeetingsSection');
+        const projStatus = (this.projectData?.status || '').toLowerCase().trim();
+        const isProjectClosed = projStatus === 'closed' || projStatus === 'completed';
         const titleEl = document.getElementById('stageMeetingsTitle');
         const iconEl = document.getElementById('stageMeetingsIcon');
         if (titleEl) {
@@ -2011,27 +2017,39 @@ const ProjectApp = {
             iconEl.setAttribute('data-lucide', isProjectClosed ? 'history' : 'calendar');
         }
         
-        listContainer.innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <div class="spinner-border spinner-border-sm text-primary opacity-25" role="status"></div>
-                <p class="text-xs mt-2">Loading stage meetings...</p>
-            </div>
-        `;
-        if (window.lucide) lucide.createIcons();
+        if (!isProjectClosed) {
+            listContainer.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm text-primary opacity-25" role="status"></div>
+                    <p class="text-xs mt-2">Loading stage meetings...</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
 
         try {
             const meetings = await api.get(`/projects/${this.projectId}/stage/${this.activeStageId}/meetings`);
             this.stageMeetings = meetings || [];
 
             if (!meetings || !meetings.length) {
+                if (isProjectClosed) {
+                    if (meetingsSec) meetingsSec.classList.add('d-none');
+                    listContainer.innerHTML = '';
+                    return;
+                }
+                if (meetingsSec) meetingsSec.classList.remove('d-none');
                 listContainer.innerHTML = `
                     <div class="text-center py-4 text-muted">
                         <i data-lucide="calendar-x" class="mb-2 opacity-50" style="width:24px;height:24px;"></i>
-                        <p class="text-xs mb-0">${isProjectClosed ? 'No meeting history for this stage.' : 'No meetings scheduled for this stage.'}</p>
+                        <p class="text-xs mb-0">No meetings scheduled for this stage.</p>
                     </div>
                 `;
                 if (window.lucide) lucide.createIcons();
                 return;
+            }
+
+            if (meetingsSec) {
+                meetingsSec.classList.remove('d-none');
             }
 
             const now = Date.now();
@@ -2114,6 +2132,10 @@ const ProjectApp = {
             if (window.lucide) lucide.createIcons();
         } catch (e) {
             console.error(e);
+            if (isProjectClosed) {
+                if (meetingsSec) meetingsSec.classList.add('d-none');
+                return;
+            }
             listContainer.innerHTML = `
                 <div class="text-center py-4 text-danger text-xs">
                     <i data-lucide="alert-triangle" class="mb-1" style="width:18px;height:18px;"></i>
