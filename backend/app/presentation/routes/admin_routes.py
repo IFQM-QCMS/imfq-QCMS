@@ -3340,14 +3340,30 @@ def reject_project(project_id):
 # 8-Stage Workflow Template (org-level)
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _resolve_admin_org(user):
+    """Resolve an organization for the admin user, supporting SuperAdmins and org switching."""
+    org_id = request.args.get('org_id', type=int) or (user.org_id if user else None)
+    if org_id:
+        org = db.session.get(Organization, org_id)
+        if org:
+            return org
+    # Fallback for SuperAdmin or unassigned user
+    return Organization.query.first()
+
+
 @admin_bp.route('/stages-template', methods=['GET'])
 @admin_required
 def get_stages_template():
     """Return the organisation's current 8-stage workflow configuration."""
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
-    org = db.session.get(Organization, user.org_id)
-    return jsonify({"stages": org.get_stages_config()}), 200
+    org = _resolve_admin_org(user)
+    if org:
+        stages_config = org.get_stages_config()
+    else:
+        ps = PlatformSettings.query.first()
+        stages_config = (ps and ps.global_stages_config) or Organization.DEFAULT_STAGES_CONFIG
+    return jsonify({"stages": stages_config}), 200
 
 
 @admin_bp.route('/stages-template', methods=['POST'])
@@ -3361,14 +3377,16 @@ def save_stages_template():
     """
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
-    org = db.session.get(Organization, user.org_id)
+    org = _resolve_admin_org(user)
+    if not org:
+        return jsonify({"message": "Organization not found."}), 404
     data = request.get_json() or {}
 
     # Allow admin to reset to defaults
     if data.get('reset'):
         org.stages_config = None
         db.session.commit()
-        log_action(user_id, 'STAGES_TEMPLATE_RESET', user.org_id,
+        log_action(user_id, 'STAGES_TEMPLATE_RESET', org.id,
                    target_table='organizations', target_id=org.id)
         return jsonify({"message": "Stage template reset to defaults.", "stages": org.get_stages_config()}), 200
 
@@ -3459,7 +3477,7 @@ def save_stages_template():
 def get_stages_template_status():
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
-    org = db.session.get(Organization, user.org_id)
+    org = _resolve_admin_org(user)
     ps = PlatformSettings.query.first()
 
     has_pending = bool(org and org.has_pending_template_update)
@@ -3481,11 +3499,11 @@ def get_stages_template_status():
 def get_global_stages_template_diff():
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
-    org = db.session.get(Organization, user.org_id)
+    org = _resolve_admin_org(user)
     ps = PlatformSettings.query.first()
 
     # Use raw org.stages_config if set; otherwise use baseline Organization.DEFAULT_STAGES_CONFIG
-    org_stages = org.stages_config or Organization.DEFAULT_STAGES_CONFIG
+    org_stages = (org and org.stages_config) or Organization.DEFAULT_STAGES_CONFIG
     global_stages = (ps and ps.global_stages_config) or Organization.DEFAULT_STAGES_CONFIG
     
     applied_ver = (org and org.applied_template_version) or 1
@@ -3652,7 +3670,9 @@ def sync_global_stages_template():
     import copy
     user_id = get_jwt_identity()
     user = db.session.get(User, int(user_id))
-    org = db.session.get(Organization, user.org_id)
+    org = _resolve_admin_org(user)
+    if not org:
+        return jsonify({"message": "Organization not found."}), 404
     ps = PlatformSettings.query.first()
 
     data = request.get_json(silent=True) or {}
