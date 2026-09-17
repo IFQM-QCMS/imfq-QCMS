@@ -16,6 +16,7 @@
     <script>
         // Safe stubs for Stage Modules if evaluated before core-bundle completes
         window.StageModules = window.StageModules || {};
+        window.api = window.api || { get: () => Promise.resolve([]), post: () => Promise.resolve({}) };
         window.OctaQube = window.OctaQube || { toast: () => {} };
         // Real API client loaded via core-bundle
     </script>
@@ -1048,6 +1049,17 @@ const DEFAULT_STAGES = [
     ]},
 ];
 
+// ── State ─────────────────────────────────────────────────────────────────────
+let stages = [];
+let dragSrcIdx = null;
+let pickerTargetIdx = null;
+let pickerSelectedIcon = null;
+let activeStageSectionTargetIdx = null; // which stage we are adding a section to
+let selectedToolType = null;
+
+let bsIconModal = null;
+let bsToolModal = null;
+
 function loadDefaultStages(reason) {
     stages = JSON.parse(JSON.stringify(DEFAULT_STAGES)); // deep copy
     renumber();
@@ -1063,17 +1075,6 @@ function resetTemplate() {
 }
 window.resetTemplate = resetTemplate;
 
-// ── State ─────────────────────────────────────────────────────────────────────
-let stages = [];
-let dragSrcIdx = null;
-let pickerTargetIdx = null;
-let pickerSelectedIcon = null;
-let activeStageSectionTargetIdx = null; // which stage we are adding a section to
-let selectedToolType = null;
-
-let bsIconModal = null;
-let bsToolModal = null;
-
 function showToast(msg, type = 'success') {
     if (window.OctaQube && OctaQube.toast) { OctaQube.toast(msg, type); return; }
     const d = document.createElement('div');
@@ -1086,11 +1087,11 @@ function showToast(msg, type = 'success') {
     setTimeout(() => d.remove(), 3200);
 }
 
-function esc(s) {
+var esc = window.esc || function(s) {
     if (s === null || s === undefined) return '';
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-const escapeHtml = esc;
+};
+window.esc = esc;
 window.escapeHtml = esc;
 
 function normalizeStagesSequence(rawStages) {
@@ -2480,7 +2481,7 @@ window.deleteStage = deleteStage;
 
 async function checkGlobalTemplateStatus() {
     try {
-        const res = await api.get('/admin/stages-template/status');
+        const client = (window.api || api); const res = await client.get('/admin/stages-template/status');
         const container = document.getElementById('globalUpdateBannerContainer');
         if (!container) return;
 
@@ -2529,7 +2530,7 @@ async function openGlobalSyncModal(globalVer, appliedVer) {
 
         bsModal.show();
 
-        const res = await api.get('/admin/stages-template/diff');
+        const client = (window.api || api); const res = await client.get('/admin/stages-template/diff');
         pendingGlobalDiffs = res.diffs || [];
 
         const addedCount = pendingGlobalDiffs.filter(d => d.type.includes('ADDED')).length;
@@ -3158,8 +3159,10 @@ try {
                 if (typeof window.loadDefaultStages === 'function') {
                     window.loadDefaultStages('failsafe-1s');
                 } else {
+                    var errMsg = (window._stageErrors && window._stageErrors.length > 0) ? window._stageErrors.map(function(e){ return e.msg; }).join('; ') : '';
                     list.innerHTML = '<div class="text-center py-5">' +
                         '<p class="fw-semibold text-danger">Stage template failed to initialize.</p>' +
+                        (errMsg ? '<p class="text-xs text-secondary font-monospace mt-1">' + errMsg + '</p>' : '') +
                         '<button onclick="location.reload()" class="ds-btn ds-btn-primary ds-btn-sm mt-2">Refresh Page</button>' +
                         '</div>';
                 }
