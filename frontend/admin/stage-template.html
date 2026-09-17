@@ -774,6 +774,14 @@
 <script src="/assets/dist/bootstrap.bundle.min.js"></script>
 <script src="/assets/dist/core-bundle.6ee752ae.min.js"></script>
     <script>
+// ── Diagnostic: catch any uncaught JS error ──────────────────────────────────
+window._stageErrors = [];
+window.addEventListener('error', function(ev) {
+    window._stageErrors.push({ msg: ev.message, line: ev.lineno });
+    console.error('[StageTemplate] JS error at line ' + ev.lineno + ': ' + ev.message);
+});
+console.log('[StageTemplate] Inline script starting (readyState=' + document.readyState + ')');
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // Icon library
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2952,10 +2960,20 @@ function initStageTemplate() {
     checkGlobalTemplateStatus().catch(err => console.warn('Could not check global template status:', err));
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initStageTemplate);
-} else {
-    initStageTemplate();
+console.log('[StageTemplate] Script fully parsed. Dispatching init (readyState=' + document.readyState + ')');
+try {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initStageTemplate);
+    } else {
+        initStageTemplate();
+    }
+} catch(e) {
+    console.error('[StageTemplate] initStageTemplate threw:', e);
+    try {
+        if (typeof window.loadDefaultStages === 'function') {
+            window.loadDefaultStages('init-error-fallback');
+        }
+    } catch(_) {}
 }
 </script>
 
@@ -3121,5 +3139,39 @@ if (document.readyState === 'loading') {
     </div>
 </div>
 
+
+<script>
+/* ── INDEPENDENT FAILSAFE ────────────────────────────────────────────────────
+   If the main script crashes for any reason, this separate script block
+   ensures the stage list is rendered after 1 second.
+   ─────────────────────────────────────────────────────────────────────────── */
+(function() {
+    function _stageFailsafe() {
+        try {
+            var list = document.getElementById('stageList');
+            if (!list) return;
+            var hasSpinner = list.querySelector('.spin') ||
+                             list.innerHTML.indexOf('Loading template') !== -1;
+            var hasStages  = !!list.querySelector('.stage-row-container');
+            if (hasSpinner || (!hasStages && list.children.length <= 1)) {
+                console.warn('[StageTemplate] Failsafe: spinner still showing after 1s. Errors:', window._stageErrors);
+                if (typeof window.loadDefaultStages === 'function') {
+                    window.loadDefaultStages('failsafe-1s');
+                } else {
+                    list.innerHTML = '<div class="text-center py-5">' +
+                        '<p class="fw-semibold text-danger">Stage template failed to initialize.</p>' +
+                        '<button onclick="location.reload()" class="ds-btn ds-btn-primary ds-btn-sm mt-2">Refresh Page</button>' +
+                        '</div>';
+                }
+            }
+        } catch(e) { console.error('[StageTemplate] Failsafe error:', e); }
+    }
+    if (document.readyState === 'complete') {
+        setTimeout(_stageFailsafe, 1000);
+    } else {
+        window.addEventListener('load', function() { setTimeout(_stageFailsafe, 1000); });
+    }
+})();
+</script>
 </body>
 </html>
