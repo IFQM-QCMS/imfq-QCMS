@@ -538,6 +538,9 @@ const Stage2 = {
         this.projectData = projectData;
         const wf = projectData.workflows || [];
         let stage2Data = wf.find(w => w.stage_id === 2)?.data || projectData.stage2_data || {};
+        if (typeof stage2Data === 'string') {
+            try { stage2Data = JSON.parse(stage2Data); } catch (_) {}
+        }
         
         // Initial prefill
         this.prefill(stage2Data);
@@ -552,6 +555,9 @@ const Stage2 = {
                         stage2Data = { ...stage2Data, ...stgRes };
                         this.prefill(stage2Data);
                         if (window.lucide) lucide.createIcons();
+                        if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.applyPermissions === 'function') {
+                            ProjectApp.applyPermissions(2);
+                        }
                     }
                 }
             } catch (_) {
@@ -562,6 +568,9 @@ const Stage2 = {
                             stage2Data = { ...stage2Data, ...altRes.data };
                             this.prefill(stage2Data);
                             if (window.lucide) lucide.createIcons();
+                            if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.applyPermissions === 'function') {
+                                ProjectApp.applyPermissions(2);
+                            }
                         }
                     }
                 } catch (__) {}
@@ -609,7 +618,8 @@ const Stage2 = {
         this.setVal('s2_pf_sev', po.finding_severity || '');
         this.setVal('s2_pf_desc', po.finding_desc || '');
 
-        const sv = d.standard_verification || d.interim_verification || {};
+        const rawSv = d.standard_verification || d.interim_verification || d.s2_std_verification || d.std_verification || {};
+        const sv = (typeof rawSv === 'string') ? (() => { try { return JSON.parse(rawSv); } catch(_) { return {}; } })() : (rawSv || {});
         const isTruthy = (val) => {
             if (val === true || val === 1) return true;
             if (typeof val === 'string') {
@@ -618,6 +628,11 @@ const Stage2 = {
             }
             return false;
         };
+
+        const isProjectClosed = Boolean(
+            (this.projectData && (this.projectData.status === 'Closed' || this.projectData.status === 'Completed')) ||
+            (typeof ProjectApp !== 'undefined' && ProjectApp.projectData && (ProjectApp.projectData.status === 'Closed' || ProjectApp.projectData.status === 'Completed'))
+        );
 
         ['sop', 'spec', 'cp'].forEach(k => {
             const nested = (typeof sv[k] === 'object' && sv[k] !== null) ? sv[k] : {};
@@ -639,12 +654,17 @@ const Stage2 = {
             const hasDev = Boolean(devAnalysis && (devAnalysis.why_deviated || devAnalysis.preventive_actions)) ||
                            Boolean(details && details.toLowerCase().includes('deviat'));
             if (hasDev) {
-                if (dev === undefined || !isTruthy(dev)) dev = true;
-                if (avail === undefined) avail = true;
-                if (follow === undefined || isTruthy(follow)) follow = false;
-            }
-            if (avail === undefined && (details || dev !== undefined || follow !== undefined)) {
+                dev = true;
                 avail = true;
+                follow = false;
+            } else if (isProjectClosed) {
+                // In a completed project that passed Stage 2 without deviations, standard was verified and followed
+                if (avail === undefined) avail = true;
+                if (follow === undefined && !dev) follow = true;
+            } else {
+                if (avail === undefined && (details || dev !== undefined || follow !== undefined)) {
+                    avail = true;
+                }
             }
 
             this.setCheck('sv_' + k + '_avail', isTruthy(avail));
@@ -667,6 +687,9 @@ const Stage2 = {
         let pfmeaDetails = sv.pfmea_details || nestedPfmea.details || '';
         const pfmeaDevAnalysis = sv.pfmea_deviation_analysis || nestedPfmea.deviation_analysis;
         if ((pfmeaDevAnalysis && (pfmeaDevAnalysis.why_deviated || pfmeaDevAnalysis.preventive_actions)) || pfmeaDetails) {
+            if (pfmeaAvail === undefined) pfmeaAvail = true;
+            if (pfmeaReview === undefined) pfmeaReview = true;
+        } else if (isProjectClosed) {
             if (pfmeaAvail === undefined) pfmeaAvail = true;
             if (pfmeaReview === undefined) pfmeaReview = true;
         }
@@ -1951,11 +1974,19 @@ const Stage2 = {
     setCheck(id, val) {
         const el = document.getElementById(id);
         if (!el) return;
+        let isChk = false;
         if (typeof val === 'string') {
             const s = val.trim().toLowerCase();
-            el.checked = (s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'checked');
+            isChk = (s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'checked');
         } else {
-            el.checked = Boolean(val);
+            isChk = Boolean(val);
+        }
+        el.checked = isChk;
+        el.defaultChecked = isChk;
+        if (isChk) {
+            el.setAttribute('checked', 'checked');
+        } else {
+            el.removeAttribute('checked');
         }
     },
 
@@ -2022,8 +2053,19 @@ const Stage2 = {
         
         const deviationFound = sopDev || specDev || cpDev;
         
-        // Check if the form is currently read-only (e.g. if the checkboxes themselves are disabled)
-        const isFormReadOnly = document.getElementById('sv_sop_dev')?.disabled || false;
+        // Check if the form is currently read-only using ProjectApp state (preferred)
+        // Fall back to checking if a text input is disabled (sv_sop_details) since checkboxes now use pointer-events:none instead of disabled
+        const isFormReadOnly = (
+            (typeof ProjectApp !== 'undefined' && ProjectApp.projectData && (
+                ProjectApp.projectData.status === 'Closed' ||
+                ProjectApp.projectData.status === 'Completed' ||
+                ProjectApp.projectData.status === 'Rejected' ||
+                (ProjectApp.projectData.status && ProjectApp.projectData.status.includes('Rejected'))
+            )) ||
+            document.getElementById('sv_sop_details')?.disabled ||
+            document.getElementById('sv_sop_dev')?.style?.pointerEvents === 'none' ||
+            false
+        );
         
         const sectionIds = ['s2_section_3', 's2_section_4', 's2_section_5', 's2_section_6', 's2_section_7'];
         

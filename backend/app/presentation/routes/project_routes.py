@@ -2170,10 +2170,10 @@ def get_project_details(id_or_uid):
         s2_sv = getattr(s2_record, 'standard_verification', None) or getattr(s2_record, 'interim_verification', None) or {}
         if s2_sv and isinstance(s2_sv, dict):
             if 'standard_verification' not in s2_wf_data or not s2_wf_data['standard_verification']:
-                s2_wf_data['standard_verification'] = s2_sv
+                s2_wf_data['standard_verification'] = dict(s2_sv)
             elif isinstance(s2_wf_data['standard_verification'], dict):
                 for k, v in s2_sv.items():
-                    if k not in s2_wf_data['standard_verification'] or s2_wf_data['standard_verification'][k] is None:
+                    if k not in s2_wf_data['standard_verification'] or s2_wf_data['standard_verification'][k] is None or (v and not s2_wf_data['standard_verification'][k]):
                         s2_wf_data['standard_verification'][k] = v
         for col in ('containment_actions', 'data_collection_plan', 'gemba_observations'):
             val = getattr(s2_record, col, None)
@@ -2185,6 +2185,18 @@ def get_project_details(id_or_uid):
 
     if 2 in workflows_by_stage and 'standard_verification' in workflows_by_stage[2]:
         workflows_by_stage[2]['interim_verification'] = workflows_by_stage[2]['standard_verification']
+        # Also ensure deviation flags are accurately set if deviation details exist
+        sv_map = workflows_by_stage[2]['standard_verification']
+        if isinstance(sv_map, dict):
+            for std_k in ('sop', 'spec', 'cp'):
+                details_text = sv_map.get(f'{std_k}_details') or ''
+                dev_analysis = sv_map.get(f'{std_k}_deviation_analysis') or {}
+                has_dev_text = 'deviat' in str(details_text).lower() or bool(dev_analysis.get('why_deviated') or dev_analysis.get('preventive_actions'))
+                if has_dev_text:
+                    sv_map[f'{std_k}_avail'] = True
+                    sv_map[f'{std_k}_dev'] = True
+                    if not sv_map.get(f'{std_k}_follow'):
+                        sv_map[f'{std_k}_follow'] = False
 
     serialized_workflows = [{"stage_id": stg_id, "data": stg_data} for stg_id, stg_data in sorted(workflows_by_stage.items())]
 

@@ -765,7 +765,14 @@ const ProjectApp = {
         // Initialize logic
         if (module.init) {
             try {
-                module.init(this.projectData);
+                const initRes = module.init(this.projectData);
+                if (initRes && typeof initRes.then === 'function') {
+                    initRes.then(() => {
+                        this.applyPermissions(stageId);
+                    }).catch(e => {
+                        console.error("[OctaQube] Error in async module.init:", e);
+                    });
+                }
             } catch (e) {
                 console.error("[OctaQube] Error during module.init:", e);
             }
@@ -1287,7 +1294,15 @@ const ProjectApp = {
                     if (el.id && el.id.startsWith('btn_analyze_')) return;
                     if (el.dataset && el.dataset.noDisable === 'true') return;
                     if (el.classList.contains('btn-view') || el.classList.contains('btn-preview') || el.classList.contains('btn-open')) return;
-                    el.disabled = true;
+                    // For checkboxes/radios: use pointer-events:none so their visual checked state stays visible
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        el.style.pointerEvents = 'none';
+                        el.disabled = false;
+                        el.style.opacity = '1';
+                        el.setAttribute('tabindex', '-1');
+                    } else {
+                        el.disabled = true;
+                    }
                 });
                 if (saveBtn) saveBtn.classList.add('d-none');
                 if (submitBtn) submitBtn.classList.add('d-none');

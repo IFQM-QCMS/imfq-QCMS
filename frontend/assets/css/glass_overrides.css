@@ -3935,3 +3935,38 @@ body.dark-mode .quick-questions-container .text-muted,
     color: #cbd5e1 !important;
 }
 
+/* ==========================================================================
+   Standard Verification & Read-Only Checkboxes: Ensure Checkmarks Always Visible
+   ========================================================================== */
+.std-verification-table input[type="checkbox"],
+input[type="checkbox"].form-check-input {
+    cursor: pointer;
+    border-color: #94a3b8;
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.std-verification-table input[type="checkbox"]:checked,
+input[type="checkbox"].form-check-input:checked {
+    background-color: var(--ds-primary, #002347) !important;
+    border-color: var(--ds-primary, #002347) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3.2' d='m5 10 3.5 3.5 7-7'/%3e%3c/svg%3e") !important;
+    opacity: 1 !important;
+}
+
+.std-verification-table input[type="checkbox"]:disabled:checked,
+input[type="checkbox"].form-check-input:disabled:checked {
+    background-color: var(--ds-primary, #002347) !important;
+    border-color: var(--ds-primary, #002347) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3.2' d='m5 10 3.5 3.5 7-7'/%3e%3c/svg%3e") !important;
+    opacity: 0.95 !important;
+    filter: none !important;
+}
+
+.std-verification-table input[type="checkbox"][style*="pointer-events: none"]:checked {
+    background-color: var(--ds-primary, #002347) !important;
+    border-color: var(--ds-primary, #002347) !important;
+    opacity: 1 !important;
+}
+
+
