@@ -1,8 +1,11 @@
 FROM python:3.11-slim
 
-# Install system utilities if needed
+# Install system utilities and Chromium for headless QC Story PDF rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    chromium \
+    fonts-liberation \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root system user

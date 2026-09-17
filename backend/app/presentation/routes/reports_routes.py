@@ -428,10 +428,12 @@ def export_pdf(project_id):
             try:
                 pdf_data = generate_qc_story_closure_summary_pdf(project.id)
             except Exception as err:
-                current_app.logger.error(f"[PDF Export] generate_qc_story_closure_summary_pdf error: {err}")
+                import traceback
+                current_app.logger.error(f"[PDF Export] generate_qc_story_closure_summary_pdf error: {err}\n{traceback.format_exc()}")
 
             # Fallback to FPDF summary if needed
             if not pdf_data:
+                current_app.logger.warning(f"[PDF Export] Primary QC Story 2-page PDF generator returned None for project {project.id}; attempting FPDF summary fallback.")
                 try:
                     from app.utils.report_gen import generate_pdf_summary
                     from app.infrastructure.database.models.models import KPIMetric
@@ -440,7 +442,8 @@ def export_pdf(project_id):
                     if pdf_out:
                         pdf_data = pdf_out.encode('latin-1') if isinstance(pdf_out, str) else bytes(pdf_out)
                 except Exception as fpdf_err:
-                    current_app.logger.error(f"[PDF Export] FPDF summary fallback error: {fpdf_err}")
+                    import traceback
+                    current_app.logger.error(f"[PDF Export] FPDF summary fallback error: {fpdf_err}\n{traceback.format_exc()}")
 
             if not pdf_data:
                 return jsonify({

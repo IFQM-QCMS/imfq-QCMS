@@ -2067,12 +2067,24 @@ def render_html_to_pdf_browser(html_code):
         '--disable-dev-shm-usage',
         '--disable-extensions',
         '--disable-background-networking',
+        '--allow-file-access-from-files',
+        '--disable-software-rasterizer',
+        '--run-all-compositor-stages-before-draw',
         '--no-pdf-header-footer',
         f'--print-to-pdf={pdf_path}',
         file_url
     ]
 
-    subprocess.run(cmd, check=True, timeout=20)
+    try:
+        subprocess.run(cmd, check=True, timeout=35, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as cpe:
+        err_out = cpe.stderr.decode('utf-8', errors='ignore') if cpe.stderr else str(cpe)
+        print(f"[PDF_FILLER] Browser PDF process exited with error ({cpe.returncode}): {err_out}")
+        raise RuntimeError(f"Browser PDF failed: {err_out}")
+    except subprocess.TimeoutExpired:
+        print("[PDF_FILLER] Browser PDF process timed out after 35s")
+        raise RuntimeError("Browser PDF generation timed out after 35s")
+
     with open(pdf_path, 'rb') as f:
         pdf_bytes = f.read()
 
@@ -2113,7 +2125,8 @@ def generate_qc_story_closure_summary_pdf(project_id):
     try:
         html_code = build_qc_story_html(project_id)
     except Exception as e_build:
-        print(f"[PDF_FILLER] build_qc_story_html failed for project {project_id}: {e_build}")
+        import traceback
+        print(f"[PDF_FILLER] build_qc_story_html failed for project {project_id}: {e_build}\n{traceback.format_exc()}")
         return None
 
     if not html_code:

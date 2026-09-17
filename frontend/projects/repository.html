@@ -281,7 +281,7 @@
                             <a href="/projects/project-details.html?id=${p.project_id || p.id}" class="ds-btn ds-btn-secondary flex-grow-1 text-xs py-2 px-2 text-decoration-none d-flex align-items-center justify-content-center">
                                 <i data-lucide="external-link" style="width:14px;height:14px;margin-right:4px;"></i> View Solution
                             </a>
-                            <button class="ds-btn ds-btn-primary flex-grow-1 text-xs py-2 px-2" onclick="repoApp.downloadReport(${p.project_id || p.id})" title="Download Final Summary Report PDF">
+                            <button class="ds-btn ds-btn-primary flex-grow-1 text-xs py-2 px-2" onclick="repoApp.downloadReport(${p.project_id || p.id}, '${(p.project_uid || '').replace(/'/g, "\\'")}', this)" title="Download QC Story Report PDF">
                                 <i data-lucide="download" style="width:14px;height:14px;margin-right:4px;"></i> Download Report
                             </button>
                         </div>
@@ -321,19 +321,34 @@
                 }
             },
 
-            async downloadReport(projectId) {
+            async downloadReport(projectId, projectUid, btnElement) {
                 if (!projectId) {
                     OctaQube.toast('Project ID missing for report generation', 'warning');
                     return;
                 }
-                OctaQube.toast('Preparing final summary report PDF...', 'info');
+                const btn = btnElement || (window.event && window.event.currentTarget ? window.event.currentTarget : null);
+                const originalHtml = btn ? btn.innerHTML : '';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" style="width:12px;height:12px;margin-right:4px;"></span> Downloading...`;
+                }
+                OctaQube.toast('Preparing QC Story report PDF...', 'info');
+
+                const safeUid = (projectUid || `PRJ_${projectId}`).replace(/[^a-zA-Z0-9_\-]/g, '_');
+                const filename = `${safeUid}_QC_Story_Report.pdf`;
 
                 try {
-                    await api.downloadFile(`/reports/export/pdf/${projectId}`, `Project_${projectId}_Summary_Report.pdf`);
-                    OctaQube.toast('Final summary report downloaded successfully!', 'success');
+                    await api.downloadFile(`/reports/export/pdf/${projectId}`, filename);
+                    OctaQube.toast('QC Story report downloaded successfully!', 'success');
                 } catch (err) {
                     console.error('[Repo] Download error:', err);
                     OctaQube.toast(err.message || 'Error downloading report PDF', 'danger');
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                        if (window.lucide) lucide.createIcons();
+                    }
                 }
             },
 
