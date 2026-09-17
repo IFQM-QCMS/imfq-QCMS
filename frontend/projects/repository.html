@@ -425,7 +425,7 @@
                     }
                     case 2: {
                         const po = data.process_observation || {};
-                        const sv = data.standard_verification || {};
+                        const sv = data.standard_verification || data.interim_verification || {};
                         const dc = data.data_collection || {};
                         return `
                             <div class="text-xs">

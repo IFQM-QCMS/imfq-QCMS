@@ -8,7 +8,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOP Deviation Analysis | OctaQube Enterprise</title>
-    <!-- Bootstrap CSS -->
     <!-- Google Fonts Outfit & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,44 +120,44 @@
 
         const typeConfig = {
             sop: {
-                title: "SOP Deviation Analysis",
-                sub: "Document the rationale behind the standard operating procedure deviation and define future corrective and preventive actions (CAPA).",
-                labelWhy: "Why was the SOP deviated? <span class=\"text-danger\">*</span>",
-                descWhy: "Provide a detailed explanation of the operational reasons, environmental factors, or constraints that led to this deviation.",
-                detailsText: "SOP deviated. See separate deviation analysis page.",
-                dbField: "sop_deviation_analysis",
-                detailsField: "sop_details",
-                devField: "sop_dev"
+                title: 'SOP Deviation Analysis',
+                sub: 'Document the rationale behind the standard operating procedure deviation and define future corrective and preventive actions (CAPA).',
+                labelWhy: 'Why was the SOP deviated? <span class="text-danger">*</span>',
+                descWhy: 'Provide a detailed explanation of the operational reasons, environmental factors, or constraints that led to this deviation.',
+                detailsText: 'SOP deviated. See separate deviation analysis page.',
+                dbField: 'sop_deviation_analysis',
+                detailsField: 'sop_details',
+                devField: 'sop_dev'
             },
             spec: {
-                title: "Specification Deviation Analysis",
-                sub: "Document the rationale behind the specification deviation and define future corrective and preventive actions (CAPA).",
-                labelWhy: "Why was the Specification deviated? <span class=\"text-danger\">*</span>",
-                descWhy: "Provide a detailed explanation of the specification tolerance mismatches, measurement issues, or operational constraints.",
-                detailsText: "Specification deviated. See separate deviation analysis page.",
-                dbField: "spec_deviation_analysis",
-                detailsField: "spec_details",
-                devField: "spec_dev"
+                title: 'Specification Deviation Analysis',
+                sub: 'Document the rationale behind the specification deviation and define future corrective and preventive actions (CAPA).',
+                labelWhy: 'Why was the Specification deviated? <span class="text-danger">*</span>',
+                descWhy: 'Provide a detailed explanation of the specification tolerance mismatches, measurement issues, or operational constraints.',
+                detailsText: 'Specification deviated. See separate deviation analysis page.',
+                dbField: 'spec_deviation_analysis',
+                detailsField: 'spec_details',
+                devField: 'spec_dev'
             },
             cp: {
-                title: "Control Plan Deviation Analysis",
-                sub: "Document the rationale behind the control plan deviation and define future corrective and preventive actions (CAPA).",
-                labelWhy: "Why was the Control Plan deviated? <span class=\"text-danger\">*</span>",
-                descWhy: "Provide a detailed explanation of the process parameter deviations or inspection frequency gaps.",
-                detailsText: "Control Plan deviated. See separate deviation analysis page.",
-                dbField: "cp_deviation_analysis",
-                detailsField: "cp_details",
-                devField: "cp_dev"
+                title: 'Control Plan Deviation Analysis',
+                sub: 'Document the rationale behind the control plan deviation and define future corrective and preventive actions (CAPA).',
+                labelWhy: 'Why was the Control Plan deviated? <span class="text-danger">*</span>',
+                descWhy: 'Provide a detailed explanation of the process parameter deviations or inspection frequency gaps.',
+                detailsText: 'Control Plan deviated. See separate deviation analysis page.',
+                dbField: 'cp_deviation_analysis',
+                detailsField: 'cp_details',
+                devField: 'cp_dev'
             },
             pfmea: {
-                title: "PFMEA Finding/Deviation Analysis",
-                sub: "Document the rationale behind the PFMEA review findings and define future corrective and preventive actions (CAPA).",
-                labelWhy: "Why was the PFMEA deviated or what was the finding? <span class=\"text-danger\">*</span>",
-                descWhy: "Provide a detailed explanation of the failure mode risk priority number (RPN) changes or review findings.",
-                detailsText: "PFMEA finding. See separate deviation analysis page.",
-                dbField: "pfmea_deviation_analysis",
-                detailsField: "pfmea_details",
-                devField: "pfmea_dev"
+                title: 'PFMEA Finding/Deviation Analysis',
+                sub: 'Document the rationale behind the PFMEA review findings and define future corrective and preventive actions (CAPA).',
+                labelWhy: 'Why was the PFMEA deviated or what was the finding? <span class="text-danger">*</span>',
+                descWhy: 'Provide a detailed explanation of the failure mode risk priority number (RPN) changes or review findings.',
+                detailsText: 'PFMEA finding. See separate deviation analysis page.',
+                dbField: 'pfmea_deviation_analysis',
+                detailsField: 'pfmea_details',
+                devField: 'pfmea_dev'
             }
         };
 
@@ -175,7 +174,6 @@
                 return;
             }
 
-            // Customize UI text based on type
             const config = typeConfig[type] || typeConfig.sop;
             document.title = `${config.title} | OctaQube Enterprise`;
             
@@ -194,12 +192,27 @@
 
         async function loadDeviationData() {
             try {
-                // Fetch project workflows to get the latest draft standard verification data
                 const projectData = await api.get(`/projects/${projectId}`);
                 const wf = projectData.workflows || [];
-                stage2Data = wf.find(w => w.stage_id === 2)?.data || {};
+                stage2Data = wf.find(w => w.stage_id === 2)?.data || projectData.stage2_data || {};
                 
-                const sv = stage2Data.standard_verification || {};
+                if (!stage2Data.standard_verification && !stage2Data.interim_verification) {
+                    try {
+                        const stgRes = await api.get(`/projects/${projectId}/stage/2`);
+                        if (stgRes && (stgRes.standard_verification || stgRes.interim_verification)) {
+                            stage2Data = { ...stage2Data, ...stgRes };
+                        }
+                    } catch (_) {
+                        try {
+                            const altRes = await api.get(`/workflow/projects/${projectId}/stages/2`);
+                            if (altRes && altRes.data && (altRes.data.standard_verification || altRes.data.interim_verification)) {
+                                stage2Data = { ...stage2Data, ...altRes.data };
+                            }
+                        } catch (__) {}
+                    }
+                }
+
+                const sv = stage2Data.standard_verification || stage2Data.interim_verification || {};
                 const config = typeConfig[type] || typeConfig.sop;
                 const devAnalysis = sv[config.dbField] || {};
 
@@ -219,7 +232,7 @@
                 document.getElementById('loader').classList.add('d-none');
                 document.getElementById('formCard').classList.remove('d-none');
             } catch (e) {
-                console.error("Failed to load stage 2 data", e);
+                console.error('Failed to load stage 2 data', e);
                 OctaQube.toast('Failed to load deviation log data', 'error');
             }
         }
@@ -234,33 +247,44 @@
             }
 
             try {
-                const sv = stage2Data.standard_verification || {};
+                const sv = stage2Data.standard_verification || stage2Data.interim_verification || {};
                 const config = typeConfig[type] || typeConfig.sop;
                 sv[config.dbField] = {
                     why_deviated: why,
                     preventive_actions: preventive
                 };
 
-                // Also update the details text field to refer to the deviation analysis page
                 sv[config.detailsField] = config.detailsText;
-                if (config.devField && config.devField !== 'pfmea_dev') {
-                    sv[config.devField] = true; // Mark deviation found as true
+                if (type === 'sop') {
+                    sv.sop_avail = true;
+                    sv.sop_follow = false;
+                    sv.sop_dev = true;
+                } else if (type === 'spec') {
+                    sv.spec_avail = true;
+                    sv.spec_follow = false;
+                    sv.spec_dev = true;
+                } else if (type === 'cp') {
+                    sv.cp_avail = true;
+                    sv.cp_follow = false;
+                    sv.cp_dev = true;
+                } else if (type === 'pfmea') {
+                    sv.pfmea_avail = true;
+                    sv.pfmea_review = true;
                 }
 
-                const payload = {
-                    standard_verification: sv
+                const fullStageData = {
+                    ...stage2Data,
+                    standard_verification: sv,
+                    interim_verification: sv
                 };
 
-                // 1. Save to Stage2ObservationDataCollection (for reviews/workflow)
-                await api.post(`/workflow/projects/${projectId}/stages/2`, payload);
-
-                // 2. Save to ProjectWorkflow (for project-details page draft sync)
-                await api.post(`/projects/${projectId}/stage/2/save`, payload);
+                await api.post(`/workflow/projects/${projectId}/stages/2`, fullStageData);
+                await api.post(`/projects/${projectId}/stage/2/save`, fullStageData);
 
                 OctaQube.toast(`${config.title} saved successfully!`, 'success');
                 setTimeout(() => goBack(), 1000);
             } catch (e) {
-                console.error("Failed to save deviation details", e);
+                console.error('Failed to save deviation details', e);
                 OctaQube.toast('Failed to save deviation analysis details', 'error');
             }
         }

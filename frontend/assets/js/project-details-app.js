@@ -2374,7 +2374,7 @@ const ProjectApp = {
                                 <div class="accordion-body text-sm text-secondary">
                                     <p><strong>Observer / Location:</strong> ${s2.process_observation?.observer || 'N/A'} / ${s2.process_observation?.area || 'N/A'}</p>
                                     <p><strong>Observation Findings:</strong> ${s2.process_observation?.finding_desc || 'N/A'} (Severity: ${s2.process_observation?.finding_severity || 'N/A'})</p>
-                                    <p><strong>Standards Audited:</strong> SOP Avail: ${s2.standard_verification?.sop_avail ? 'Yes' : 'No'} | SOP Followed: ${s2.standard_verification?.sop_follow ? 'Yes' : 'No'} | SOP Deviation: ${s2.standard_verification?.sop_dev ? 'Yes' : 'No'}</p>
+                                    <p><strong>Standards Audited:</strong> SOP Avail: ${(s2.standard_verification?.sop_avail ?? s2.interim_verification?.sop_avail ?? s2.standard_verification?.sop?.avail ?? s2.interim_verification?.sop?.avail) ? 'Yes' : 'No'} | SOP Followed: ${(s2.standard_verification?.sop_follow ?? s2.interim_verification?.sop_follow ?? s2.standard_verification?.sop?.follow ?? s2.interim_verification?.sop?.follow) ? 'Yes' : 'No'} | SOP Deviation: ${(s2.standard_verification?.sop_dev ?? s2.interim_verification?.sop_dev ?? s2.standard_verification?.sop?.dev ?? s2.interim_verification?.sop?.dev ?? s2.standard_verification?.sop_deviation_analysis ?? s2.interim_verification?.sop_deviation_analysis) ? 'Yes' : 'No'}</p>
                                 </div>
                             </div>
                         </div>

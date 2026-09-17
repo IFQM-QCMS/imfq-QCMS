@@ -14,12 +14,19 @@
     <script src="/assets/dist/lucide.min.js"></script>
     <script src="/assets/dist/chart.min.js"></script>
     <script>
-        // Define mock values and functions so that the Stage Modules do not crash during WYSIWYG loading
-        window.StageModules = {};
-        window.api = { get: () => Promise.resolve([]), post: () => Promise.resolve({}) };
-        window.OctaQube = { toast: () => {} };
+        // Safe stubs for Stage Modules if evaluated before core-bundle completes
+        window.StageModules = window.StageModules || {};
+        window.OctaQube = window.OctaQube || { toast: () => {} };
+        if (!window.api) {
+            window.api = {
+                get: () => Promise.resolve({ stages: [] }),
+                post: () => Promise.resolve({}),
+                upload: () => Promise.resolve({}),
+                uploadFile: () => Promise.resolve({})
+            };
+        }
     </script>
-    <script src="/assets/dist/stages-bundle.58d38efa.min.js"></script>
+    <script src="/assets/dist/stages-bundle.8477e82f.min.js"></script>
     <style>
         /* ── Stage list ──────────────────────────────────────────────── */
         #stageList {
@@ -1012,9 +1019,23 @@ function renumber() {
 
 // ── Render the stage and sections list ────────────────────────────────────────
 function renderList() {
-    stages = normalizeStagesSequence(stages);
+    stages = normalizeStagesSequence(stages || []);
     const list = document.getElementById('stageList');
+    if (!list) return;
     list.innerHTML = '';
+
+    if (!stages || stages.length === 0) {
+        list.innerHTML = `
+            <div class="text-center py-5 ds-text-secondary">
+                <i data-lucide="layers" style="width:28px;height:28px;opacity:0.5;"></i>
+                <p class="mt-2 mb-2 text-sm fw-medium">No stages configured yet.</p>
+                <button class="ds-btn ds-btn-outline-primary ds-btn-sm" onclick="resetTemplate()">
+                    <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Load Default 8 Stages
+                </button>
+            </div>`;
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
 
     stages.forEach((s, i) => {
         const isFirstStage = (i === 0);
@@ -2772,25 +2793,52 @@ window.highlightDiffStage = highlightDiffStage;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-    lucide.createIcons();
-    bsIconModal = new bootstrap.Modal(document.getElementById('iconPickerModal'));
-    bsToolModal = new bootstrap.Modal(document.getElementById('toolPickerModal'));
-    bsAddStageModal = new bootstrap.Modal(document.getElementById('addStageModal'));
+    if (window.lucide) lucide.createIcons();
 
-    await checkGlobalTemplateStatus();
+    try {
+        const iconEl = document.getElementById('iconPickerModal');
+        if (iconEl && window.bootstrap && window.bootstrap.Modal) {
+            bsIconModal = bootstrap.Modal.getInstance(iconEl) || new bootstrap.Modal(iconEl);
+        }
+        const toolEl = document.getElementById('toolPickerModal');
+        if (toolEl && window.bootstrap && window.bootstrap.Modal) {
+            bsToolModal = bootstrap.Modal.getInstance(toolEl) || new bootstrap.Modal(toolEl);
+        }
+        const addEl = document.getElementById('addStageModal');
+        if (addEl && window.bootstrap && window.bootstrap.Modal) {
+            bsAddStageModal = bootstrap.Modal.getInstance(addEl) || new bootstrap.Modal(addEl);
+        }
+    } catch (e) {
+        console.warn('Modal init warning:', e);
+    }
 
     try {
         const res = await api.get('/admin/stages-template');
-        stages = (res.stages || []).sort((a, b) => a.stage_id - b.stage_id);
+        if (res && Array.isArray(res.stages)) {
+            stages = res.stages.sort((a, b) => (a.stage_id || 0) - (b.stage_id || 0));
+        } else {
+            stages = [];
+        }
         renderList();
     } catch (err) {
-        document.getElementById('stageList').innerHTML = `
-            <div class="text-center py-5 text-danger">
-                <i data-lucide="alert-triangle" style="width:24px;height:24px;"></i>
-                <p class="mt-2 mb-0 text-sm">Failed to load template: ${err.message || 'Server error'}</p>
-            </div>`;
-        lucide.createIcons();
+        console.error('Failed to load stages template:', err);
+        const stageListEl = document.getElementById('stageList');
+        if (stageListEl) {
+            stageListEl.innerHTML = `
+                <div class="text-center py-5 text-danger">
+                    <i data-lucide="alert-triangle" style="width:24px;height:24px;"></i>
+                    <p class="mt-2 mb-1 text-sm fw-semibold">Failed to load template</p>
+                    <p class="text-xs text-muted mb-3">${err.message || 'Server error'}</p>
+                    <button class="ds-btn ds-btn-outline-primary ds-btn-sm" onclick="location.reload()">
+                        <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Retry
+                    </button>
+                </div>`;
+            if (window.lucide) lucide.createIcons();
+        }
     }
+
+    // Check global template status asynchronously without blocking stage list rendering
+    checkGlobalTemplateStatus().catch(err => console.warn('Could not check global template status:', err));
 });
 </script>
 

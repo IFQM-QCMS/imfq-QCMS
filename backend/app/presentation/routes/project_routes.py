@@ -1320,6 +1320,17 @@ def save_stage_generic(id, stage_id):
     if 'sop' in payload:
         sync_sop_from_stage8(id, payload['sop'], user_id)
 
+    # Sync Stage 2 standard verification if payload includes verification data
+    if stage_id == 2:
+        from app.infrastructure.database.models.models import Stage2ObservationDataCollection
+        s2 = Stage2ObservationDataCollection.query.filter_by(project_id=id).first()
+        sv_incoming = payload.get('standard_verification') or payload.get('interim_verification')
+        if sv_incoming:
+            if not s2:
+                s2 = Stage2ObservationDataCollection(project_id=id, org_id=user.org_id)
+                db.session.add(s2)
+            s2.interim_verification = sv_incoming
+
     from app.infrastructure.database.models.models import AuditLog
     db.session.add(AuditLog(
         org_id=user.org_id, project_id=id, user_id=user_id,
@@ -2148,6 +2159,35 @@ def get_project_details(id_or_uid):
     completed_stage_numbers = {s.stage_number for s in stages if s.status in ('Completed', 'Approved')}
     wf_snapshots = {w.stage_id: w.template_snapshot for w in ProjectWorkflow.query.filter_by(project_id=project.id).all() if w.template_snapshot}
 
+    # Aggregate workflow stage data and ensure Stage 2 standard verification is fully merged
+    all_wfs_query = ProjectWorkflow.query.filter_by(project_id=project.id).all()
+    workflows_by_stage = {w.stage_id: dict(w.data or {}) for w in all_wfs_query}
+
+    from app.infrastructure.database.models.models import Stage2ObservationDataCollection
+    s2_record = Stage2ObservationDataCollection.query.filter_by(project_id=project.id).first()
+    s2_wf_data = workflows_by_stage.get(2, {})
+    if s2_record:
+        s2_sv = getattr(s2_record, 'standard_verification', None) or getattr(s2_record, 'interim_verification', None) or {}
+        if s2_sv and isinstance(s2_sv, dict):
+            if 'standard_verification' not in s2_wf_data or not s2_wf_data['standard_verification']:
+                s2_wf_data['standard_verification'] = s2_sv
+            elif isinstance(s2_wf_data['standard_verification'], dict):
+                for k, v in s2_sv.items():
+                    if k not in s2_wf_data['standard_verification'] or s2_wf_data['standard_verification'][k] is None:
+                        s2_wf_data['standard_verification'][k] = v
+        for col in ('containment_actions', 'data_collection_plan', 'gemba_observations'):
+            val = getattr(s2_record, col, None)
+            if val and col not in s2_wf_data:
+                s2_wf_data[col] = val
+        workflows_by_stage[2] = s2_wf_data
+    elif 2 in workflows_by_stage and 'interim_verification' in workflows_by_stage[2] and 'standard_verification' not in workflows_by_stage[2]:
+        workflows_by_stage[2]['standard_verification'] = workflows_by_stage[2]['interim_verification']
+
+    if 2 in workflows_by_stage and 'standard_verification' in workflows_by_stage[2]:
+        workflows_by_stage[2]['interim_verification'] = workflows_by_stage[2]['standard_verification']
+
+    serialized_workflows = [{"stage_id": stg_id, "data": stg_data} for stg_id, stg_data in sorted(workflows_by_stage.items())]
+
     return jsonify({
         "id": project.id,
         "project_uid": project.project_uid,
@@ -2213,10 +2253,8 @@ def get_project_details(id_or_uid):
             "full_name": db.session.get(User, m.user_id).full_name if db.session.get(User, m.user_id) else "Member"
         } for m in ProjectMember.query.filter_by(project_id=project.id).all()],
         "stage1_data": stage1_workflow.data if stage1_workflow else {},
-        "workflows": [{
-            "stage_id": w.stage_id,
-            "data": w.data
-        } for w in ProjectWorkflow.query.filter_by(project_id=project.id).all()],
+        "stage2_data": workflows_by_stage.get(2, {}),
+        "workflows": serialized_workflows,
         "stages": [{
             "stage_number": s.stage_number,
             "status": s.status,

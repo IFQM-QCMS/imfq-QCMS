@@ -1317,7 +1317,7 @@
                 currentStageName = "Stage 2: Observation & Data Collection";
                 const s2 = d.data || {};
                 const po = s2.process_observation || {};
-                const sv = s2.standard_verification || {};
+                const sv = s2.standard_verification || s2.interim_verification || {};
                 const dc = s2.data_collection || {};
                 const strat = s2.stratification || [];
                 const pareto = s2.pareto || [];
@@ -3138,7 +3138,7 @@
             let isNoDeviationClosure = false;
             if (p.pending_stage === 2) {
                 const s2data = d.data || {};
-                const svData = s2data.standard_verification || {};
+                const svData = s2data.standard_verification || s2data.interim_verification || {};
                 const sopDev   = svData.sop_dev  || false;
                 const specDev  = svData.spec_dev  || false;
                 const cpDev    = svData.cp_dev    || false;

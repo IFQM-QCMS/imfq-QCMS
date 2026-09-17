@@ -534,13 +534,39 @@ const Stage2 = {
         `;
     },
 
-    init(projectData) {
+    async init(projectData) {
         this.projectData = projectData;
         const wf = projectData.workflows || [];
-        const stage2Data = wf.find(w => w.stage_id === 2)?.data || {};
+        let stage2Data = wf.find(w => w.stage_id === 2)?.data || projectData.stage2_data || {};
         
+        // Initial prefill
         this.prefill(stage2Data);
         if (window.lucide) lucide.createIcons();
+
+        // If standard_verification is missing, try fetching it directly
+        if (!stage2Data.standard_verification && !stage2Data.interim_verification && projectData.id) {
+            try {
+                if (window.api && typeof window.api.get === 'function') {
+                    const stgRes = await window.api.get(`/projects/${projectData.id}/stage/2`);
+                    if (stgRes && (stgRes.standard_verification || stgRes.interim_verification)) {
+                        stage2Data = { ...stage2Data, ...stgRes };
+                        this.prefill(stage2Data);
+                        if (window.lucide) lucide.createIcons();
+                    }
+                }
+            } catch (_) {
+                try {
+                    if (window.api && typeof window.api.get === 'function') {
+                        const altRes = await window.api.get(`/workflow/projects/${projectData.id}/stages/2`);
+                        if (altRes && altRes.data && (altRes.data.standard_verification || altRes.data.interim_verification)) {
+                            stage2Data = { ...stage2Data, ...altRes.data };
+                            this.prefill(stage2Data);
+                            if (window.lucide) lucide.createIcons();
+                        }
+                    }
+                } catch (__) {}
+            }
+        }
     },
 
     prefill(d) {
@@ -583,17 +609,71 @@ const Stage2 = {
         this.setVal('s2_pf_sev', po.finding_severity || '');
         this.setVal('s2_pf_desc', po.finding_desc || '');
 
-        const sv = d.standard_verification || {};
+        const sv = d.standard_verification || d.interim_verification || {};
+        const isTruthy = (val) => {
+            if (val === true || val === 1) return true;
+            if (typeof val === 'string') {
+                const s = val.trim().toLowerCase();
+                return s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'checked';
+            }
+            return false;
+        };
+
         ['sop', 'spec', 'cp'].forEach(k => {
-            this.setCheck('sv_'+k+'_avail', sv[k+'_avail'] || false);
-            this.setCheck('sv_'+k+'_follow', sv[k+'_follow'] || false);
-            this.setCheck('sv_'+k+'_dev', sv[k+'_dev'] || false);
-            this.setVal('sv_'+k+'_details', sv[k+'_details'] || '');
+            const nested = (typeof sv[k] === 'object' && sv[k] !== null) ? sv[k] : {};
+            let avail = sv[k + '_avail'] !== undefined ? sv[k + '_avail'] :
+                        sv[k + '_available'] !== undefined ? sv[k + '_available'] :
+                        nested.avail !== undefined ? nested.avail :
+                        nested.available !== undefined ? nested.available : undefined;
+            let follow = sv[k + '_follow'] !== undefined ? sv[k + '_follow'] :
+                         sv[k + '_followed'] !== undefined ? sv[k + '_followed'] :
+                         nested.follow !== undefined ? nested.follow :
+                         nested.followed !== undefined ? nested.followed : undefined;
+            let dev = sv[k + '_dev'] !== undefined ? sv[k + '_dev'] :
+                      sv[k + '_deviation'] !== undefined ? sv[k + '_deviation'] :
+                      sv[k + '_deviation_found'] !== undefined ? sv[k + '_deviation_found'] :
+                      nested.dev !== undefined ? nested.dev :
+                      nested.deviation !== undefined ? nested.deviation : undefined;
+            let details = sv[k + '_details'] || nested.details || '';
+            const devAnalysis = sv[k + '_deviation_analysis'] || nested.deviation_analysis;
+            const hasDev = Boolean(devAnalysis && (devAnalysis.why_deviated || devAnalysis.preventive_actions)) ||
+                           Boolean(details && details.toLowerCase().includes('deviat'));
+            if (hasDev) {
+                if (dev === undefined || !isTruthy(dev)) dev = true;
+                if (avail === undefined) avail = true;
+                if (follow === undefined || isTruthy(follow)) follow = false;
+            }
+            if (avail === undefined && (details || dev !== undefined || follow !== undefined)) {
+                avail = true;
+            }
+
+            this.setCheck('sv_' + k + '_avail', isTruthy(avail));
+            this.setCheck('sv_' + k + '_follow', isTruthy(follow));
+            this.setCheck('sv_' + k + '_dev', isTruthy(dev));
+            this.setVal('sv_' + k + '_details', details);
             this.onStandardChange(k);
         });
-        this.setCheck('sv_pfmea_avail', sv.pfmea_avail || false);
-        this.setCheck('sv_pfmea_review', sv.pfmea_review || false);
-        this.setVal('sv_pfmea_details', sv.pfmea_details || '');
+
+        const nestedPfmea = (typeof sv.pfmea === 'object' && sv.pfmea !== null) ? sv.pfmea : {};
+        let pfmeaAvail = sv.pfmea_avail !== undefined ? sv.pfmea_avail :
+                         sv.pfmea_available !== undefined ? sv.pfmea_available :
+                         nestedPfmea.avail !== undefined ? nestedPfmea.avail :
+                         nestedPfmea.available !== undefined ? nestedPfmea.available : undefined;
+        let pfmeaReview = sv.pfmea_review !== undefined ? sv.pfmea_review :
+                          sv.pfmea_reviewed !== undefined ? sv.pfmea_reviewed :
+                          sv.pfmea_follow !== undefined ? sv.pfmea_follow :
+                          nestedPfmea.review !== undefined ? nestedPfmea.review :
+                          nestedPfmea.reviewed !== undefined ? nestedPfmea.reviewed : undefined;
+        let pfmeaDetails = sv.pfmea_details || nestedPfmea.details || '';
+        const pfmeaDevAnalysis = sv.pfmea_deviation_analysis || nestedPfmea.deviation_analysis;
+        if ((pfmeaDevAnalysis && (pfmeaDevAnalysis.why_deviated || pfmeaDevAnalysis.preventive_actions)) || pfmeaDetails) {
+            if (pfmeaAvail === undefined) pfmeaAvail = true;
+            if (pfmeaReview === undefined) pfmeaReview = true;
+        }
+
+        this.setCheck('sv_pfmea_avail', isTruthy(pfmeaAvail));
+        this.setCheck('sv_pfmea_review', isTruthy(pfmeaReview));
+        this.setVal('sv_pfmea_details', pfmeaDetails);
         this.onStandardChange('pfmea');
 
         const dc = d.data_collection || {};
@@ -730,8 +810,8 @@ const Stage2 = {
         const obs = this.collectObservations();
         const sources = [...new Set(obs.map(o => o.category).filter(Boolean))];
 
-        const currentWf = this.projectData?.workflows?.find(w => w.stage_id === 2)?.data || {};
-        const currentSv = currentWf.standard_verification || {};
+        const currentWf = this.projectData?.workflows?.find(w => w.stage_id === 2)?.data || this.projectData?.stage2_data || {};
+        const currentSv = currentWf.standard_verification || currentWf.interim_verification || {};
 
         // Standard derived formats for backward compatibility
         const aggregatedCheckSheet = {};
@@ -785,6 +865,14 @@ const Stage2 = {
         Object.entries(shifts).forEach(([s, v]) => aggregatedStrat.push({ type: 'By Shift', category: s, value: v }));
         Object.entries(locations).forEach(([l, v]) => aggregatedStrat.push({ type: 'By Location', category: l, value: v }));
 
+        const standardVerificationObj = {
+            ...currentSv,
+            sop_avail: this.getCheck('sv_sop_avail'), sop_follow: this.getCheck('sv_sop_follow'), sop_dev: this.getCheck('sv_sop_dev'), sop_details: this.getVal('sv_sop_details'),
+            spec_avail: this.getCheck('sv_spec_avail'), spec_follow: this.getCheck('sv_spec_follow'), spec_dev: this.getCheck('sv_spec_dev'), spec_details: this.getVal('sv_spec_details'),
+            cp_avail: this.getCheck('sv_cp_avail'), cp_follow: this.getCheck('sv_cp_follow'), cp_dev: this.getCheck('sv_cp_dev'), cp_details: this.getVal('sv_cp_details'),
+            pfmea_avail: this.getCheck('sv_pfmea_avail'), pfmea_review: this.getCheck('sv_pfmea_review'), pfmea_details: this.getVal('sv_pfmea_details')
+        };
+
         return {
             process_observation: {
                 flow_version: this.getVal('s2_flow_version'),
@@ -802,13 +890,8 @@ const Stage2 = {
                 gemba_evidence: this.gembaEv ? (this.gembaEv.url || this.gembaEv) : '',
                 gembutsu_evidence: this.gembutsuEv ? (this.gembutsuEv.url || this.gembutsuEv) : ''
             },
-            standard_verification: {
-                ...currentSv,
-                sop_avail: this.getCheck('sv_sop_avail'), sop_follow: this.getCheck('sv_sop_follow'), sop_dev: this.getCheck('sv_sop_dev'), sop_details: this.getVal('sv_sop_details'),
-                spec_avail: this.getCheck('sv_spec_avail'), spec_follow: this.getCheck('sv_spec_follow'), spec_dev: this.getCheck('sv_spec_dev'), spec_details: this.getVal('sv_spec_details'),
-                cp_avail: this.getCheck('sv_cp_avail'), cp_follow: this.getCheck('sv_cp_follow'), cp_dev: this.getCheck('sv_cp_dev'), cp_details: this.getVal('sv_cp_details'),
-                pfmea_avail: this.getCheck('sv_pfmea_avail'), pfmea_review: this.getCheck('sv_pfmea_review'), pfmea_details: this.getVal('sv_pfmea_details')
-            },
+            standard_verification: standardVerificationObj,
+            interim_verification: standardVerificationObj,
             data_collection: {
                 sources: sources,
                 observations: obs,
@@ -1865,7 +1948,16 @@ const Stage2 = {
         }
     },
     getCheck(id) { const el = document.getElementById(id); return el ? el.checked : false; },
-    setCheck(id, val) { const el = document.getElementById(id); if (el) el.checked = !!val; },
+    setCheck(id, val) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (typeof val === 'string') {
+            const s = val.trim().toLowerCase();
+            el.checked = (s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'checked');
+        } else {
+            el.checked = Boolean(val);
+        }
+    },
 
     onStandardChange(type) {
         const btn = document.getElementById(`btn_analyze_${type}_dev`);
@@ -1900,9 +1992,17 @@ const Stage2 = {
             (document.getElementById('sv_sop_dev')?.disabled)
         );
 
-        if (!isReadOnly && typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+        if (!isReadOnly) {
             try {
-                await ProjectApp.saveDraft();
+                if (typeof this.collectData === 'function') {
+                    const currentStageData = this.collectData();
+                    if (window.api && typeof window.api.post === 'function') {
+                        await window.api.post(`/projects/${pId}/stage/2`, currentStageData);
+                    }
+                }
+                if (typeof ProjectApp !== 'undefined' && typeof ProjectApp.saveDraft === 'function') {
+                    await ProjectApp.saveDraft();
+                }
             } catch (e) {
                 console.warn("[Stage2] Auto-save before navigating to deviation page failed:", e);
             }
