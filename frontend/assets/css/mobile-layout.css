@@ -502,12 +502,14 @@ body.dark-mode .app-bottom-nav {
     }
 
     .modal-body {
-        padding: 16px 18px !important;
+        padding: 16px 18px 24px !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
         flex: 1 1 auto !important;
-        max-height: calc(85vh - 135px) !important;
-        max-height: calc(85dvh - 135px) !important;
+        min-height: 0 !important;
+        max-height: calc(85vh - 130px) !important;
+        max-height: calc(85dvh - 130px) !important;
+        overscroll-behavior: contain !important;
     }
 
     .modal-footer {
