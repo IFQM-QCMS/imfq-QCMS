@@ -819,3 +819,170 @@ body.dark-mode .app-bottom-nav {
     }
 }
 
+/* ==========================================================================
+   9. Mobile Profile & Account Alignment (Screens <= 768px)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    /* Prevent any horizontal page blowout */
+    .app-layout,
+    .app-main,
+    .app-content,
+    .app-content-inner {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Container padding adjustment on mobile phones */
+    .ds-container {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Profile hero banner on mobile */
+    .profile-hero {
+        height: 140px !important;
+        margin-bottom: 54px !important;
+        border-radius: var(--ds-radius-md, 12px) var(--ds-radius-md, 12px) 0 0 !important;
+        position: relative !important;
+    }
+
+    .profile-hero .ds-btn,
+    .profile-hero button {
+        top: 10px !important;
+        right: 10px !important;
+        padding: 5px 10px !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Avatar positioning & scaling on mobile */
+    .profile-avatar-wrapper {
+        bottom: -45px !important;
+        left: 16px !important;
+        padding: 5px !important;
+        border-radius: 20px !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .profile-avatar {
+        width: 84px !important;
+        height: 84px !important;
+        border-radius: 16px !important;
+    }
+
+    .profile-avatar i {
+        font-size: 2.75rem !important;
+    }
+
+    /* Profile card content container */
+    .profile-body-content {
+        padding: 0 16px 24px 16px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Header title & user identity details on mobile */
+    .profile-info-header {
+        padding-left: 0 !important;
+        margin-top: 12px !important;
+        min-height: auto !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    .profile-info-header .ds-h3,
+    .profile-info-header h1 {
+        font-size: 1.5rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .profile-info-header p {
+        font-size: 0.875rem !important;
+        word-break: break-all !important;
+    }
+
+    /* Single-column grid on mobile phones */
+    .info-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+        margin-top: 20px !important;
+        width: 100% !important;
+    }
+
+    .info-grid-password {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    /* Flat cards inside forms (Password Protection, Device Governance, etc.) */
+    .ds-card-flat {
+        padding: 14px 16px !important;
+        flex-wrap: wrap !important;
+        gap: 12px !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+    }
+
+    .ds-card-flat > div {
+        min-width: 0 !important;
+        flex: 1 1 160px !important;
+    }
+
+    .ds-card-flat .ds-btn,
+    .ds-card-flat button,
+    .ds-card-flat .ds-status-badge {
+        flex-shrink: 0 !important;
+    }
+
+    /* Form actions bottom buttons */
+    .form-actions {
+        margin-top: 28px !important;
+        padding-top: 20px !important;
+        flex-direction: column-reverse !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .form-actions .ds-btn {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 12px 18px !important;
+    }
+
+    /* Ensure all inputs and textareas conform to screen boundary */
+    .ds-field,
+    .ds-input,
+    .ds-textarea,
+    .ds-select {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .ds-helper-text {
+        font-size: 0.78rem !important;
+        line-height: 1.4 !important;
+        display: block !important;
+        word-break: break-word !important;
+    }
+
+    /* Fixed widget alignment adjustments on mobile phones */
+    #ai-chat-widget {
+        right: 12px !important;
+        bottom: calc(var(--mobile-nav-height, 64px) + 12px) !important;
+    }
+
+    #helpdesk-widget {
+        right: 64px !important;
+        bottom: calc(var(--mobile-nav-height, 64px) + 12px) !important;
+    }
+}
+
+

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <!-- Performance & Network Acceleration: Critical Preloads -->
-    <link rel="preload" href="/assets/dist/core.4681e4ff.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.7aa48064.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.2feac510.min.js" as="script">
     <script src="/assets/dist/auth-guard.2feac510.min.js"></script>
 
@@ -15,7 +15,7 @@
     <script src="/assets/dist/lucide.min.js"></script>
     <link rel="stylesheet" href="/assets/dist/font-awesome.all.min.css">
     <!-- Styles -->
-    <link rel="stylesheet" href="/assets/dist/core.4681e4ff.min.css">
+    <link rel="stylesheet" href="/assets/dist/core.7aa48064.min.css">
     <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <style>
         .profile-hero {
@@ -78,6 +78,37 @@
         .role-team_member { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
         .role-reviewer { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
         .role-facilitator { background: #fae8ff; color: #a11d33; border: 1px solid #f5d0fe; }
+
+        @media (max-width: 768px) {
+            .profile-body-content {
+                padding: 0 16px 24px 16px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .profile-hero {
+                height: 140px !important;
+                margin-bottom: 54px !important;
+            }
+            .profile-avatar-wrapper {
+                bottom: -45px !important;
+                left: 16px !important;
+                padding: 5px !important;
+                border-radius: 20px !important;
+            }
+            .profile-avatar {
+                width: 84px !important;
+                height: 84px !important;
+                border-radius: 16px !important;
+            }
+            .profile-info-header {
+                padding-left: 0 !important;
+                margin-top: 12px !important;
+                min-height: auto !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+            }
+        }
     </style>
 </head>
 <body class="ds-light">
@@ -117,7 +148,7 @@
                             </div>
                         </div>
 
-                        <div style="padding: 0 48px 48px 48px;">
+                        <div class="profile-body-content" style="padding: 0 48px 48px 48px;">
                             <div class="profile-info-header" id="profile-header-content">
                                 <div>
                                     <div id="profile-hero-content" style="display: none;">
