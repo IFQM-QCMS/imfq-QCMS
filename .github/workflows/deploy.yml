@@ -163,24 +163,26 @@ jobs:
             echo "[OctaQube CD] Running database schema synchronization..."
             docker compose -f "$COMPOSE_FILE" exec -T backend python -m app.infrastructure.database.migrations.runner
 
-            # 7. Frontend Refresh & Nginx Cache Invalidation
-            echo "[OctaQube CD] Reloading frontend web server and flushing cache..."
-            docker compose -f "$COMPOSE_FILE" restart frontend 2>/dev/null || true
-            docker exec qcms-frontend nginx -s reload 2>/dev/null || docker exec qcms_frontend nginx -s reload 2>/dev/null || true
-            systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
+            # 7. Frontend Refresh & Host Nginx Reconnection
+            echo "[OctaQube CD] Reloading frontend container and restarting host Nginx..."
+            docker exec qcms-frontend nginx -s reload 2>/dev/null || true
+            sudo -n systemctl restart nginx 2>/dev/null || sudo -n systemctl reload nginx 2>/dev/null || systemctl reload nginx 2>/dev/null || true
 
             echo "========================================================="
             echo "[OctaQube Diagnostic] Docker containers on VPS:"
             docker ps -a
             echo "========================================================="
             echo "[OctaQube Diagnostic] Host Nginx Sites Enabled:"
-            cat /etc/nginx/sites-enabled/* 2>/dev/null || cat /etc/nginx/conf.d/* 2>/dev/null || true
+            sudo -n cat /etc/nginx/sites-enabled/* 2>/dev/null || cat /etc/nginx/sites-enabled/* 2>/dev/null || true
             echo "========================================================="
             echo "[OctaQube Diagnostic] Host Nginx error log (last 30 lines):"
-            tail -n 30 /var/log/nginx/error.log 2>/dev/null || true
+            sudo -n tail -n 30 /var/log/nginx/error.log 2>/dev/null || tail -n 30 /var/log/nginx/error.log 2>/dev/null || true
+            echo "========================================================="
+            echo "[OctaQube Diagnostic] Docker network ifqm-new-sites inspect:"
+            docker network inspect ifqm-new-sites 2>/dev/null || true
             echo "========================================================="
             echo "[OctaQube Diagnostic] Frontend logs:"
-            docker logs --tail 30 qcms-frontend 2>&1 || docker logs --tail 30 qcms_frontend 2>&1 || true
+            docker logs --tail 30 qcms-frontend 2>&1 || true
             echo "========================================================="
 
             # 8. Backend Health Probe Verification
@@ -211,6 +213,7 @@ jobs:
             # 9. Verify Frontend and Nginx Connectivity
             echo "[OctaQube CD] Testing frontend / local nginx response..."
             curl -I -s http://127.0.0.1/ || true
+            curl -I -s -k https://127.0.0.1/ -H "Host: octaqube.ifqm.org.in" || true
             curl -I -s https://octaqube.ifqm.org.in || true
 
             echo "========================================================="
