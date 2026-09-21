@@ -164,25 +164,23 @@ jobs:
             docker compose -f "$COMPOSE_FILE" exec -T backend python -m app.infrastructure.database.migrations.runner
 
             # 7. Frontend Refresh & Host Nginx Reconnection
-            echo "[OctaQube CD] Reloading frontend container and restarting host Nginx..."
+            # 7. Frontend Refresh & Gateway Nginx Routing Fix
+            echo "[OctaQube CD] Reloading frontend container..."
             docker exec qcms-frontend nginx -s reload 2>/dev/null || true
-            sudo -n systemctl restart nginx 2>/dev/null || sudo -n systemctl reload nginx 2>/dev/null || systemctl reload nginx 2>/dev/null || true
+
+            echo "[OctaQube CD] Ensuring Gateway Nginx routes octaqube.ifqm.org.in to qcms-frontend..."
+            docker exec ifqm-skills sed -i 's/octaqube-coming-soon/qcms-frontend/g' /etc/nginx/conf.d/default.conf 2>/dev/null || true
+            docker exec ifqm-skills nginx -t 2>/dev/null && docker exec ifqm-skills nginx -s reload 2>/dev/null || true
+
+            # Also persist fix in any host config files if mounted
+            grep -rn "octaqube-coming-soon" /opt/ 2>/dev/null | cut -d: -f1 | sort -u | while read -r conf_file; do
+              echo "[OctaQube CD] Patching host config: $conf_file"
+              sed -i 's/octaqube-coming-soon/qcms-frontend/g' "$conf_file" 2>/dev/null || true
+            done
 
             echo "========================================================="
-            echo "[OctaQube Diagnostic] Docker containers on VPS:"
-            docker ps -a
-            echo "========================================================="
-            echo "[OctaQube Diagnostic] Gateway Nginx (ifqm-skills) config:"
-            docker exec ifqm-skills nginx -T 2>&1 || true
-            echo "========================================================="
-            echo "[OctaQube Diagnostic] Gateway Nginx (ifqm-skills) error log:"
-            docker exec ifqm-skills tail -n 50 /var/log/nginx/error.log 2>&1 || true
-            echo "========================================================="
-            echo "[OctaQube Diagnostic] Reload Gateway Nginx:"
-            docker exec ifqm-skills nginx -s reload 2>&1 || true
-            echo "========================================================="
-            echo "[OctaQube Diagnostic] Probe from ifqm-skills to qcms-frontend:"
-            docker exec ifqm-skills wget -S -O /dev/null http://qcms-frontend/ 2>&1 || true
+            echo "[OctaQube Diagnostic] Gateway Nginx probe to qcms-frontend:"
+            docker exec ifqm-skills wget -T 5 -t 1 -S -O /dev/null http://qcms-frontend/ 2>&1 || true
             echo "========================================================="
 
             # 8. Backend Health Probe Verification
