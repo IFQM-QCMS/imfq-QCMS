@@ -163,56 +163,52 @@ jobs:
             echo "[OctaQube CD] Running database schema synchronization..."
             docker compose -f "$COMPOSE_FILE" exec -T backend python -m app.infrastructure.database.migrations.runner
 
-            # 7. Frontend Refresh & Host Nginx Reconnection
             # 7. Frontend Refresh & Gateway Nginx Routing Fix
             echo "[OctaQube CD] Reloading frontend container..."
-            docker exec qcms-frontend nginx -s reload 2>/dev/null || true
+            timeout 10s docker exec qcms-frontend nginx -s reload 2>/dev/null || true
 
             echo "[OctaQube CD] Ensuring Gateway Nginx routes octaqube.ifqm.org.in to qcms-frontend..."
-            docker exec ifqm-skills sed -i 's/octaqube-coming-soon/qcms-frontend/g' /etc/nginx/conf.d/default.conf 2>/dev/null || true
-            docker exec ifqm-skills nginx -t 2>/dev/null && docker exec ifqm-skills nginx -s reload 2>/dev/null || true
+            timeout 10s docker exec ifqm-skills sed -i 's/octaqube-coming-soon/qcms-frontend/g' /etc/nginx/conf.d/default.conf 2>/dev/null || true
+            timeout 10s docker exec ifqm-skills nginx -t 2>/dev/null && timeout 10s docker exec ifqm-skills nginx -s reload 2>/dev/null || true
 
-            # Also persist fix in any host config files if mounted
-            grep -rn "octaqube-coming-soon" /opt/ 2>/dev/null | cut -d: -f1 | sort -u | while read -r conf_file; do
+            # Also persist fix in any mounted gateway config files if present
+            timeout 10s grep -rn "octaqube-coming-soon" /opt/ifqm* /etc/nginx 2>/dev/null | cut -d: -f1 | sort -u | while read -r conf_file; do
               echo "[OctaQube CD] Patching host config: $conf_file"
               sed -i 's/octaqube-coming-soon/qcms-frontend/g' "$conf_file" 2>/dev/null || true
             done
 
-            echo "========================================================="
-            echo "[OctaQube Diagnostic] Gateway Nginx probe to qcms-frontend:"
-            docker exec ifqm-skills wget -T 5 -t 1 -S -O /dev/null http://qcms-frontend/ 2>&1 || true
-            echo "========================================================="
-
-            # 8. Backend Health Probe Verification
-            echo "[OctaQube CD] Running readiness probe..."
+            # 8. Service Health Probes (Backend & Frontend)
+            echo "[OctaQube CD] Running service health probes..."
             MAX_RETRIES=30
             RETRY_COUNT=0
             HEALTHY=false
 
             until [ $RETRY_COUNT -ge $MAX_RETRIES ]
             do
-              HTTP_CODE=$(docker exec qcms-backend python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/api/health').status)" 2>/dev/null || echo 000)
-              if [ "$HTTP_CODE" = "200" ]; then
-                echo "[OctaQube CD ✅] Backend readiness probe passed with HTTP 200 OK!"
+              HTTP_CODE=$(timeout 5s docker exec qcms-backend python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/api/health').status)" 2>/dev/null || echo 000)
+              FE_STATUS=$(timeout 5s docker inspect --format='{{.State.Health.Status}}' qcms-frontend 2>/dev/null || echo "unknown")
+              if [ "$HTTP_CODE" = "200" ] && [ "$FE_STATUS" != "unhealthy" ]; then
+                echo "[OctaQube CD ✅] Backend readiness probe passed with HTTP 200 OK! Frontend status: $FE_STATUS"
                 HEALTHY=true
                 break
               fi
               RETRY_COUNT=$((RETRY_COUNT+1))
-              echo "[OctaQube CD] Waiting for backend to become ready... (Attempt $RETRY_COUNT/$MAX_RETRIES, HTTP $HTTP_CODE)"
+              echo "[OctaQube CD] Waiting for services to become ready... (Attempt $RETRY_COUNT/$MAX_RETRIES, Backend HTTP $HTTP_CODE, Frontend $FE_STATUS)"
               sleep 2
             done
 
             if [ "$HEALTHY" != "true" ]; then
-              echo "[OctaQube CD ❌] ERROR: Backend failed readiness probe after $MAX_RETRIES attempts!"
+              echo "[OctaQube CD ❌] ERROR: Services failed readiness probe after $MAX_RETRIES attempts!"
               docker compose -f "$COMPOSE_FILE" logs --tail=100 backend
+              docker compose -f "$COMPOSE_FILE" logs --tail=50 frontend
               exit 1
             fi
 
             # 9. Verify Frontend and Nginx Connectivity
             echo "[OctaQube CD] Testing frontend / local nginx response..."
-            curl -I -s http://127.0.0.1/ || true
-            curl -I -s -k https://127.0.0.1/ -H "Host: octaqube.ifqm.org.in" || true
-            curl -I -s https://octaqube.ifqm.org.in || true
+            curl -m 10 -I -s http://127.0.0.1/ || true
+            curl -m 10 -I -s -k https://127.0.0.1/ -H "Host: octaqube.ifqm.org.in" || true
+            curl -m 10 -I -s https://octaqube.ifqm.org.in || true
 
             echo "========================================================="
             echo " [OctaQube CD ✅] DEPLOYMENT COMPLETED SUCCESSFULLY!"
