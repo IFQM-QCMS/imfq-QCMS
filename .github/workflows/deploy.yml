@@ -172,17 +172,17 @@ jobs:
             echo "[OctaQube Diagnostic] Docker containers on VPS:"
             docker ps -a
             echo "========================================================="
-            echo "[OctaQube Diagnostic] Host Nginx Sites Enabled:"
-            sudo -n cat /etc/nginx/sites-enabled/* 2>/dev/null || cat /etc/nginx/sites-enabled/* 2>/dev/null || true
+            echo "[OctaQube Diagnostic] Gateway Nginx (ifqm-skills) config:"
+            docker exec ifqm-skills nginx -T 2>&1 || true
             echo "========================================================="
-            echo "[OctaQube Diagnostic] Host Nginx error log (last 30 lines):"
-            sudo -n tail -n 30 /var/log/nginx/error.log 2>/dev/null || tail -n 30 /var/log/nginx/error.log 2>/dev/null || true
+            echo "[OctaQube Diagnostic] Gateway Nginx (ifqm-skills) error log:"
+            docker exec ifqm-skills tail -n 50 /var/log/nginx/error.log 2>&1 || true
             echo "========================================================="
-            echo "[OctaQube Diagnostic] Docker network ifqm-new-sites inspect:"
-            docker network inspect ifqm-new-sites 2>/dev/null || true
+            echo "[OctaQube Diagnostic] Reload Gateway Nginx:"
+            docker exec ifqm-skills nginx -s reload 2>&1 || true
             echo "========================================================="
-            echo "[OctaQube Diagnostic] Frontend logs:"
-            docker logs --tail 30 qcms-frontend 2>&1 || true
+            echo "[OctaQube Diagnostic] Probe from ifqm-skills to qcms-frontend:"
+            docker exec ifqm-skills wget -S -O /dev/null http://qcms-frontend/ 2>&1 || true
             echo "========================================================="
 
             # 8. Backend Health Probe Verification
