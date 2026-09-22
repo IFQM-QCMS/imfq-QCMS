@@ -1063,22 +1063,30 @@ const SupportDesk = {
                 const list = res.data;
                 const meta = res.meta;
 
-                tbody.innerHTML = list.map(t => `
+                tbody.innerHTML = list.map(t => {
+                    const esc = (s) => (typeof OctaQube !== 'undefined' && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s || '') : (s || '');
+                    let reqName = t.requester_name || '';
+                    if (reqName.includes('@')) {
+                        reqName = reqName.split('@')[0];
+                    }
+                    const reqTooltip = t.requester_email ? `${reqName} (${t.requester_email})` : reqName;
+
+                    return `
                     <tr class="align-middle" style="font-size:11.5px;">
-                        <td style="white-space:nowrap;padding:5px 8px;"><span class="ds-badge gray" style="font-family:monospace;font-size:10px;padding:2px 5px;">${t.ticket_number}</span></td>
-                        <td style="max-width:180px;padding:5px 8px;"><div class="fw-semibold" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;" title="${t.subject}">${t.subject}</div></td>
-                        <td style="max-width:110px;padding:5px 8px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:105px;" title="${t.organization}">${t.organization}</span></td>
+                        <td style="white-space:nowrap;padding:5px 8px;"><span class="ds-badge gray" style="font-family:monospace;font-size:10px;padding:2px 5px;">${esc(t.ticket_number)}</span></td>
+                        <td style="max-width:180px;padding:5px 8px;"><div class="fw-semibold" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;" title="${esc(t.subject)}">${esc(t.subject)}</div></td>
+                        <td style="max-width:110px;padding:5px 8px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:105px;" title="${esc(t.organization)}">${esc(t.organization)}</span></td>
                         <td style="max-width:130px;padding:5px 8px;">
-                            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:125px;font-weight:600;" title="${t.requester_name}">${t.requester_name}</div>
-                            <div style="font-size:10px;opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:125px;" title="${t.requester_email}">${t.requester_email}</div>
+                            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:125px;font-weight:600;" title="${esc(reqTooltip)}">${esc(reqName)}</div>
                         </td>
-                        <td style="padding:5px 8px;white-space:nowrap;">${t.category}</td>
-                        <td style="padding:5px 8px;"><span class="ds-badge ${t.priority === 'Critical' || t.priority === 'High' ? 'red' : 'orange'}" style="font-size:10px;padding:2px 6px;">${t.priority}</span></td>
+                        <td style="padding:5px 8px;white-space:nowrap;">${esc(t.category)}</td>
+                        <td style="padding:5px 8px;"><span class="ds-badge ${t.priority === 'Critical' || t.priority === 'High' ? 'red' : 'orange'}" style="font-size:10px;padding:2px 6px;">${esc(t.priority)}</span></td>
                         <td style="padding:5px 8px;">${OctaQube.statusBadge(t.status)}</td>
-                        <td style="max-width:100px;padding:5px 8px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:95px;font-size:11px;" title="${t.assigned_engineer}">${t.assigned_engineer}</span></td>
+                        <td style="max-width:100px;padding:5px 8px;"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:95px;font-size:11px;" title="${esc(t.assigned_engineer)}">${esc(t.assigned_engineer)}</span></td>
                         <td style="padding:5px 8px;white-space:nowrap;"><button class="ds-btn ds-btn-primary" style="font-size:10.5px;padding:3px 10px;" onclick="SupportDesk.openTicket(${t.id})">Open</button></td>
                     </tr>
-                `).join('') || '<tr><td colspan="9" class="text-center py-4 text-secondary">No tickets match criteria.</td></tr>';
+                `;
+                }).join('') || '<tr><td colspan="9" class="text-center py-4 text-secondary">No tickets match criteria.</td></tr>';
 
                 // Render pagination footer
                 const footer = document.getElementById('sdPaginationFooter');
@@ -2286,7 +2294,9 @@ const SupportDesk = {
 
             const startItem = pag.total > 0 ? (pag.page - 1) * pag.per_page + 1 : 0;
             const endItem = Math.min(pag.page * pag.per_page, pag.total);
-            const isForwardingActive = this.salesSettings.sales_notification_enabled && this.salesSettings.sales_notification_email;
+            const savedEmail = (this.salesSettings.sales_notification_email || '').trim();
+            const hasEmail = Boolean(savedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(savedEmail));
+            const isForwardingActive = Boolean(this.salesSettings.sales_notification_enabled && hasEmail);
 
             view.innerHTML = `
                 <div class="v-stack gap-4 fade-in">
@@ -2372,10 +2382,10 @@ const SupportDesk = {
 
                             <div class="d-flex flex-wrap align-items-center gap-3 ms-auto mt-2 mt-lg-0">
                                 <!-- Toggle Switch -->
-                                <div class="d-flex align-items-center me-2" title="Toggle automatic email forwarding on or off">
+                                <div class="d-flex align-items-center me-2" id="salesToggleContainer" title="${hasEmail ? 'Toggle automatic email forwarding on or off' : 'Enter a valid email address to enable forwarding'}">
                                     <div class="form-check form-switch m-0 d-flex align-items-center gap-2 ps-0">
-                                        <input class="form-check-input ms-0" type="checkbox" id="toggleSalesNotification" role="switch" style="cursor: pointer; width: 40px; height: 20px; float: none; margin-top: 0;" ${this.salesSettings.sales_notification_enabled ? 'checked' : ''} onchange="SupportDesk.onToggleSalesNotification(this.checked)">
-                                        <label class="form-check-label text-xs fw-bold cursor-pointer text-nowrap mb-0" for="toggleSalesNotification" style="user-select: none; color: var(--ds-text-main);">
+                                        <input class="form-check-input ms-0" type="checkbox" id="toggleSalesNotification" role="switch" style="width: 40px; height: 20px; float: none; margin-top: 0; cursor: ${hasEmail ? 'pointer' : 'not-allowed'}; opacity: ${hasEmail ? '1' : '0.45'}; transition: all 0.2s ease;" ${this.salesSettings.sales_notification_enabled && hasEmail ? 'checked' : ''} ${hasEmail ? '' : 'disabled'} onchange="SupportDesk.onToggleSalesNotification(this.checked)">
+                                        <label class="form-check-label text-xs fw-bold text-nowrap mb-0" id="labelSalesNotification" for="toggleSalesNotification" style="user-select: none; color: var(--ds-text-main); cursor: ${hasEmail ? 'pointer' : 'not-allowed'}; opacity: ${hasEmail ? '1' : '0.5'}; transition: all 0.2s ease;">
                                             Send to Email
                                         </label>
                                     </div>
@@ -2384,9 +2394,9 @@ const SupportDesk = {
                                 <!-- Email Address Input & Save Button Group -->
                                 <div class="d-flex align-items-center gap-2">
                                     <div style="width: 250px;">
-                                        <input type="email" class="ds-input text-xs" style="padding-left: 12px; padding-right: 12px; height: 36px; border-radius: 8px;" id="salesNotificationEmailInput" placeholder="sales-team@company.com" value="${OctaQube.escapeHtml(this.salesSettings.sales_notification_email || '')}" onkeydown="if(event.key==='Enter') SupportDesk.saveSalesNotificationSettings()">
+                                        <input type="email" class="ds-input text-xs" style="padding-left: 12px; padding-right: 12px; height: 36px; border-radius: 8px;" id="salesNotificationEmailInput" placeholder="sales-team@company.com" value="${OctaQube.escapeHtml(this.salesSettings.sales_notification_email || '')}" oninput="SupportDesk.onSalesEmailInput(this.value)" onkeydown="if(event.key==='Enter') SupportDesk.saveSalesNotificationSettings()">
                                     </div>
-                                    <button class="ds-btn ds-btn-primary ds-btn-sm d-flex align-items-center gap-1.5 text-nowrap" id="btnSaveSalesNotificationSettings" onclick="SupportDesk.saveSalesNotificationSettings()" style="height: 36px; background: #6366f1; border-color: #6366f1; border-radius: 8px; font-weight: 600; padding: 0 14px;">
+                                    <button class="ds-btn ds-btn-primary ds-btn-sm d-flex align-items-center gap-1.5 text-nowrap" id="btnSaveSalesNotificationSettings" onclick="SupportDesk.saveSalesNotificationSettings()" ${hasEmail ? '' : 'disabled'} style="height: 36px; background: #6366f1; border-color: #6366f1; border-radius: 8px; font-weight: 600; padding: 0 14px; opacity: ${hasEmail ? '1' : '0.45'}; cursor: ${hasEmail ? 'pointer' : 'not-allowed'}; pointer-events: ${hasEmail ? 'auto' : 'none'}; transition: all 0.2s ease;">
                                         <i data-lucide="save" style="width: 14px; height: 14px;"></i> Save Email
                                     </button>
                                 </div>
@@ -2780,20 +2790,55 @@ const SupportDesk = {
         }
     },
 
+    onSalesEmailInput(val) {
+        const email = (val || '').trim();
+        const isValid = Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+
+        const btn = document.getElementById('btnSaveSalesNotificationSettings');
+        if (btn) {
+            btn.disabled = !isValid;
+            btn.style.opacity = isValid ? '1' : '0.45';
+            btn.style.cursor = isValid ? 'pointer' : 'not-allowed';
+            btn.style.pointerEvents = isValid ? 'auto' : 'none';
+        }
+
+        const toggle = document.getElementById('toggleSalesNotification');
+        const label = document.getElementById('labelSalesNotification');
+        const toggleContainer = document.getElementById('salesToggleContainer');
+        if (toggle) {
+            toggle.disabled = !isValid;
+            toggle.style.opacity = isValid ? '1' : '0.45';
+            toggle.style.cursor = isValid ? 'pointer' : 'not-allowed';
+            if (!isValid && toggle.checked) {
+                toggle.checked = false;
+            }
+        }
+        if (label) {
+            label.style.opacity = isValid ? '1' : '0.5';
+            label.style.cursor = isValid ? 'pointer' : 'not-allowed';
+        }
+        if (toggleContainer) {
+            toggleContainer.title = isValid ? 'Toggle automatic email forwarding on or off' : 'Enter a valid email address to enable forwarding';
+        }
+    },
+
     async onToggleSalesNotification(checked) {
         const emailInput = document.getElementById('salesNotificationEmailInput');
         const emailVal = (emailInput?.value || '').trim();
+        const isValid = Boolean(emailVal && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal));
         
-        if (checked && !emailVal) {
-            OctaQube.toast('Please enter a destination sales email address before enabling forwarding.', 'warning');
+        if (checked && !isValid) {
+            const toggle = document.getElementById('toggleSalesNotification');
+            if (toggle) toggle.checked = false;
+            OctaQube.toast('Please enter a valid destination sales email address before enabling forwarding.', 'warning');
             if (emailInput) emailInput.focus();
             return;
         }
 
-        await this.saveSalesNotificationSettings();
+        await this.saveSalesNotificationSettings(true);
     },
 
-    async saveSalesNotificationSettings() {
+    async saveSalesNotificationSettings(isFromToggle = false) {
         const emailInput = document.getElementById('salesNotificationEmailInput');
         const toggleInput = document.getElementById('toggleSalesNotification');
         const btn = document.getElementById('btnSaveSalesNotificationSettings');
@@ -2801,17 +2846,18 @@ const SupportDesk = {
         const emailVal = (emailInput?.value || '').trim();
         let isEnabled = toggleInput ? toggleInput.checked : false;
 
-        // Validate email format if provided
-        if (emailVal) {
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-                OctaQube.toast('Please enter a valid email address format (e.g. sales@company.com).', 'warning');
+        if (!emailVal) {
+            if (isFromToggle) {
+                isEnabled = false;
+            } else {
+                OctaQube.toast('Please enter a valid email address before saving.', 'warning');
                 if (emailInput) emailInput.focus();
                 return;
             }
-        } else if (isEnabled) {
-            // Cannot be enabled without an email
-            isEnabled = false;
-            if (toggleInput) toggleInput.checked = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+            OctaQube.toast('Please enter a valid email address format (e.g. sales@company.com).', 'warning');
+            if (emailInput) emailInput.focus();
+            return;
         }
 
         const origBtnHtml = btn ? btn.innerHTML : '';
@@ -2823,7 +2869,8 @@ const SupportDesk = {
         try {
             const res = await api.post('/support/enquiries/settings', {
                 sales_notification_email: emailVal,
-                sales_notification_enabled: isEnabled
+                sales_notification_enabled: isEnabled,
+                action: isFromToggle ? 'toggle' : 'save_email'
             });
 
             if (res && res.status === 'success') {
@@ -2831,10 +2878,11 @@ const SupportDesk = {
                 
                 if (emailInput) emailInput.value = this.salesSettings.sales_notification_email || '';
                 if (toggleInput) toggleInput.checked = Boolean(this.salesSettings.sales_notification_enabled);
+                this.onSalesEmailInput(this.salesSettings.sales_notification_email || '');
 
                 const badge = document.getElementById('salesNotificationStatusBadge');
                 if (badge) {
-                    const isForwarding = this.salesSettings.sales_notification_enabled && this.salesSettings.sales_notification_email;
+                    const isForwarding = Boolean(this.salesSettings.sales_notification_enabled && this.salesSettings.sales_notification_email);
                     badge.className = `badge rounded-pill text-xxs px-2.5 py-1 ${isForwarding ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'}`;
                     badge.innerHTML = `<i data-lucide="${isForwarding ? 'check-circle' : 'slash'}" style="width:10px;height:10px;display:inline;" class="me-1"></i> ${isForwarding ? `Forwarding to: ${OctaQube.escapeHtml(this.salesSettings.sales_notification_email)}` : 'Dashboard Only (Email Off)'}`;
                 }
@@ -2848,8 +2896,8 @@ const SupportDesk = {
             OctaQube.toast(e.message || 'Failed to save sales notification settings.', 'error');
         } finally {
             if (btn) {
-                btn.disabled = false;
                 btn.innerHTML = origBtnHtml;
+                this.onSalesEmailInput(emailInput ? emailInput.value : '');
             }
         }
     }

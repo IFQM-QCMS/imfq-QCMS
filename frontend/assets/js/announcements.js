@@ -60,6 +60,9 @@ const AnnouncementsModule = {
         const container = document.getElementById(this.containerId);
         if (!container) return;
 
+        // Clean up any stale modal instances from previous inits to prevent DOM ID duplication
+        document.querySelectorAll('#annWizardModal, #annDetailModal').forEach(el => el.remove());
+
         container.innerHTML = `
             <style>
                 .sd-tab-btn {
@@ -743,8 +746,10 @@ const AnnouncementsModule = {
             });
         }
 
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.show();
+        }
         this.renderWizardStep();
     },
 
@@ -780,11 +785,12 @@ const AnnouncementsModule = {
     },
 
     renderWizardStep() {
-        const body = document.getElementById('annWizardBodyContent');
-        const nextBtn = document.getElementById('annWizNextBtn');
-        const prevBtn = document.getElementById('annWizPrevBtn');
-        const stepText = document.getElementById('annWizStepIndicatorText');
-        const progressBar = document.getElementById('annWizardProgressBar');
+        const modalEl = document.getElementById('annWizardModal');
+        const body = modalEl ? modalEl.querySelector('#annWizardBodyContent') : document.getElementById('annWizardBodyContent');
+        const nextBtn = modalEl ? modalEl.querySelector('#annWizNextBtn') : document.getElementById('annWizNextBtn');
+        const prevBtn = modalEl ? modalEl.querySelector('#annWizPrevBtn') : document.getElementById('annWizPrevBtn');
+        const stepText = modalEl ? modalEl.querySelector('#annWizStepIndicatorText') : document.getElementById('annWizStepIndicatorText');
+        const progressBar = modalEl ? modalEl.querySelector('#annWizardProgressBar') : document.getElementById('annWizardProgressBar');
         if (!body) return;
 
         // Progress bar percentage calculation
@@ -794,7 +800,7 @@ const AnnouncementsModule = {
 
         // Update indicator labels
         for (let i = 1; i <= 5; i++) {
-            const lbl = document.querySelector(`.ann-step-lbl-${i}`);
+            const lbl = modalEl ? modalEl.querySelector(`.ann-step-lbl-${i}`) : document.querySelector(`.ann-step-lbl-${i}`);
             if (lbl) {
                 lbl.style.cursor = 'pointer';
                 lbl.onclick = () => {
@@ -815,6 +821,12 @@ const AnnouncementsModule = {
         }
 
         if (prevBtn) {
+            prevBtn.disabled = false;
+            prevBtn.removeAttribute('disabled');
+            prevBtn.classList.remove('disabled', 'is-locked');
+            prevBtn.style.pointerEvents = 'auto';
+            prevBtn.style.cursor = 'pointer';
+
             if (this.wizardStep === 1) {
                 prevBtn.style.display = 'none';
                 prevBtn.classList.add('d-none');
@@ -822,9 +834,21 @@ const AnnouncementsModule = {
                 prevBtn.style.display = 'inline-flex';
                 prevBtn.classList.remove('d-none');
             }
+
+            // Explicit click listener in addition to inline onclick
+            prevBtn.onclick = (e) => {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                AnnouncementsModule.prevStep();
+            };
         }
         if (nextBtn) {
             nextBtn.disabled = false;
+            nextBtn.removeAttribute('disabled');
+            nextBtn.classList.remove('disabled', 'is-locked');
+            nextBtn.style.pointerEvents = 'auto';
             if (this.wizardStep === 5) {
                 nextBtn.className = 'ds-btn ds-btn-success ds-btn-sm px-4 fw-bold shadow-sm';
                 nextBtn.innerHTML = '<i data-lucide="send" style="width:14px;height:14px;" class="me-1"></i> Submit Announcement';
@@ -996,6 +1020,7 @@ const AnnouncementsModule = {
             const pConf = prioConfig[prio] || prioConfig['Medium'];
 
             body.innerHTML = `
+                <div class="d-flex flex-column gap-3">
                     <!-- ── Step 5: Clean Unified Review & Recipient Preview ── -->
                     <!-- Broadcast Summary Card -->
                     <div class="p-3 border rounded-3" style="background: var(--ds-surface, #ffffff); border-color: var(--ds-border-color) !important;">
@@ -1483,10 +1508,14 @@ const AnnouncementsModule = {
     },
 
     prevStep() {
-        this.saveCurrentStepData();
-        if (this.wizardStep > 1) {
-            this.wizardStep--;
-            this.renderWizardStep();
+        try {
+            this.saveCurrentStepData();
+            if (this.wizardStep > 1) {
+                this.wizardStep--;
+                this.renderWizardStep();
+            }
+        } catch (err) {
+            console.error('[AnnouncementsModule] Error in prevStep:', err);
         }
     },
 

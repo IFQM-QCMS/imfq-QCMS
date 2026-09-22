@@ -945,7 +945,14 @@ def export_tickets():
     csv_rows = ["Ticket ID,Ticket Number,Subject,Requester,Priority,Status,Created At"]
     for t in tickets:
         subj = (t.subject or '').replace('"', '""')
-        req = (t.user.username if t.user else '').replace('"', '""')
+        req = ''
+        if t.user:
+            if t.user.full_name and t.user.full_name.strip() and t.user.full_name.strip() != '—':
+                req = t.user.full_name.strip()
+            elif t.user.username:
+                uname = t.user.username.strip()
+                req = uname.split('@')[0] if '@' in uname else uname
+        req = req.replace('"', '""')
         csv_rows.append(f'{t.id},{t.ticket_number or ""},"{subj}","{req}",{t.priority},{t.status},{t.created_at.isoformat()}')
         
     csv_content = "\n".join(csv_rows)
@@ -1081,12 +1088,17 @@ def manage_enquiries_settings():
         sales_email = (data.get('sales_notification_email') or '').strip()
         sales_enabled_raw = data.get('sales_notification_enabled')
         sales_enabled = bool(sales_enabled_raw)
+        action = data.get('action')
         
         if sales_email:
             import re
             if len(sales_email) > 254 or not re.fullmatch(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", sales_email):
                 return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
         else:
+            if sales_enabled:
+                return jsonify({"status": "error", "message": "Cannot enable email forwarding without a valid destination email address."}), 400
+            if action == 'save_email':
+                return jsonify({"status": "error", "message": "Please enter a valid sales email address before saving."}), 400
             sales_enabled = False
 
         notif_cfg['sales_notification_email'] = sales_email

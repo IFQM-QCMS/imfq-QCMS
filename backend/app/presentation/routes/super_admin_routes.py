@@ -3358,10 +3358,17 @@ def list_tickets():
     tickets = SupportTicket.query.order_by(SupportTicket.created_at.desc()).all()
     output = []
     for t in tickets:
+        req_name = "System"
+        if t.user:
+            if t.user.full_name and t.user.full_name.strip() and t.user.full_name.strip() != '—':
+                req_name = t.user.full_name.strip()
+            elif t.user.username:
+                uname = t.user.username.strip()
+                req_name = uname.split('@')[0] if '@' in uname else uname
         output.append({
             "id": t.id,
             "organization": t.organization.name if t.organization else "N/A",
-            "requester_name": t.user.username if t.user else "System",
+            "requester_name": req_name,
             "requester_email": t.user.email if t.user else "N/A",
             "subject": t.subject,
             "status": t.status,
@@ -3376,12 +3383,19 @@ def list_tickets():
 def manage_ticket(ticket_id):
     ticket = SupportTicket.query.get_or_404(ticket_id)
     if request.method == 'GET':
+        req_name = "System"
+        if ticket.user:
+            if ticket.user.full_name and ticket.user.full_name.strip() and ticket.user.full_name.strip() != '—':
+                req_name = ticket.user.full_name.strip()
+            elif ticket.user.username:
+                uname = ticket.user.username.strip()
+                req_name = uname.split('@')[0] if '@' in uname else uname
         return jsonify({
             "status": "success",
             "data": {
                 "id": ticket.id,
                 "organization": ticket.organization.name if ticket.organization else "N/A",
-                "requester_name": ticket.user.username if ticket.user else "System",
+                "requester_name": req_name,
                 "requester_email": ticket.user.email if ticket.user else "N/A",
                 "subject": ticket.subject,
                 "description": ticket.message,
