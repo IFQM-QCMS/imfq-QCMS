@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <!-- Performance & Network Acceleration: Critical Preloads -->
-    <link rel="preload" href="/assets/dist/core.1815e896.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.2cfc11ea.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.2feac510.min.js" as="script">
     <script src="/assets/dist/auth-guard.2feac510.min.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Member Directory | OctaQube Enterprise</title>
-    <link rel="stylesheet" href="/assets/dist/core.1815e896.min.css">
+    <link rel="stylesheet" href="/assets/dist/core.2cfc11ea.min.css">
     <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="/assets/dist/lucide.min.js"></script>
     <style>
@@ -163,7 +163,12 @@ function escapeHtml(s) {
                             <span class="text-xs text-muted">Organization structure must be initialized</span>
                         </div>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close ds-modal-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div class="modal-body px-4 py-3">
                     <p class="text-sm text-secondary mb-3">
@@ -230,7 +235,12 @@ function escapeHtml(s) {
             <div class="modal-content glass-card ds-card">
                 <div class="modal-header border-0 pb-0 px-4 pt-4">
                     <h5 class="modal-title fw-bold">Provision Access</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close ds-modal-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div class="modal-body p-4">
                     <form id="userForm">
@@ -307,8 +317,11 @@ function escapeHtml(s) {
                     <h5 class="modal-title fw-bold text-main d-flex align-items-center gap-2">
                         <i data-lucide="users-plus" class="text-primary" style="width:22px;height:22px;"></i> Bulk Import Members
                     </h5>
-                    <button type="button" class="btn-close text-secondary" data-bs-dismiss="modal" aria-label="Close" style="background: none; border: none; font-size: 1.25rem; opacity: 0.8; cursor: pointer; padding: 4px;" onclick="Users.onBulkModalClose()">
-                        <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                    <button type="button" class="btn-close ds-modal-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close" onclick="Users.onBulkModalClose()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
                 <div class="modal-body p-4">
@@ -468,14 +481,19 @@ function escapeHtml(s) {
         </style>
         <div class="modal-dialog modal-dialog-centered" style="max-width: 700px;">
             <div class="modal-content glass-card ds-card">
-                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <div class="modal-header border-0 pb-0 px-4 pt-4 d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center gap-2">
                         <div style="width:32px;height:32px;border-radius:8px;background:rgba(var(--ds-accent-rgb),0.12);color:var(--ds-accent);display:flex;align-items:center;justify-content:center;">
                             <i data-lucide="settings-2" style="width:16px;height:16px;"></i>
                         </div>
                         <h5 class="modal-title fw-bold">Configure Fields &amp; Login</h5>
                     </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close ds-modal-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div class="modal-body p-4" style="max-height:85vh;overflow-y:auto;">
                     <!-- Field Definitions Table -->

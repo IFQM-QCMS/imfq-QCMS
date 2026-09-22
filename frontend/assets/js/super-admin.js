@@ -5686,15 +5686,20 @@ const SuperAdmin = {
                 total_pages: Math.ceil(users.length / 5) || 1
             };
 
-            let rows = users.map(u => `
+            let rows = users.map(u => {
+                const displayName = (u.full_name && u.full_name.trim() && u.full_name !== '—') 
+                    ? u.full_name 
+                    : (u.username ? (u.username.includes('@') ? u.username.split('@')[0] : u.username) : '—');
+                return `
                 <tr>
-                    <td><strong>${this._escapeHTML(u.full_name || '—')}</strong><br><small class="text-muted">${this._escapeHTML(u.username)}</small></td>
-                    <td class="text-xs text-muted">${this._escapeHTML(u.email)}</td>
+                    <td><strong>${this._escapeHTML(displayName)}</strong></td>
+                    <td class="text-xs text-muted">${this._escapeHTML(u.email || '—')}</td>
                     <td><span class="ds-badge outline">${this._escapeHTML(u.role || 'Member')}</span></td>
                     <td><span class="ds-badge ${u.status === 'Active' || u.is_active ? 'green' : 'red'}" style="font-size:10px; padding:2px 6px;">${this._escapeHTML(u.status || (u.is_active ? 'Active' : 'Inactive'))}</span></td>
                     <td class="text-xs text-muted">${u.last_login ? OctaQube.formatRelative(u.last_login) : 'Never'}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
 
             if (users.length === 0) {
                 rows = `<tr><td colspan="5" class="text-center py-4 text-muted">No members found${searchQuery ? ' matching "' + this._escapeHTML(searchQuery) + '"' : ''}.</td></tr>`;

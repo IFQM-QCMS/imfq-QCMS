@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <!-- Performance & Network Acceleration: Critical Preloads -->
-    <link rel="preload" href="/assets/dist/core.1815e896.min.css" as="style">
+    <link rel="preload" href="/assets/dist/core.2cfc11ea.min.css" as="style">
     <link rel="preload" href="/assets/dist/auth-guard.2feac510.min.js" as="script">
     <script src="/assets/dist/auth-guard.2feac510.min.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Departments | OctaQube Enterprise</title>
-    <link rel="stylesheet" href="/assets/dist/core.1815e896.min.css">
+    <link rel="stylesheet" href="/assets/dist/core.2cfc11ea.min.css">
     <script src="/assets/dist/breadcrumbs.cb905230.min.js"></script>
     <script src="/assets/dist/lucide.min.js"></script>
     <style>
@@ -120,7 +120,12 @@
             <div class="modal-content glass-card ds-card">
                 <div class="modal-header border-0 pb-0 px-4 pt-4">
                     <h5 class="modal-title fw-bold" id="modalTitle">Add Unit</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close ds-modal-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div class="modal-body p-4">
                     <form id="deptForm" onsubmit="event.preventDefault(); deptManager.save();">
@@ -161,7 +166,12 @@
                         <i data-lucide="trash-2" style="width:18px;height:18px;"></i>
                         <span id="delDeptTitle">Delete Department</span>
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close ds-modal-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div class="modal-body px-4 pb-0">
 

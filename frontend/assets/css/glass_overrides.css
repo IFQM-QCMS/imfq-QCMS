@@ -3971,4 +3971,106 @@ input[type="checkbox"].form-check-input:disabled:checked {
     opacity: 1 !important;
 }
 
+/* ==========================================================================
+   Modal Close Button: High-Contrast (X) Button & Global Visibility Safeguard
+   ========================================================================== */
+.modal-header .btn-close,
+.ds-modal-close-btn {
+    box-sizing: border-box !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 50% !important;
+    background-color: rgba(15, 23, 42, 0.08) !important;
+    border: 1px solid rgba(15, 23, 42, 0.16) !important;
+    color: var(--ds-text-main, #0f172a) !important;
+    opacity: 0.95 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    filter: none !important; /* Neutralize accidental .btn-close-white */
+}
+
+/* Default SVG background for standard .btn-close without inline SVG */
+.modal-header .btn-close {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%230f172a'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: 11px !important;
+}
+
+/* Custom modal close button with explicit inline SVG */
+.ds-modal-close-btn {
+    background-image: none !important;
+}
+
+.ds-modal-close-btn svg,
+.modal-header .btn-close svg {
+    display: block !important;
+    width: 14px !important;
+    height: 14px !important;
+    stroke: currentColor !important;
+    stroke-width: 2.5 !important;
+    pointer-events: none !important;
+}
+
+/* Hover state: Clear soft-red accent indicating close action */
+.modal-header .btn-close:hover,
+.ds-modal-close-btn:hover {
+    background-color: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    color: #dc2626 !important;
+    opacity: 1 !important;
+    transform: scale(1.08) !important;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2) !important;
+}
+
+.modal-header .btn-close:hover {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23dc2626'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") !important;
+}
+
+.ds-modal-close-btn:hover {
+    background-image: none !important;
+}
+
+.modal-header .btn-close:focus,
+.ds-modal-close-btn:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Dark mode styling */
+[data-theme="dark"] .modal-header .btn-close,
+[data-theme="dark"] .ds-modal-close-btn {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
+    color: #f8fafc !important;
+}
+
+[data-theme="dark"] .modal-header .btn-close {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ffffff'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") !important;
+}
+
+[data-theme="dark"] .modal-header .btn-close:hover,
+[data-theme="dark"] .ds-modal-close-btn:hover {
+    background-color: rgba(239, 68, 68, 0.28) !important;
+    border-color: rgba(239, 68, 68, 0.5) !important;
+    color: #fca5a5 !important;
+}
+
+[data-theme="dark"] .modal-header .btn-close:hover {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fca5a5'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") !important;
+}
+
+[data-theme="dark"] .ds-modal-close-btn:hover {
+    background-image: none !important;
+}
+
+
 
