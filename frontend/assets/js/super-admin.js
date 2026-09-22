@@ -8962,6 +8962,163 @@ const SuperAdmin = {
         return isValid;
     },
 
+    _validatePlanStep2() {
+        const tier = (document.getElementById('pwTier')?.value || '').toLowerCase();
+        const isTrial = tier.includes('trial');
+        const isPayg = tier.includes('pay') || tier.includes('metered');
+
+        if (isTrial) {
+            return true;
+        }
+
+        if (isPayg) {
+            const baseFeeEl = document.getElementById('pwPaygBaseFee');
+            const taxEl = document.getElementById('pwPaygTax');
+            const baseFee = parseFloat(baseFeeEl?.value);
+            const tax = parseFloat(taxEl?.value);
+
+            if (isNaN(baseFee) || baseFee < 0) {
+                if (baseFeeEl) baseFeeEl.classList.add('is-invalid');
+                this._planNotify('Base Platform Access Fee cannot be negative. Please enter 0 or a positive amount.', 'warning');
+                baseFeeEl?.focus();
+                return false;
+            }
+            if (baseFeeEl) baseFeeEl.classList.remove('is-invalid');
+
+            if (isNaN(tax) || tax < 0 || tax > 100) {
+                if (taxEl) taxEl.classList.add('is-invalid');
+                this._planNotify('Default GST / Tax Rate must be between 0% and 100%.', 'warning');
+                taxEl?.focus();
+                return false;
+            }
+            if (taxEl) taxEl.classList.remove('is-invalid');
+
+            const rateIds = ['pwPaygUserRate', 'pwPaygUserFree', 'pwPaygStorageRate', 'pwPaygStorageFree', 'pwPaygProjectRate', 'pwPaygProjectFree', 'pwPaygApiRate', 'pwPaygApiFree'];
+            for (const rId of rateIds) {
+                const el = document.getElementById(rId);
+                if (el && (parseFloat(el.value) < 0 || isNaN(parseFloat(el.value)))) {
+                    el.classList.add('is-invalid');
+                    this._planNotify('Pay-As-You-Go rates and allowances cannot be negative.', 'warning');
+                    el.focus();
+                    return false;
+                }
+                if (el) el.classList.remove('is-invalid');
+            }
+            return true;
+        }
+
+        // Fixed pricing validation
+        const priceEl = document.getElementById('pwPriceAmount');
+        const taxEl = document.getElementById('pwTax');
+        const rawVal = priceEl ? String(priceEl.value).trim() : '';
+        const amount = parseFloat(rawVal);
+        const warningEl = document.getElementById('pwPriceAmountWarning');
+
+        if (rawVal === '' || isNaN(amount) || amount < 0 || rawVal.includes('-')) {
+            if (priceEl) {
+                priceEl.classList.add('is-invalid');
+                priceEl.style.borderColor = '#ef4444';
+            }
+            if (warningEl) {
+                warningEl.style.display = 'flex';
+                warningEl.innerHTML = '<i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Plan Amount cannot be negative. Please enter 0 or a positive amount.';
+                if (window.lucide) lucide.createIcons({ container: warningEl });
+            }
+            this._planNotify('Plan Amount cannot be negative. Please enter 0 or a positive amount.', 'warning');
+            priceEl?.focus();
+            return false;
+        }
+
+        if (priceEl) {
+            priceEl.classList.remove('is-invalid');
+            priceEl.style.borderColor = '';
+        }
+        if (warningEl) {
+            warningEl.style.display = 'none';
+        }
+
+        const tax = parseFloat(taxEl?.value);
+        if (isNaN(tax) || tax < 0 || tax > 100) {
+            if (taxEl) taxEl.classList.add('is-invalid');
+            this._planNotify('Default tax percentage must be between 0% and 100%.', 'warning');
+            taxEl?.focus();
+            return false;
+        }
+        if (taxEl) taxEl.classList.remove('is-invalid');
+
+        return true;
+    },
+
+    onPlanAmountInput(inputEl) {
+        if (!inputEl) return;
+        const valStr = String(inputEl.value || '');
+        const warningEl = document.getElementById('pwPriceAmountWarning');
+        const isNegative = valStr.includes('-') || (parseFloat(valStr) < 0);
+
+        if (isNegative) {
+            inputEl.classList.add('is-invalid');
+            inputEl.style.borderColor = '#ef4444';
+            if (warningEl) {
+                warningEl.style.display = 'flex';
+                warningEl.innerHTML = '<i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Plan Amount cannot be negative. Please enter 0 or a positive amount.';
+                if (window.lucide) lucide.createIcons({ container: warningEl });
+            }
+        } else {
+            inputEl.classList.remove('is-invalid');
+            inputEl.style.borderColor = '';
+            if (warningEl) {
+                warningEl.style.display = 'none';
+            }
+        }
+        this.updatePlanTaxCalculationPreview();
+    },
+
+    onPlanAmountBlur(inputEl) {
+        if (!inputEl) return;
+        const valStr = String(inputEl.value || '').trim();
+        const warningEl = document.getElementById('pwPriceAmountWarning');
+
+        if (valStr.includes('-') || (parseFloat(valStr) < 0)) {
+            inputEl.classList.add('is-invalid');
+            inputEl.style.borderColor = '#ef4444';
+            if (warningEl) {
+                warningEl.style.display = 'flex';
+                warningEl.innerHTML = '<i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Plan Amount cannot be negative. Value has been reset to 0.';
+                if (window.lucide) lucide.createIcons({ container: warningEl });
+            }
+            this._planNotify('Plan Amount cannot be negative. Resetting to 0.', 'warning');
+            inputEl.value = '0';
+            setTimeout(() => {
+                inputEl.classList.remove('is-invalid');
+                inputEl.style.borderColor = '';
+                if (warningEl) warningEl.style.display = 'none';
+            }, 3000);
+        } else if (valStr === '' || isNaN(parseFloat(valStr))) {
+            inputEl.value = '0';
+            inputEl.classList.remove('is-invalid');
+            inputEl.style.borderColor = '';
+            if (warningEl) warningEl.style.display = 'none';
+        }
+        this.updatePlanTaxCalculationPreview();
+    },
+
+    onPlanAmountPaste(e, inputEl) {
+        const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+        if (pasted.includes('-') || (parseFloat(pasted) < 0)) {
+            e.preventDefault();
+            const cleanNum = Math.max(0, parseFloat(pasted.replace(/[^0-9.]/g, '')) || 0);
+            inputEl.value = cleanNum;
+            const warningEl = document.getElementById('pwPriceAmountWarning');
+            if (warningEl) {
+                warningEl.style.display = 'flex';
+                warningEl.innerHTML = `<i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Negative value converted to positive ₹${cleanNum}.`;
+                if (window.lucide) lucide.createIcons({ container: warningEl });
+                setTimeout(() => { warningEl.style.display = 'none'; }, 3500);
+            }
+            this.updatePlanTaxCalculationPreview();
+        }
+    },
+
     togglePlanCustomYears() {
         const cycle = document.getElementById('pwBillingCycle')?.value;
         const container = document.getElementById('pwCustomYearsContainer');
@@ -9263,6 +9420,7 @@ const SuperAdmin = {
 
     _planWizGoStep(n) {
         if (n > 1 && !this._validatePlanStep1()) return;
+        if (n > 2 && !this._validatePlanStep2()) return;
 
         this._plan.wizStep = n;
         document.querySelectorAll('#planCreateModal .wiz-panel').forEach(p=>p.classList.remove('active'));
@@ -9283,6 +9441,9 @@ const SuperAdmin = {
     planWizNext() {
         if (this._plan.wizStep === 1) {
             if (!this._validatePlanStep1()) return;
+        }
+        if (this._plan.wizStep === 2) {
+            if (!this._validatePlanStep2()) return;
         }
         if(this._plan.wizStep < 4) this._planWizGoStep(this._plan.wizStep + 1);
     },
@@ -9357,8 +9518,37 @@ const SuperAdmin = {
     },
 
     updatePlanTaxCalculationPreview() {
-        const amount = parseFloat(document.getElementById('pwPriceAmount')?.value) || 0.0;
-        const taxRate = parseFloat(document.getElementById('pwTax')?.value) || 18.0;
+        const priceInput = document.getElementById('pwPriceAmount');
+        const rawVal = priceInput ? String(priceInput.value || '') : '';
+        const warningEl = document.getElementById('pwPriceAmountWarning');
+
+        let amount = parseFloat(rawVal);
+        const isNegative = rawVal.includes('-') || (!isNaN(amount) && amount < 0);
+
+        if (isNegative) {
+            if (priceInput) {
+                priceInput.classList.add('is-invalid');
+                priceInput.style.borderColor = '#ef4444';
+            }
+            if (warningEl) {
+                warningEl.style.display = 'flex';
+                warningEl.innerHTML = '<i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Plan Amount cannot be negative. Please enter 0 or a positive amount.';
+                if (window.lucide) lucide.createIcons({ container: warningEl });
+            }
+            amount = 0.0;
+        } else {
+            if (priceInput) {
+                priceInput.classList.remove('is-invalid');
+                priceInput.style.borderColor = '';
+            }
+            if (warningEl) {
+                warningEl.style.display = 'none';
+            }
+            if (isNaN(amount) || amount < 0) amount = 0.0;
+        }
+
+        const taxRateRaw = parseFloat(document.getElementById('pwTax')?.value);
+        const taxRate = (isNaN(taxRateRaw) || taxRateRaw < 0) ? 0.0 : Math.min(taxRateRaw, 100.0);
         const isInclusive = document.getElementById('pwTaxInclusiveOpt')?.checked || false;
 
         const fmt = (val) => Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -9373,16 +9563,27 @@ const SuperAdmin = {
 
         const exclDesc = document.getElementById('pwTaxExclusiveDesc');
         if (exclDesc) {
-            exclDesc.innerHTML = `GST is added on top (Base ₹${fmt(exclBase)} + ${taxRate}% GST ₹${fmt(exclTax)} = <strong>₹${fmt(exclTotal)}</strong> final total)`;
+            if (isNegative) {
+                exclDesc.innerHTML = `<span class="text-danger fw-semibold"><i data-lucide="alert-triangle" style="width:12px;height:12px;"></i> Invalid amount: Negative values not permitted</span>`;
+            } else {
+                exclDesc.innerHTML = `GST is added on top (Base ₹${fmt(exclBase)} + ${taxRate}% GST ₹${fmt(exclTax)} = <strong>₹${fmt(exclTotal)}</strong> final total)`;
+            }
         }
 
         const inclDesc = document.getElementById('pwTaxInclusiveDesc');
         if (inclDesc) {
-            inclDesc.innerHTML = `GST is included in price (Base ₹${fmt(inclBase)} + ${taxRate}% GST ₹${fmt(inclTax)} = <strong>₹${fmt(inclTotal)}</strong> final total)`;
+            if (isNegative) {
+                inclDesc.innerHTML = `<span class="text-danger fw-semibold"><i data-lucide="alert-triangle" style="width:12px;height:12px;"></i> Invalid amount: Negative values not permitted</span>`;
+            } else {
+                inclDesc.innerHTML = `GST is included in price (Base ₹${fmt(inclBase)} + ${taxRate}% GST ₹${fmt(inclTax)} = <strong>₹${fmt(inclTotal)}</strong> final total)`;
+            }
         }
+        if (window.lucide) lucide.createIcons();
     },
 
     async planWizSubmit() {
+        if (!this._validatePlanStep1()) { this._planWizGoStep(1); return; }
+        if (!this._validatePlanStep2()) { this._planWizGoStep(2); return; }
         if (!document.getElementById('pwConfirm').checked) { this._planNotify('Confirm review before saving', 'error'); return; }
         const btn = document.getElementById('pwSubmitBtn');
         btn.disabled = true; btn.textContent = 'Saving Plan…';

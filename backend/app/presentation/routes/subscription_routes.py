@@ -2532,15 +2532,27 @@ def create_plan():
             ps.trial_period_days = plan.trial_duration_days
             ps.max_auto_trial_extensions = plan.auto_approve_extensions_limit
 
+    if payg_rules_val and isinstance(payg_rules_val, dict):
+        if float(payg_rules_val.get('base_fee', 0.0) or 0.0) < 0:
+            return jsonify({'error': 'PAYG Base Fee cannot be negative.'}), 422
+
     # Add Pricing Cycles
     pricing_data = data.get('pricing', [])
+    for p in pricing_data:
+        p_price = float(p.get('price', 0.0) or 0.0)
+        if p_price < 0:
+            return jsonify({'error': 'Plan price cannot be negative. Must be 0 or greater.'}), 422
+        p_tax = float(p.get('tax', 18.0) or 0.0)
+        if p_tax < 0 or p_tax > 100:
+            return jsonify({'error': 'Tax percentage must be between 0% and 100%.'}), 422
+
     for p in pricing_data:
         pricing = SaaSPlanPricing(
             plan_id=plan.id,
             billing_cycle=p.get('billing_cycle'),
-            price=float(p.get('price', 0.0)),
-            discount=float(p.get('discount', 0.0)),
-            tax=float(p.get('tax', 18.0)),
+            price=max(0.0, float(p.get('price', 0.0) or 0.0)),
+            discount=float(p.get('discount', 0.0) or 0.0),
+            tax=float(p.get('tax', 18.0) or 0.0),
             is_tax_inclusive=bool(p.get('is_tax_inclusive', False))
         )
         db.session.add(pricing)
@@ -2671,6 +2683,8 @@ def update_plan(plan_id):
         plan.pricing_model = 'pay_as_you_go'
 
     if 'payg_rules' in data:
+        if isinstance(data['payg_rules'], dict) and float(data['payg_rules'].get('base_fee', 0.0) or 0.0) < 0:
+            return jsonify({'error': 'PAYG Base Fee cannot be negative.'}), 422
         plan.payg_rules = data['payg_rules']
 
     plan.is_custom = data.get('is_custom', plan.is_custom)
@@ -2689,14 +2703,22 @@ def update_plan(plan_id):
 
     # Update Pricing
     if 'pricing' in data:
+        for p in data['pricing']:
+            p_price = float(p.get('price', 0.0) or 0.0)
+            if p_price < 0:
+                return jsonify({'error': 'Plan price cannot be negative. Must be 0 or greater.'}), 422
+            p_tax = float(p.get('tax', 18.0) or 0.0)
+            if p_tax < 0 or p_tax > 100:
+                return jsonify({'error': 'Tax percentage must be between 0% and 100%.'}), 422
+
         SaaSPlanPricing.query.filter_by(plan_id=plan.id).delete()
         for p in data['pricing']:
             pricing = SaaSPlanPricing(
                 plan_id=plan.id,
                 billing_cycle=p.get('billing_cycle'),
-                price=float(p.get('price', 0.0)),
-                discount=float(p.get('discount', 0.0)),
-                tax=float(p.get('tax', 18.0)),
+                price=max(0.0, float(p.get('price', 0.0) or 0.0)),
+                discount=float(p.get('discount', 0.0) or 0.0),
+                tax=float(p.get('tax', 18.0) or 0.0),
                 is_tax_inclusive=bool(p.get('is_tax_inclusive', False))
             )
             db.session.add(pricing)

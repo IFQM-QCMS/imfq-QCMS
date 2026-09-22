@@ -233,17 +233,37 @@ def list_tickets():
     
     tickets_list = []
     for t in pagination.items:
+        req_name = "N/A"
+        req_email = "N/A"
+        if t.user:
+            req_email = t.user.email or "N/A"
+            if t.user.full_name and t.user.full_name.strip() and t.user.full_name.strip() != '—':
+                req_name = t.user.full_name.strip()
+            elif t.user.username:
+                uname = t.user.username.strip()
+                req_name = uname.split('@')[0] if '@' in uname else uname
+            elif req_email != "N/A":
+                req_name = req_email.split('@')[0]
+
+        eng_name = "Unassigned"
+        if t.assigned_engineer:
+            if t.assigned_engineer.full_name and t.assigned_engineer.full_name.strip() and t.assigned_engineer.full_name.strip() != '—':
+                eng_name = t.assigned_engineer.full_name.strip()
+            elif t.assigned_engineer.username:
+                e_uname = t.assigned_engineer.username.strip()
+                eng_name = e_uname.split('@')[0] if '@' in e_uname else e_uname
+
         tickets_list.append({
             "id": t.id,
             "ticket_number": t.ticket_number or f"TKT-{t.id:06d}",
             "subject": t.subject,
             "organization": t.organization.name if t.organization else "System",
-            "requester_name": t.user.username if t.user else "N/A",
-            "requester_email": t.user.email if t.user else "N/A",
+            "requester_name": req_name,
+            "requester_email": req_email,
             "category": t.category,
             "priority": t.priority,
             "status": t.status,
-            "assigned_engineer": t.assigned_engineer.username if t.assigned_engineer else "Unassigned",
+            "assigned_engineer": eng_name,
             "created_at": t.created_at.isoformat(),
             "updated_at": t.created_at.isoformat(), # mock updated_at
             "sla_status": t.sla_status,
@@ -454,27 +474,47 @@ def get_ticket_details(ticket_id):
             "uploaded_at": att.uploaded_at.isoformat() if hasattr(att, 'uploaded_at') and att.uploaded_at else ""
         })
 
-    return jsonify({
-        "status": "success",
-        "data": {
-            "id": ticket.id,
-            "ticket_number": ticket.ticket_number or f"TKT-{ticket.id:06d}",
-            "subject": ticket.subject,
-            "description": ticket.message,
-            "priority": ticket.priority,
-            "status": ticket.status,
-            "category": ticket.category,
-            "created_at": ticket.created_at.isoformat() if ticket.created_at else "",
-            "resolved_at": ticket.resolved_at.isoformat() if ticket.resolved_at else None,
-            "resolution": ticket.resolution,
-            "assigned_engineer": ticket.assigned_engineer.username if ticket.assigned_engineer else "Unassigned",
-            "assigned_team": ticket.assigned_team or "Support Desk",
-            "tags": ticket.tags or [],
-            "attachments": ticket_att_list,
-            "requester": {
-                "name": ticket.user.username if ticket.user else "N/A",
-                "email": ticket.user.email if ticket.user else "N/A"
-            },
+        eng_name = "Unassigned"
+        if ticket.assigned_engineer:
+            if ticket.assigned_engineer.full_name and ticket.assigned_engineer.full_name.strip() and ticket.assigned_engineer.full_name.strip() != '—':
+                eng_name = ticket.assigned_engineer.full_name.strip()
+            elif ticket.assigned_engineer.username:
+                e_uname = ticket.assigned_engineer.username.strip()
+                eng_name = e_uname.split('@')[0] if '@' in e_uname else e_uname
+
+        req_name = "N/A"
+        req_email = "N/A"
+        if ticket.user:
+            req_email = ticket.user.email or "N/A"
+            if ticket.user.full_name and ticket.user.full_name.strip() and ticket.user.full_name.strip() != '—':
+                req_name = ticket.user.full_name.strip()
+            elif ticket.user.username:
+                uname = ticket.user.username.strip()
+                req_name = uname.split('@')[0] if '@' in uname else uname
+            elif req_email != "N/A":
+                req_name = req_email.split('@')[0]
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "id": ticket.id,
+                "ticket_number": ticket.ticket_number or f"TKT-{ticket.id:06d}",
+                "subject": ticket.subject,
+                "description": ticket.message,
+                "priority": ticket.priority,
+                "status": ticket.status,
+                "category": ticket.category,
+                "created_at": ticket.created_at.isoformat() if ticket.created_at else "",
+                "resolved_at": ticket.resolved_at.isoformat() if ticket.resolved_at else None,
+                "resolution": ticket.resolution,
+                "assigned_engineer": eng_name,
+                "assigned_team": ticket.assigned_team or "Support Desk",
+                "tags": ticket.tags or [],
+                "attachments": ticket_att_list,
+                "requester": {
+                    "name": req_name,
+                    "email": req_email
+                },
             "organization": {
                 "id": org.id if org else None,
                 "name": org.name if org else "N/A",

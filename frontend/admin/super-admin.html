@@ -4170,14 +4170,14 @@
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Base Platform Access Fee (₹ / month) <span class="text-danger">*</span></label>
-                                                            <input type="number" class="ds-input" id="pwPaygBaseFee" value="999" min="0" placeholder="e.g. 999" oninput="SuperAdmin.updatePlanTaxCalculationPreview()">
+                                                            <input type="number" class="ds-input" id="pwPaygBaseFee" value="999" min="0" placeholder="e.g. 999" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" oninput="SuperAdmin.updatePlanTaxCalculationPreview()" onchange="if(this.value<0)this.value=0;SuperAdmin.updatePlanTaxCalculationPreview()">
                                                             <div class="text-xxs text-muted mt-1">Fixed monthly baseline hosting &amp; platform access charge.</div>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Default GST / Tax Rate (%)</label>
-                                                            <input type="number" class="ds-input" id="pwPaygTax" value="18" min="0" max="100" oninput="SuperAdmin.updatePlanTaxCalculationPreview()">
+                                                            <input type="number" class="ds-input" id="pwPaygTax" value="18" min="0" max="100" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" oninput="SuperAdmin.updatePlanTaxCalculationPreview()" onchange="if(this.value<0)this.value=0;if(this.value>100)this.value=100;SuperAdmin.updatePlanTaxCalculationPreview()">
                                                             <div class="text-xxs text-muted mt-1">Tax percentage applied to monthly invoice total.</div>
                                                         </div>
                                                     </div>
@@ -4186,14 +4186,14 @@
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Active Users Unit Rate (₹ / user / month) <span class="text-danger">*</span></label>
-                                                            <input type="number" class="ds-input" id="pwPaygUserRate" value="50" min="0" placeholder="e.g. 50">
+                                                            <input type="number" class="ds-input" id="pwPaygUserRate" value="50" min="0" placeholder="e.g. 50" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">Price per active licensed user seat.</div>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Free Users Allowance (Seats)</label>
-                                                            <input type="number" class="ds-input" id="pwPaygUserFree" value="5" min="0" placeholder="e.g. 5">
+                                                            <input type="number" class="ds-input" id="pwPaygUserFree" value="5" min="0" placeholder="e.g. 5" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">Included free before per-user charges apply.</div>
                                                         </div>
                                                     </div>
@@ -4202,14 +4202,14 @@
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Storage Unit Rate (₹ / GB / month) <span class="text-danger">*</span></label>
-                                                            <input type="number" class="ds-input" id="pwPaygStorageRate" value="20" min="0" placeholder="e.g. 20">
+                                                            <input type="number" class="ds-input" id="pwPaygStorageRate" value="20" min="0" placeholder="e.g. 20" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">Price per GB of cloud repository &amp; database storage.</div>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Free Storage Allowance (GB)</label>
-                                                            <input type="number" class="ds-input" id="pwPaygStorageFree" value="5" min="0" placeholder="e.g. 5">
+                                                            <input type="number" class="ds-input" id="pwPaygStorageFree" value="5" min="0" placeholder="e.g. 5" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">GBs of storage included free each month.</div>
                                                         </div>
                                                     </div>
@@ -4218,14 +4218,14 @@
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Project Creation Rate (₹ / project / mo) <span class="text-danger">*</span></label>
-                                                            <input type="number" class="ds-input" id="pwPaygProjectRate" value="100" min="0" placeholder="e.g. 100">
+                                                            <input type="number" class="ds-input" id="pwPaygProjectRate" value="100" min="0" placeholder="e.g. 100" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">Price per 8-Stage QC project created or active.</div>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Free Projects Allowance</label>
-                                                            <input type="number" class="ds-input" id="pwPaygProjectFree" value="2" min="0" placeholder="e.g. 2">
+                                                            <input type="number" class="ds-input" id="pwPaygProjectFree" value="2" min="0" placeholder="e.g. 2" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">Projects included free before charges apply.</div>
                                                         </div>
                                                     </div>
@@ -4234,14 +4234,14 @@
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">API Rate (₹ / 1,000 API calls) <span class="text-danger">*</span></label>
-                                                            <input type="number" class="ds-input" id="pwPaygApiRate" value="10" min="0" placeholder="e.g. 10">
+                                                            <input type="number" class="ds-input" id="pwPaygApiRate" value="10" min="0" placeholder="e.g. 10" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">Price per 1,000 API &amp; integration calls.</div>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <div class="ds-field">
                                                             <label class="ds-label">Free API Allowance (x1,000 calls)</label>
-                                                            <input type="number" class="ds-input" id="pwPaygApiFree" value="10" min="0" placeholder="e.g. 10">
+                                                            <input type="number" class="ds-input" id="pwPaygApiFree" value="10" min="0" placeholder="e.g. 10" onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}" onchange="if(this.value<0)this.value=0;">
                                                             <div class="text-xxs text-muted mt-1">1,000s of API requests included free (e.g. 10 = 10,000 calls).</div>
                                                         </div>
                                                     </div>
@@ -4295,7 +4295,15 @@
                                         <div class="col-md-6 pw-fixed-pricing-field">
                                             <div class="ds-field">
                                                 <label class="ds-label">Plan Amount (₹) <span class="text-danger">*</span></label>
-                                                <input type="number" class="ds-input" id="pwPriceAmount" placeholder="e.g. 499" value="0" min="0" oninput="SuperAdmin.updatePlanTaxCalculationPreview()" onkeyup="SuperAdmin.updatePlanTaxCalculationPreview()" onchange="SuperAdmin.updatePlanTaxCalculationPreview()" onpaste="SuperAdmin.updatePlanTaxCalculationPreview()">
+                                                <input type="number" class="ds-input" id="pwPriceAmount" placeholder="e.g. 499" value="0" min="0" step="any"
+                                                    onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}"
+                                                    oninput="SuperAdmin.onPlanAmountInput(this)"
+                                                    onkeyup="SuperAdmin.updatePlanTaxCalculationPreview()"
+                                                    onchange="SuperAdmin.onPlanAmountBlur(this)"
+                                                    onpaste="SuperAdmin.onPlanAmountPaste(event, this)">
+                                                <div id="pwPriceAmountWarning" class="text-danger text-xs mt-1 fw-semibold align-items-center gap-1" style="display: none;">
+                                                    <i data-lucide="alert-circle" style="width:14px;height:14px;"></i> Plan Amount cannot be negative. Please enter 0 or a positive amount.
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6 pw-fixed-pricing-field">
@@ -4330,7 +4338,11 @@
                                         <div class="col-md-6 pw-fixed-pricing-field">
                                             <div class="ds-field">
                                                 <label class="ds-label">Default Tax (%)</label>
-                                                <input type="number" class="ds-input" id="pwTax" value="18" min="0" max="100" oninput="SuperAdmin.updatePlanTaxCalculationPreview()" onkeyup="SuperAdmin.updatePlanTaxCalculationPreview()" onchange="SuperAdmin.updatePlanTaxCalculationPreview()">
+                                                <input type="number" class="ds-input" id="pwTax" value="18" min="0" max="100"
+                                                    onkeydown="if(event.key==='-'||event.key==='Minus'||event.key==='e'||event.key==='E'){event.preventDefault();}"
+                                                    oninput="SuperAdmin.updatePlanTaxCalculationPreview()"
+                                                    onkeyup="SuperAdmin.updatePlanTaxCalculationPreview()"
+                                                    onchange="if(this.value<0)this.value=0;if(this.value>100)this.value=100;SuperAdmin.updatePlanTaxCalculationPreview()">
                                             </div>
                                         </div>
                                         <div class="col-12 pw-fixed-pricing-field">
@@ -6573,7 +6585,7 @@
     <script src="/assets/dist/support-desk.81f4486e.min.js"></script>
     <script src="/assets/dist/integrations.94015ca0.min.js"></script>
     <script src="/assets/dist/platform-settings.05729cbd.min.js"></script>
-    <script src="/assets/dist/super-admin.e952b8fc.min.js"></script>
+    <script src="/assets/dist/super-admin.b45b4112.min.js"></script>
     <script>
     if (typeof SupportDesk !== 'undefined') window.SupportDesk = SupportDesk;
     if (typeof StageWeightageManager !== 'undefined') window.StageWeightageManager = StageWeightageManager;
