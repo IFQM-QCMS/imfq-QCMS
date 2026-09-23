@@ -320,6 +320,7 @@ const api = {
                     error.errors = data.errors || [];
                     error.status = response.status;
                     error.error_code = data.error_code;
+                    error.field = data.field;
                     throw error;
                 }
                 return data;

@@ -180,8 +180,13 @@
                             </div>
                         </div>
                         <div class="ds-field mb-3">
-                            <label class="ds-label">PLANT CODE / IDENTIFIER</label>
-                            <input type="text" class="ds-input" id="plantCode" placeholder="e.g. PN-01">
+                            <label class="ds-label">PLANT CODE / IDENTIFIER <span class="text-danger">*</span></label>
+                            <input type="text" class="ds-input" id="plantCode" placeholder="e.g. PN-01" required
+                                oninput="plantManager.validatePlantCodeRealtime()">
+                            <div id="plantCodeError" style="display:none; margin-top:6px; padding:8px 10px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:8px; color:#dc2626; font-size:0.78rem; line-height:1.4;">
+                                <i data-lucide="alert-circle" style="width:12px;height:12px;vertical-align:middle;margin-right:4px;"></i>
+                                <span id="plantCodeErrorText"></span>
+                            </div>
                         </div>
                         <div class="ds-field mb-3">
                             <label class="ds-label">LOCATION / ADDRESS</label>
@@ -292,7 +297,7 @@
                     <div id="delPlantStep3New" style="display:none;">
                         <label class="ds-label mb-1">NEW PLANT NAME <span class="text-danger">*</span></label>
                         <input type="text" class="ds-input mb-2" id="delPlantNewName" placeholder="e.g. Hyderabad Plant">
-                        <label class="ds-label mb-1">PLANT CODE (optional)</label>
+                        <label class="ds-label mb-1">NEW PLANT CODE / IDENTIFIER <span class="text-danger">*</span></label>
                         <input type="text" class="ds-input mb-1" id="delPlantNewCode" placeholder="e.g. HYD-01">
                         <p class="text-xs text-muted mt-1">A new plant will be created and all departments &amp; employees moved there automatically.</p>
                     </div>
@@ -312,7 +317,7 @@
     </div>
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.a66cc758.min.js"></script>
+    <script src="/assets/dist/core-bundle.604eb7e8.min.js"></script>
     <script>
     const plantManager = {
         allPlants: [],
@@ -482,6 +487,7 @@
 
         openAddModal() {
             this.clearPlantNameError();
+            this.clearPlantCodeError();
             document.getElementById('modalTitle').textContent = 'Add Plant Location';
             document.getElementById('plantId').value = '';
             document.getElementById('plantName').value = '';
@@ -492,6 +498,7 @@
 
         openEditModal(id) {
             this.clearPlantNameError();
+            this.clearPlantCodeError();
             const p = this.allPlants.find(x => x.id === id);
             if (!p) return;
             document.getElementById('modalTitle').textContent = 'Edit Plant Location';
@@ -509,20 +516,92 @@
             if (nameInp) nameInp.style.borderColor = '';
         },
 
+        showPlantNameError(msg) {
+            const errDiv  = document.getElementById('plantNameError');
+            const errText = document.getElementById('plantNameErrorText');
+            const nameInp = document.getElementById('plantName');
+            if (errText) errText.textContent = msg;
+            if (errDiv)  { errDiv.style.display = 'block'; if (window.lucide) lucide.createIcons(); }
+            if (nameInp) nameInp.style.borderColor = '#ef4444';
+        },
+
+        clearPlantCodeError() {
+            const errDiv  = document.getElementById('plantCodeError');
+            const codeInp = document.getElementById('plantCode');
+            if (errDiv)  errDiv.style.display = 'none';
+            if (codeInp) codeInp.style.borderColor = '';
+        },
+
+        showPlantCodeError(msg) {
+            const errDiv  = document.getElementById('plantCodeError');
+            const errText = document.getElementById('plantCodeErrorText');
+            const codeInp = document.getElementById('plantCode');
+            if (errText) errText.textContent = msg;
+            if (errDiv)  { errDiv.style.display = 'block'; if (window.lucide) lucide.createIcons(); }
+            if (codeInp) codeInp.style.borderColor = '#ef4444';
+        },
+
+        validatePlantCodeRealtime() {
+            const codeInp = document.getElementById('plantCode');
+            const code = (codeInp?.value || '').trim();
+            const id = document.getElementById('plantId')?.value;
+            if (!code) {
+                this.clearPlantCodeError();
+                return;
+            }
+            const dup = this.allPlants.find(p => (!id || p.id != id) && (p.code || '').trim().toLowerCase() === code.toLowerCase());
+            if (dup) {
+                this.showPlantCodeError(`Plant code "${code}" is already in use by "${dup.name}". Please enter a unique code.`);
+            } else {
+                this.clearPlantCodeError();
+            }
+        },
+
         async save() {
             const id       = document.getElementById('plantId').value;
             const nameInp  = document.getElementById('plantName');
             const name     = nameInp.value.trim();
-            const code     = document.getElementById('plantCode').value.trim();
+            const codeInp  = document.getElementById('plantCode');
+            const code     = codeInp.value.trim();
             const location = document.getElementById('plantLocation').value.trim();
 
-            // Clear any previous inline error
+            // Clear any previous inline errors
             this.clearPlantNameError();
+            this.clearPlantCodeError();
 
             if (!name) {
                 nameInp.style.borderColor = '#ef4444';
+                this.showPlantNameError('Plant Location Name is required');
                 OctaQube.toast('Plant Location Name is required', 'warning');
                 nameInp.focus();
+                return;
+            }
+
+            if (!code) {
+                codeInp.style.borderColor = '#ef4444';
+                this.showPlantCodeError('Plant Code / Identifier is required');
+                OctaQube.toast('Plant Code / Identifier is required', 'warning');
+                codeInp.focus();
+                return;
+            }
+
+            // Client-side duplicate name check
+            const dupName = this.allPlants.find(p => (!id || p.id != id) && (p.name || '').trim().toLowerCase() === name.toLowerCase());
+            if (dupName) {
+                nameInp.style.borderColor = '#ef4444';
+                this.showPlantNameError(`A plant location named "${name}" already exists. Plant names must be unique.`);
+                OctaQube.toast(`Plant name "${name}" already exists.`, 'warning');
+                nameInp.focus();
+                return;
+            }
+
+            // Client-side duplicate code check
+            const dupCode = this.allPlants.find(p => (!id || p.id != id) && (p.code || '').trim().toLowerCase() === code.toLowerCase());
+            if (dupCode) {
+                codeInp.style.borderColor = '#ef4444';
+                this.showPlantCodeError(`Plant code "${code}" is already in use by "${dupCode.name}". Plant codes must be unique.`);
+                OctaQube.toast(`Plant code "${code}" already exists. Please choose a unique plant code.`, 'warning');
+                codeInp.focus();
                 return;
             }
 
@@ -538,15 +617,20 @@
                 if (this.bsModal) this.bsModal.hide();
                 await this.loadPlants();
             } catch (e) {
-                // Catch 409 duplicate error → show inline on the name field
                 const isDuplicate = e.status === 409 ||
                     (e.message && (e.message.toLowerCase().includes('already exists') || e.message.toLowerCase().includes('unique')));
-                if (isDuplicate) {
+                const isCodeError = e.field === 'code' || (e.message && (e.message.toLowerCase().includes('plant code') || e.message.toLowerCase().includes('code')));
+
+                if (isCodeError) {
+                    codeInp.style.borderColor = '#ef4444';
+                    this.showPlantCodeError(e.message || `Plant code "${code}" already exists. Plant codes must be unique.`);
+                    OctaQube.toast(e.message || `Plant code "${code}" already exists. Please use a unique plant code.`, 'warning');
+                    codeInp.focus();
+                    codeInp.select();
+                } else if (isDuplicate) {
                     nameInp.style.borderColor = '#ef4444';
-                    const errDiv  = document.getElementById('plantNameError');
-                    const errText = document.getElementById('plantNameErrorText');
-                    if (errText) errText.textContent = e.message || `A plant location named "${name}" already exists. Plant names must be unique (case-insensitive).`;
-                    if (errDiv)  { errDiv.style.display = 'block'; if (window.lucide) lucide.createIcons(); }
+                    this.showPlantNameError(e.message || `A plant location named "${name}" already exists. Plant names must be unique (case-insensitive).`);
+                    OctaQube.toast(e.message || `Plant location "${name}" already exists`, 'warning');
                     nameInp.focus();
                     nameInp.select();
                 } else {
@@ -687,11 +771,18 @@
                 body = { action: 'move_to_plant', target_plant_id: parseInt(tid) };
             } else if (this._delPlantSub === 'new') {
                 const nn = document.getElementById('delPlantNewName').value.trim();
+                const nc = document.getElementById('delPlantNewCode').value.trim();
                 if (!nn) { OctaQube.toast('Please enter a plant name.', 'warning'); return; }
+                if (!nc) { OctaQube.toast('Please enter a plant code / identifier.', 'warning'); return; }
+                const dupCode = this.allPlants.find(p => (p.code || '').trim().toLowerCase() === nc.toLowerCase());
+                if (dupCode) {
+                    OctaQube.toast(`Plant code "${nc}" already exists. Please choose a unique plant code.`, 'warning');
+                    return;
+                }
                 body = {
                     action: 'new_plant',
                     new_plant_name: nn,
-                    new_plant_code: document.getElementById('delPlantNewCode').value.trim()
+                    new_plant_code: nc
                 };
             }
 

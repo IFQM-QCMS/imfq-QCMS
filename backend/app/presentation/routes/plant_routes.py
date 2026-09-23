@@ -96,7 +96,10 @@ def create_plant():
         location = (data.get('location') or '').strip()
 
         if not name:
-            return jsonify({"status": "error", "message": "Plant location name is required"}), 400
+            return jsonify({"status": "error", "field": "name", "message": "Plant location name is required"}), 400
+
+        if not code:
+            return jsonify({"status": "error", "field": "code", "message": "Plant code / identifier is required"}), 400
 
         # Check SaaS Subscription Plan Location Limit
         from app.domain.services.subscription_service import SubscriptionManager
@@ -112,13 +115,26 @@ def create_plant():
         from sqlalchemy import func as sqlfunc
         existing = Plant.query.filter(
             Plant.org_id == current_user.org_id,
-            sqlfunc.lower(Plant.name) == name.lower()
+            sqlfunc.lower(sqlfunc.trim(Plant.name)) == name.lower()
         ).first()
         if existing:
             return jsonify({
                 "status": "error",
+                "field": "name",
                 "message": f"A plant location named '{existing.name}' already exists in your organisation. "
                            "Plant names must be unique (case-insensitive)."
+            }), 409
+
+        existing_code = Plant.query.filter(
+            Plant.org_id == current_user.org_id,
+            sqlfunc.lower(sqlfunc.trim(Plant.code)) == code.lower()
+        ).first()
+        if existing_code:
+            return jsonify({
+                "status": "error",
+                "field": "code",
+                "message": f"A plant location with code '{existing_code.code}' already exists in your organisation. "
+                           "Plant codes must be unique (case-insensitive)."
             }), 409
 
         new_plant = Plant(
@@ -166,22 +182,40 @@ def update_plant(plant_id):
         code = (data.get('code') or '').strip()
         location = (data.get('location') or '').strip()
 
-        if name:
-            from sqlalchemy import func as sqlfunc
+        from sqlalchemy import func as sqlfunc
+
+        if 'name' in data:
+            if not name:
+                return jsonify({"status": "error", "field": "name", "message": "Plant location name cannot be empty"}), 400
             dup = Plant.query.filter(
                 Plant.org_id == current_user.org_id,
-                sqlfunc.lower(Plant.name) == name.lower(),
+                sqlfunc.lower(sqlfunc.trim(Plant.name)) == name.lower(),
                 Plant.id != plant_id
             ).first()
             if dup:
                 return jsonify({
                     "status": "error",
+                    "field": "name",
                     "message": f"A plant location named '{dup.name}' already exists in your organisation. "
                                "Plant names must be unique (case-insensitive)."
                 }), 409
             plant.name = name
 
         if 'code' in data:
+            if not code:
+                return jsonify({"status": "error", "field": "code", "message": "Plant code / identifier cannot be empty"}), 400
+            dup_code = Plant.query.filter(
+                Plant.org_id == current_user.org_id,
+                sqlfunc.lower(sqlfunc.trim(Plant.code)) == code.lower(),
+                Plant.id != plant_id
+            ).first()
+            if dup_code:
+                return jsonify({
+                    "status": "error",
+                    "field": "code",
+                    "message": f"A plant location with code '{dup_code.code}' already exists in your organisation. "
+                               "Plant codes must be unique (case-insensitive)."
+                }), 409
             plant.code = code
         if 'location' in data:
             plant.location = location
@@ -379,20 +413,31 @@ def delete_plant(plant_id):
 
         elif action == 'new_plant':
             new_name = (data.get('new_plant_name') or '').strip()
+            new_code = (data.get('new_plant_code') or '').strip()
             if not new_name:
                 return jsonify({"status": "error", "message": "'new_plant_name' is required."}), 400
+            if not new_code:
+                return jsonify({"status": "error", "field": "code", "message": "'new_plant_code' is required."}), 400
             from sqlalchemy import func as sqlfunc
             clash = Plant.query.filter(
                 Plant.org_id == current_user.org_id,
-                sqlfunc.lower(Plant.name) == new_name.lower()
+                sqlfunc.lower(sqlfunc.trim(Plant.name)) == new_name.lower()
             ).first()
             if clash:
                 return jsonify({"status": "error",
                                 "message": f"A plant named '{clash.name}' already exists."}), 409
+            clash_code = Plant.query.filter(
+                Plant.org_id == current_user.org_id,
+                sqlfunc.lower(sqlfunc.trim(Plant.code)) == new_code.lower()
+            ).first()
+            if clash_code:
+                return jsonify({"status": "error",
+                                "field": "code",
+                                "message": f"A plant with code '{clash_code.code}' already exists. Plant codes must be unique."}), 409
             new_plant = Plant(
                 org_id=current_user.org_id,
                 name=new_name,
-                code=(data.get('new_plant_code') or '').strip(),
+                code=new_code,
                 created_at=datetime.now(timezone.utc).replace(tzinfo=None)
             )
             db.session.add(new_plant)
