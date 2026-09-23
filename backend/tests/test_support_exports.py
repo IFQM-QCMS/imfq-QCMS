@@ -1,21 +1,22 @@
 import pytest
 from app.infrastructure.database.models.models import db, SalesEnquiry, SupportTicket
 
-def test_export_enquiries_endpoint(client, auth_context):
+def test_export_enquiries_endpoint(app, client, auth_context):
     """Verify that export_enquiries generates valid CSV data."""
     # Seed a test enquiry
-    enquiry = SalesEnquiry(
-        name="Test Lead",
-        email="lead@example.com",
-        phone="+91 9876543210",
-        company_name="Acme Corp",
-        status="New",
-        source="Talk to Sales",
-        message="Interested in Enterprise Plan",
-        notes="High priority lead"
-    )
-    db.session.add(enquiry)
-    db.session.commit()
+    with app.app_context():
+        enquiry = SalesEnquiry(
+            name="Test Lead",
+            email="lead@example.com",
+            phone="+91 9876543210",
+            company_name="Acme Corp",
+            status="New",
+            source="Talk to Sales",
+            message="Interested in Enterprise Plan",
+            notes="High priority lead"
+        )
+        db.session.add(enquiry)
+        db.session.commit()
 
     res = client.post('/api/support/enquiries/export', json={'status': 'All'}, headers=auth_context['headers'])
     assert res.status_code == 200

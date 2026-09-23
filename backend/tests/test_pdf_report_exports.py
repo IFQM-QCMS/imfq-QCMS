@@ -10,11 +10,12 @@ def test_generate_pdf_summary_no_fpdf_align_error(app, auth_context):
     with app.app_context():
         p = Project.query.first()
         if not p:
+            import uuid
             p = Project(
                 org_id=auth_context['org_id'],
                 title="Test Summary Project",
                 status="Closed",
-                project_uid="PRJ-SUMMARY-TEST"
+                project_uid=f"PRJ-SUMM-{uuid.uuid4().hex[:6].upper()}"
             )
             db.session.add(p)
             db.session.commit()
@@ -30,11 +31,12 @@ def test_export_pdf_endpoint_multi_tier_fallback(client, auth_context):
     with client.application.app_context():
         p = Project.query.filter_by(status='Closed', org_id=org_id).first()
         if not p:
+            import uuid
             p = Project(
                 org_id=org_id,
                 title="Test Closed Project",
                 status="Closed",
-                project_uid="PRJ-TEST-EXP"
+                project_uid=f"PRJ-EXP-{uuid.uuid4().hex[:6].upper()}"
             )
             db.session.add(p)
             db.session.commit()
