@@ -455,6 +455,8 @@ def add_note():
         return jsonify({"msg": "project_id, stage_number, and note_text are required"}), 400
 
     project = Project.query.get_or_404(project_id)
+    if (project.status or '').strip() in ['Closed', 'Completed', 'Archived']:
+        return jsonify({"msg": "Cannot add review comments or guidance to a completed project."}), 400
 
     note = FacilitatorNote(
         org_id=user.org_id,

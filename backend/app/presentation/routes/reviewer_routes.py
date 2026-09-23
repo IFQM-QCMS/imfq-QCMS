@@ -1250,6 +1250,13 @@ def add_note():
     if not all([project_id, stage_number, note_text]):
         return jsonify({"msg": "project_id, stage_number, and note_text are required"}), 400
 
+    from app.infrastructure.database.models.models import Project
+    project = db.session.get(Project, project_id)
+    if not project:
+        return jsonify({"msg": "Project not found"}), 404
+    if (project.status or '').strip() in ['Closed', 'Completed', 'Archived']:
+        return jsonify({"msg": "Cannot add review comments or guidance to a completed project."}), 400
+
     note = FacilitatorNote(
         org_id=user.org_id,
         project_id=project_id,

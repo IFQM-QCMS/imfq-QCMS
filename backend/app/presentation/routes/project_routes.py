@@ -1523,6 +1523,9 @@ def request_facilitator_assistance(id):
     if not project or (not user_is_sa and project.org_id != user.org_id):
         return jsonify({"msg": "Project not found"}), 404
 
+    if (project.status or '').strip() in ['Closed', 'Completed', 'Archived']:
+        return jsonify({"msg": "Cannot request facilitator assistance for a closed project."}), 400
+
     from app.infrastructure.database.models.models import Role, FacilitatorAssistanceRequest
     fac_user = project.facilitator
     if not fac_user or (fac_user.role and fac_user.role.name != 'Facilitator'):

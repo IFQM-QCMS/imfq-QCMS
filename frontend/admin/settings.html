@@ -4543,29 +4543,938 @@ console.log(data);
             }
         },
 
+                getDefaultStagesList() {
+            return [
+                {
+                    stage_id: 1, original_id: 1,
+                    title: "S0/S1 Plan & Establish Team", icon: "target",
+                    sections: [
+                        { id: "s1_project_team", type: "table", label: "Project Team", order: 1 },
+                        { id: "s1_problem_background", type: "textarea", label: "Problem Background (5W2H)", order: 2 },
+                        { id: "s1_current_performance", type: "table", label: "Current Performance", order: 3 },
+                        { id: "s1_justification", type: "textarea", label: "Justification", order: 4 },
+                        { id: "s1_emergency_response", type: "textarea", label: "Emergency Response", order: 5 },
+                        { id: "s1_theme_target_schedule", type: "table", label: "Theme, Target & Schedule", order: 6 },
+                    ]
+                },
+                {
+                    stage_id: 2, original_id: 2,
+                    title: "S2 Define Problem", icon: "database",
+                    sections: [
+                        { id: "s2_problem_definition", type: "textarea", label: "Problem Definition", order: 1 },
+                        { id: "s2_std_verification", type: "table", label: "Standard Verification", order: 2 },
+                        { id: "s2_observations", type: "table", label: "Data Collection & Observations (Gemba)", order: 3 },
+                        { id: "s2_stratification", type: "stratification", label: "Stratification", order: 4 },
+                        { id: "s2_pareto", type: "pareto", label: "Pareto Analysis", order: 5 },
+                        { id: "s2_five_g", type: "table", label: "5G Verification", order: 6 },
+                        { id: "s2_check_sheet", type: "check_sheet", label: "Check Sheet", order: 7 },
+                    ]
+                },
+                {
+                    stage_id: 3, original_id: 3,
+                    title: "S3 Interim Containment", icon: "git-branch",
+                    sections: [
+                        { id: "s3_brainstorm", type: "multi_text", label: "Brainstormed Causes", order: 1 },
+                        { id: "s3_fishbone_pre", type: "fishbone", label: "Fishbone Diagram (Pre-Verification)", order: 2 },
+                        { id: "s3_verification", type: "verification_table", label: "Cause Verification Table", order: 3 },
+                        { id: "s3_fishbone_post", type: "fishbone", label: "Fishbone Diagram (Post-Verification)", order: 4 },
+                        { id: "s3_hypothesis", type: "table", label: "Hypothesis Testing", order: 5 },
+                        { id: "s3_pareto_verification", type: "pareto", label: "Run-Chart / Pareto Verification", order: 6 },
+                        { id: "s3_root_cause_ident", type: "textarea", label: "Root Cause Identification", order: 7 },
+                        { id: "s3_verif_checklist", type: "check_sheet", label: "Verification Checklist", order: 8 },
+                    ]
+                },
+                {
+                    stage_id: 4, original_id: 4,
+                    title: "S4 Determine Root Causes", icon: "search",
+                    sections: [
+                        { id: "s4_verified_causes", type: "table", label: "Root Causes", order: 1 },
+                        { id: "s4_why_why_analysis", type: "table", label: "Why-Why Analysis (5-Why)", order: 2 },
+                        { id: "s4_hypothesis_testing", type: "table", label: "Hypothesis Testing", order: 3 },
+                        { id: "s4_good_bad_comparison", type: "table", label: "Good vs Bad Comparison", order: 4 },
+                        { id: "s4_statistical_validation", type: "table", label: "Statistical Validation", order: 5 },
+                        { id: "s4_data_reconfirmation", type: "table", label: "Data Reconfirmation", order: 6 },
+                        { id: "s4_root_cause_register", type: "table", label: "Root Cause Register", order: 7 },
+                        { id: "s4_root_cause_ranking", type: "table", label: "Root Cause Ranking", order: 8 },
+                    ]
+                },
+                {
+                    stage_id: 5, original_id: 5,
+                    title: "S5 Choose Permanent Corrections", icon: "lightbulb",
+                    sections: [
+                        { id: "s5_root_cause_mapping", type: "table", label: "Root Cause Mapping", order: 1 },
+                        { id: "s5_solution_brainstorming", type: "table", label: "Solution Brainstorming", order: 2 },
+                        { id: "s5_solution_evaluation", type: "table", label: "Solution Evaluation Matrix", order: 3 },
+                        { id: "s5_cost_benefit_analysis", type: "table", label: "Cost Benefit Analysis", order: 4 },
+                        { id: "s5_side_effect_analysis", type: "table", label: "Side Effect Analysis", order: 5 },
+                        { id: "s5_pilot_solution_verification", type: "table", label: "Pilot Solution Verification", order: 6 },
+                        { id: "s5_action_plan_3w1h", type: "table", label: "Action Plan (3W1H)", order: 7 },
+                    ]
+                },
+                {
+                    stage_id: 6, original_id: 6,
+                    title: "S6 Implement Corrective Actions", icon: "settings-2",
+                    sections: [
+                        { id: "s6_countermeasures", type: "table", label: "Countermeasures", order: 1 },
+                        { id: "s6_tasks", type: "table", label: "Countermeasure Task Assignments", order: 2 },
+                        { id: "s6_resource_planning_deployment", type: "table", label: "Resource Planning & Deployment", order: 3 },
+                        { id: "s6_change_management", type: "table", label: "Change Management", order: 4 },
+                        { id: "s6_risk_resistance", type: "table", label: "Risk & Resistance Management", order: 5 },
+                        { id: "s6_side_effect_analysis", type: "table", label: "Side Effect Analysis", order: 6 },
+                        { id: "s6_implementation_evidence", type: "table", label: "Implementation Evidence", order: 7 },
+                        { id: "s6_communication", type: "table", label: "Communication Log", order: 8 },
+                        { id: "s6_training", type: "table", label: "Training & Awareness", order: 9 },
+                        { id: "s6_readiness_verification", type: "table", label: "Readiness Verification", order: 10 },
+                    ]
+                },
+                {
+                    stage_id: 7, original_id: 7,
+                    title: "S7 Take Preventive Measures", icon: "trending-up",
+                    sections: [
+                        { id: "s7_kpi_verification", type: "table", label: "KPI Verification", order: 1 },
+                        { id: "s7_before_vs_after", type: "table", label: "Before vs After Analysis", order: 2 },
+                        { id: "s7_statistical_validation", type: "table", label: "Statistical Validation", order: 3 },
+                        { id: "s7_benefit_realization", type: "table", label: "Benefit Realization & Savings", order: 4 },
+                        { id: "s7_roi_validation", type: "table", label: "ROI Validation", order: 5 },
+                        { id: "s7_sustainability_check", type: "table", label: "Sustainability Check", order: 6 },
+                        { id: "s7_side_effect_verification", type: "table", label: "Side Effect Verification", order: 7 },
+                        { id: "s7_lessons_implementation", type: "table", label: "Lessons Implementation", order: 8 },
+                    ]
+                },
+                {
+                    stage_id: 8, original_id: 8,
+                    title: "S8 Congratulate Team & Closure", icon: "award",
+                    sections: [
+                        { id: "s8_standardization", type: "table", label: "Standardization & SOP", order: 1 },
+                        { id: "s8_training_adoption", type: "table", label: "Training & Adoption", order: 2 },
+                        { id: "s8_horizontal_deployment", type: "table", label: "Horizontal Deployment", order: 3 },
+                        { id: "s8_lessons_learned", type: "table", label: "Lessons Learned", order: 4 },
+                        { id: "s8_benefits_summary", type: "table", label: "Benefits Summary", order: 5 },
+                        { id: "s8_remaining_opportunities", type: "table", label: "Remaining Opportunities", order: 6 },
+                        { id: "s8_knowledge_repository", type: "table", label: "Knowledge Repository", order: 7 },
+                        { id: "s8_team_recognition", type: "table", label: "Team Recognition", order: 8 },
+                        { id: "s8_project_closure", type: "table", label: "Project Closure", order: 9 },
+                    ]
+                }
+            ];
+        },
+
+        getBuiltinSectionGuides() {
+            if (this._builtinSectionGuides) return this._builtinSectionGuides;
+            this._builtinSectionGuides = {
+    // S1
+    "s1_project_team": {
+        badge: "Core Charter",
+        howToFill: "Nominate a dedicated cross-functional team (CFT) comprising Production, Quality, Maintenance, Engineering, and Design. Define the Circle name, work station/line, executive Sponsor (resource backing), Facilitator (methodology coach), Team Leader (primary owner), and Reviewer (approver). Ensure active contact channels are provided for daily stand-ups.",
+        methodologyTip: "Cross-functional team diversity speeds up root cause detection by 40% and ensures solutions do not create bottlenecks elsewhere.",
+        fields: [
+            { name: "QC Circle Name", type: "Text", required: true, purpose: "Frontline quality control circle identity.", system_integration: "Saved to project charter; appears on dashboard cards and PDF reports.", sample_data: "Quality Avengers / Line-B Kaizen Warriors" },
+            { name: "Work Area / Cell", type: "Text", required: true, purpose: "Specific plant line, manufacturing cell, or department.", system_integration: "Associates project to department dashboards and filters.", sample_data: "Assembly Line 2 (Weld Shop)" },
+            { name: "Sponsor", type: "Text", required: true, purpose: "Executive champion providing resource backing and CapEx clearance.", system_integration: "Included in project dossier and milestone alerts.", sample_data: "R. K. Sharma (VP Operations)" },
+            { name: "Facilitator", type: "Text", required: true, purpose: "Quality/Lean coach guiding 8S methodology execution.", system_integration: "Enables Facilitator note logging and coaching views.", sample_data: "Amit Kumar (Lean Specialist)" },
+            { name: "Team Leader", type: "Text", required: true, purpose: "Lead engineer driving daily execution and gate submissions.", system_integration: "Grants full editing permissions and approval submission rights.", sample_data: "Deepak Singh (Quality Engineer)" },
+            { name: "Reviewer", type: "Text", required: true, purpose: "Department manager reviewing and approving stage gates.", system_integration: "Directs submission notifications to Reviewer queue.", sample_data: "Meera Kapoor (Quality Head)" },
+            { name: "Planned Duration", type: "Calculated", required: false, purpose: "Total planned project timeline calculated in days.", system_integration: "Displayed on workspace header and project cards.", sample_data: "45 Days" },
+            { name: "Team Members", type: "Multi-Select", required: true, purpose: "Cross-functional team members executing analysis and trials.", system_integration: "Grants Stage 2-8 editing access and assigns individual task ownership.", sample_data: "Rohan (Design), Sunil (Maintenance), Priya (Operator)" }
+        ]
+    },
+    "s1_problem_background": {
+        badge: "5W2H Framework",
+        howToFill: "Detail the problem context using the structured 5W2H method (What, Where, When, Who, Why, How Discovered, How Big). State observable physical symptoms only—do NOT jump to conclusions or assume causes at this stage. Conclude with a concise Problem Statement formula: [Object] + [Defect Mode] + [Quantity/Rate] + [Trend/Gap].",
+        methodologyTip: "A disciplined 5W2H framework separates verified physical symptoms from speculative assumptions.",
+        fields: [
+            { name: "What Happened?", type: "Textarea", required: true, purpose: "Exact physical symptom, defect mode, or failure observed.", system_integration: "Synthesized into project charter and Stage 1 overview.", sample_data: "Burr height exceeding 0.15mm specification on trim-edge." },
+            { name: "Where Did It Happen?", type: "Textarea", required: true, purpose: "Pinpoint machine station, die, cavity, or line location.", system_integration: "Feeds Stage 2 Stratification and 5G Gemba verification.", sample_data: "Press Station PR-05, Upper Die Cavity 2, Chennai Plant." },
+            { name: "When Did It Happen?", type: "Textarea", required: true, purpose: "Date, time, shift, or process phase when defect first surfaced.", system_integration: "Correlated with Stage 2 Trend Analysis.", sample_data: "Since 15-Jan-2026, predominantly during Shift B." },
+            { name: "Who Is Affected?", type: "Textarea", required: true, purpose: "Operators, downstream cells, or external OEM customers impacted.", system_integration: "Informs stakeholder communication in Stage 6.", sample_data: "Next station assembly team and OEM customer QA." },
+            { name: "Why Is It A Problem?", type: "Textarea", required: true, purpose: "Commercial, functional, safety, or compliance repercussions.", system_integration: "Renders in executive summary dossier.", sample_data: "Causes fitment jamming and risk of customer line stoppage." },
+            { name: "How Discovered?", type: "Textarea", required: true, purpose: "Detection mechanism (sensor, manual inspection, customer return).", system_integration: "Feeds Stage 4 Escape Point Analysis.", sample_data: "Visual inspection during 100% end-of-line quality gate." },
+            { name: "How Big? (Cost/Impact)", type: "Textarea", required: true, purpose: "Magnitude, scrap count, reject %, and monthly financial loss.", system_integration: "Sets baseline for Stage 7 ROI realization.", sample_data: "4.2% reject rate, 320 parts scrapped, approx. ₹1.8L monthly loss." },
+            { name: "Problem Definition", type: "Textarea", required: true, purpose: "Consolidated formal problem statement.", system_integration: "Propagates to Stage 2-3 Problem Restatement.", sample_data: "During Jan-Feb 2026, trim-edge burr defect on PR-05 increased to 4.2%, exceeding 0.5% target." }
+        ]
+    },
+    "s1_current_performance": {
+        badge: "Baseline Metrics",
+        howToFill: "Enter quantitative baseline metrics collected prior to initiating countermeasure work. Record the initial defect rate (%), customer complaints, scrap cost (₹), and downtime hours. These numerical values are automatically locked as the benchmark against which Stage 7 Before vs After improvement is validated.",
+        methodologyTip: "No project can pass Stage 1 review without an objectively measured numerical baseline.",
+        fields: [
+            { name: "Current KPI Value", type: "Text", required: true, purpose: "Primary baseline indicator prior to improvement.", system_integration: "Locked as baseline value for Stage 7 verification calculation.", sample_data: "4.2% Reject Rate" },
+            { name: "Defect Rate (%)", type: "Number", required: true, purpose: "Percentage of defective or reworked units against production.", system_integration: "Rendered on dashboard KPI cards and reviewer approval modal.", sample_data: "4.2" },
+            { name: "Customer Complaints", type: "Number", required: false, purpose: "Formal complaint count or warranty rejections logged.", system_integration: "Tracks external quality customer impact.", sample_data: "3" },
+            { name: "Cost Impact (₹)", type: "Number", required: true, purpose: "Direct monthly financial loss (scrap, rework, sorting labor).", system_integration: "Used to calculate annualized cost reduction in Stage 7.", sample_data: "180000" },
+            { name: "Downtime (Hours)", type: "Number", required: false, purpose: "Unplanned line stoppage hours caused by this defect.", system_integration: "Incorporated into productivity and OEE tracking.", sample_data: "14.5" }
+        ]
+    },
+    "s1_justification": {
+        badge: "Business Case",
+        howToFill: "Articulate the business urgency and strategic justification for selecting this issue. Describe the customer risk, repeat occurrence, audit non-conformance, or financial exposure that makes this problem a high-priority Kaizen target.",
+        methodologyTip: "Align problem urgency with plant safety, customer satisfaction, or cost reduction targets.",
+        fields: [
+            { name: "Strategic Rationale", type: "Textarea", required: true, purpose: "Strategic justification detailing customer escalation or scrap cost.", system_integration: "Displayed on Project Charter dossier for executive review.", sample_data: "Trim-edge burr is the #1 scrap contributor on Line 2, accounting for 68% of customer escalation notices." },
+            { name: "Customer & Business Risk", type: "Textarea", required: true, purpose: "Downstream risk of non-action (line stoppages, penalties).", system_integration: "Informs Risk Assessment in Stage 6.", sample_data: "Severe risk of Tier-1 OEM line halt penalty ($15,000/hr) if defective bracket reaches assembly." }
+        ]
+    },
+    "s1_emergency_response": {
+        badge: "Immediate Containment",
+        howToFill: "Assess whether non-conforming product could be in production WIP, warehouse stock, or in-transit to customers. If 'Yes', initiate immediate emergency containment: quarantine suspect inventory, establish 100% sorting/inspection gates, assign containment owners, and set execution status to 'Completed' before shipping any product.",
+        methodologyTip: "Containment isolates the customer from harm while the CFT works to eliminate the root cause.",
+        fields: [
+            { name: "Emergency Action Required", type: "Select", required: true, purpose: "Declares whether immediate containment is necessary.", system_integration: "When 'Yes', unlocks quarantine tracking fields.", sample_data: "Yes" },
+            { name: "Action Taken", type: "Textarea", required: true, purpose: "Immediate containment steps executed on shopfloor.", system_integration: "Included in Reviewer modal under Emergency Response.", sample_data: "Quarantined batch #89 (1,250 units); implemented 100% visual and feeler gage inspection gate." },
+            { name: "Responsible & Target Date", type: "Text", required: true, purpose: "Assigns containment owner and completion deadline.", system_integration: "Monitors containment execution schedule.", sample_data: "Sunil Verma | Target: 2026-02-05" },
+            { name: "Containment Status", type: "Select", required: true, purpose: "Current state: Planned, In Progress, or Completed.", system_integration: "Displays colored status badge in project review.", sample_data: "Completed" }
+        ]
+    },
+    "s1_theme_target_schedule": {
+        badge: "SMART Milestone Plan",
+        howToFill: "Define the Project Theme using the standard formula [Action] + [Metric] + [Process/Part]. Establish a SMART target (Specific, Measurable, Achievable, Relevant, Time-bound) and target completion date. Set planned milestone completion target dates for all 8 stages.",
+        methodologyTip: "Projects with clear milestone target dates finish 35% faster than unscheduled projects.",
+        fields: [
+            { name: "Improvement Theme", type: "Text", required: true, purpose: "High-level project objective and theme title.", system_integration: "Main project theme identifier across all reports.", sample_data: "Reduction of Trim-Edge Burr Defects on PR-05" },
+            { name: "Target KPI Value", type: "Text", required: true, purpose: "Quantified target performance goal.", system_integration: "Feeds Stage 7 target comparison.", sample_data: "Defect rate <= 0.40% (Burr height <= 0.08mm)" },
+            { name: "Target Date", type: "Date", required: true, purpose: "Overall target project closure date.", system_integration: "Drives project health indicators (On-track/Delayed).", sample_data: "2026-04-15" },
+            { name: "Milestone Schedule (S1-S8)", type: "Table", required: true, purpose: "Target completion dates planned for each stage gate.", system_integration: "Renders visual Gantt timeline in project dashboard.", sample_data: "S1: Feb 5 | S2: Feb 15 | S3: Feb 25 | S4: Mar 10 | S5: Mar 20 | S6: Apr 05 | S7: Apr 15 | S8: Apr 25" }
+        ]
+    },
+
+    // S2
+    "s2_problem_definition": {
+        badge: "Precise Definition",
+        howToFill: "Formulate a detailed, data-grounded problem definition based on shopfloor measurements. Specify the exact physical characteristic failing specification, the exact drawing or engineering standard breached, and the observed deviation magnitude.",
+        methodologyTip: "A problem clearly defined with numbers and physical measurements is already half solved.",
+        fields: [
+            { name: "Refined Problem Statement", type: "Textarea", required: true, purpose: "Precise problem statement combining Object + Defect + Extent.", system_integration: "Updates project definition across all downstream stages.", sample_data: "Press PR-05 producing burr height 0.22mm on part #TR-402 against drawing limit of 0.10mm max." },
+            { name: "Standard Specification", type: "Text", required: true, purpose: "Drawing tolerance or process engineering standard.", system_integration: "Sets technical boundary for Stage 4-7 validation.", sample_data: "Drawing DWG-TR-402 Rev C (Max allowable burr: 0.10mm)" },
+            { name: "Actual Measured Deviation", type: "Text", required: true, purpose: "Observed physical deviation range under shopfloor conditions.", system_integration: "Benchmarked in Stage 2 data log.", sample_data: "Measured burr height: 0.18mm to 0.26mm (average 0.22mm)" }
+        ]
+    },
+    "s2_std_verification": {
+        badge: "3-Point Check & Fast-Track Gate",
+        howToFill: "Perform the mandatory 3-Point Standard Verification: 1) Is an updated SOP available and followed? 2) Are drawing/engineering specs clear and valid? 3) Is the Quality Control Plan adhered to? If deviations exist, record them. Special Feature: If ALL 3 checks show NO deviations, the system enables an Early Closure Gate recommendation.",
+        methodologyTip: "If standards exist, are clear, but were violated, solving operator compliance resolves the defect without deep 8S research.",
+        fields: [
+            { name: "1. SOP Compliance", type: "Select & Text", required: true, purpose: "Verify if updated SOP is present at station and followed.", system_integration: "Flags standard operational compliance gaps.", sample_data: "Available: Yes | Deviation: Tool cleaning cycle skipped on Shift B" },
+            { name: "2. Technical Specifications", type: "Select & Text", required: true, purpose: "Verify drawing dimensions, material hardness, and limits.", system_integration: "Validates engineering design baseline.", sample_data: "Clear: Yes | Material sheet hardness is within 48-52 HRC spec" },
+            { name: "3. Control Plan Adherence", type: "Select & Text", required: true, purpose: "Verify inspection frequency and sample sizes.", system_integration: "Checks quality assurance compliance.", sample_data: "Followed: No | Hourly burr height log skipped on night shifts" },
+            { name: "Early Closure Gate Decision", type: "Select", required: true, purpose: "Early closure recommendation if no standard deviations exist.", system_integration: "Triggers fast-track management review if selected.", sample_data: "Normal Path - Proceed to Gemba & Stratification" }
+        ]
+    },
+    "s2_observations": {
+        badge: "Gemba Observation Log",
+        howToFill: "Conduct a physical Gemba walk at the workstation during live production. Observe at least 15-30 consecutive cycles. Record process step name, machine operating parameters (stroke speed, hydraulic pressure, clearance, coolant flow), abnormalities noticed, and attach photographic evidence.",
+        methodologyTip: "Never hypothesize from the office—observe the physical phenomenon on the shopfloor with your own eyes.",
+        fields: [
+            { name: "Process Step / Station", type: "Text", required: true, purpose: "Specific operational station observed during Gemba walk.", system_integration: "Mapped to process flow in Stage 3.", sample_data: "Step 30: Blanking & Edge Trimming (PR-05)" },
+            { name: "Machine Parameter / Condition", type: "Text", required: true, purpose: "Operating speeds, pressures, die clearances, temperatures.", system_integration: "Used in Cause & Effect matrix in Stage 4.", sample_data: "Punch speed: 45 strokes/min; Die clearance: 0.08mm" },
+            { name: "Observed Abnormalities & Evidence", type: "Textarea", required: true, purpose: "Visual anomalies, unusual vibrations, or tool wear observed.", system_integration: "Logged as primary shopfloor evidence.", sample_data: "Micro-chipping observed on punch blade edge; lubrication nozzle misdirected." }
+        ]
+    },
+    "s2_stratification": {
+        badge: "Stratification Analysis",
+        howToFill: "Stratify (slice) collected defect data across key variables: by Shift (A vs B vs C), by Machine / Cavity (Cavity 1 vs 2), by Raw Material Lot / Supplier, and by Operator. Compute defect frequencies and percentages to identify isolated defect clusters.",
+        methodologyTip: "Stratification isolates where the defect concentrates, instantly eliminating 50% of false theories.",
+        fields: [
+            { name: "Stratification Category", type: "Select", required: true, purpose: "Primary dimension (Shift, Machine, Lot, Operator).", system_integration: "Feeds interactive stratification charts.", sample_data: "Shift Breakdown" },
+            { name: "Sub-Group / Slice Name", type: "Text", required: true, purpose: "Specific group (e.g. Shift B, Cavity 2, Vendor X).", system_integration: "X-axis values on stratification graphs.", sample_data: "Shift B (Night Run)" },
+            { name: "Total Inspected", type: "Number", required: true, purpose: "Total production quantity checked in this group.", system_integration: "Denominator for defect % calculation.", sample_data: "1200" },
+            { name: "Defect Count", type: "Number", required: true, purpose: "Number of defective units found.", system_integration: "Numerator for defect % calculation.", sample_data: "78" },
+            { name: "Defect Rate (%)", type: "Calculated", required: false, purpose: "Percentage occurrence in this sub-group.", system_integration: "Highlights high-risk concentration clusters.", sample_data: "6.5% (vs 1.2% in Shift A)" }
+        ]
+    },
+    "s2_pareto": {
+        badge: "Pareto 80/20 Prioritization",
+        howToFill: "List all distinct defect types or failure modes observed, sorted in descending order of frequency. The system automatically plots the Pareto dual-axis bar chart and cumulative percentage line. Isolate the 'Vital Few' defect categories that account for ~80% of total defects to prioritize for Stage 3-4 RCA.",
+        methodologyTip: "The 80/20 rule guarantees that engineering effort is concentrated on the 20% of causes generating 80% of losses.",
+        fields: [
+            { name: "Defect Category / Mode", type: "Text", required: true, purpose: "Specific defect failure mode observed.", system_integration: "X-axis on Pareto dual-axis chart.", sample_data: "Trim Edge Burr" },
+            { name: "Defect Frequency / Count", type: "Number", required: true, purpose: "Total occurrences during observation window.", system_integration: "Bar heights on Pareto chart.", sample_data: "142" },
+            { name: "Cumulative Percentage (%)", type: "Calculated", required: false, purpose: "Running cumulative share of total defects.", system_integration: "Plots Pareto cumulative % curve.", sample_data: "62.3%" },
+            { name: "Pareto Classification", type: "Select", required: true, purpose: "Vital Few (target for RCA) vs Trivial Many.", system_integration: "Controls which defect modes advance to Stage 3.", sample_data: "Vital Few (Target for Stage 3-4 RCA)" }
+        ]
+    },
+    "s2_five_g": {
+        badge: "5G Gemba Principles",
+        howToFill: "Apply the Japanese 5G methodology to verify shopfloor reality: 1. Gemba (Go to the actual place), 2. Gembutsu (Examine actual parts), 3. Genjitsu (Verify actual data/facts), 4. Genri (Review operational theory/physics), 5. Gensoku (Enforce operating standards). Document actions taken and physical evidence for each principle.",
+        methodologyTip: "5G grounds engineering problem solving in physical reality rather than conference room debate.",
+        fields: [
+            { name: "5G Principle", type: "Select", required: true, purpose: "One of the 5G tenets (Gemba, Gembutsu, Genjitsu, Genri, Gensoku).", system_integration: "Standardized 5G audit structure.", sample_data: "1. Gemba (Actual Place)" },
+            { name: "Action Taken on Shopfloor", type: "Textarea", required: true, purpose: "Specific physical investigation conducted.", system_integration: "Evidence record for Stage 2 sign-off.", sample_data: "Stationed quality engineer at PR-05 press for 2 continuous hours during live stamping." },
+            { name: "Physical Findings & Evidence", type: "Textarea", required: true, purpose: "Concrete physical findings discovered.", system_integration: "Informs Stage 3 cause brainstorming.", sample_data: "Measured punch edge wear using optical comparator; found 0.04mm micro-chipping on rear corner." }
+        ]
+    },
+    "s2_check_sheet": {
+        badge: "Frontline Check Sheet",
+        howToFill: "Set up a structured inspection tally sheet for line operators. Record date, shift, hourly time slots, defect tally marks, total quantity checked, and operator signature. This captures real-time defect trends and shift-to-shift process stability.",
+        methodologyTip: "Check sheets standardize data collection so operators can log observations in seconds without paperwork burden.",
+        fields: [
+            { name: "Inspection Date & Shift", type: "Date & Select", required: true, purpose: "Date and production shift of data collection.", system_integration: "Filters check sheet data by shift.", sample_data: "2026-02-12 | Shift B" },
+            { name: "Hourly Time Slot", type: "Text", required: true, purpose: "One-hour inspection interval.", system_integration: "Correlates defect surges with changeovers or breaks.", sample_data: "14:00 - 15:00" },
+            { name: "Defect Tally Counts", type: "Text", required: true, purpose: "Count per defect type during the hour.", system_integration: "Auto-aggregates totals for Pareto updates.", sample_data: "Burr: 8 | Scratch: 1 | Dent: 0" },
+            { name: "Inspector / Operator", type: "Text", required: true, purpose: "Name and badge ID of inspecting operator.", system_integration: "Maintains inspection audit trail.", sample_data: "Rajesh M. (Emp #4102)" }
+        ]
+    },
+
+    // S3
+    "s3_brainstorm": {
+        badge: "Cause Brainstorming",
+        howToFill: "Conduct a multi-disciplinary brainstorming session with operators, toolmakers, and engineers. Generate potential causes for the Vital Few defects without premature judgment. Tag each idea with its initial 6M category and contributor name.",
+        methodologyTip: "Encourage frontline operators to speak up—they often observe subtle machine behavior missed by engineers.",
+        fields: [
+            { name: "Brainstormed Cause Idea", type: "Textarea", required: true, purpose: "Potential contributing cause stated clearly.", system_integration: "Seeds the Ishikawa Fishbone diagram branches.", sample_data: "Upper punch blade clearance excessive due to guide pin wear." },
+            { name: "Initial 6M Classification", type: "Select", required: true, purpose: "Assign to Man, Machine, Material, Method, Measurement, or Environment.", system_integration: "Places cause onto the corresponding fishbone bone.", sample_data: "Machine" },
+            { name: "Contributed By", type: "Text", required: true, purpose: "Name and role of team member proposing the cause.", system_integration: "Tracks team ideation engagement.", sample_data: "Sunil Verma (Tooling Technician)" }
+        ]
+    },
+    "s3_fishbone_pre": {
+        badge: "Ishikawa 6M Diagram",
+        howToFill: "Construct the Ishikawa Cause-and-Effect fishbone diagram mapping all brainstormed causes across the 6M categories: Man (Operator skill/training), Machine (Tooling/wear/calibration), Material (Hardness/thickness), Method (SOP/speeds/feeds), Measurement (Gage bias/wear), and Environment (Heat/lubrication). Mark each item as 'Suspect' pending physical verification.",
+        methodologyTip: "For every bone, ask 'Why does this condition happen?' to reveal secondary and tertiary sub-causes.",
+        fields: [
+            { name: "6M Category", type: "Select", required: true, purpose: "Primary Ishikawa branch.", system_integration: "Groups nodes on interactive visual diagram.", sample_data: "Machine" },
+            { name: "Primary Cause", type: "Text", required: true, purpose: "Major equipment or process factor.", system_integration: "Main bone node label.", sample_data: "Die clearance enlargement" },
+            { name: "Secondary Sub-Cause", type: "Text", required: false, purpose: "Detailed sub-factor driving primary cause.", system_integration: "Sub-branch node on fishbone.", sample_data: "Guide bushing wear beyond 100k stroke threshold" },
+            { name: "Pre-Verification Status", type: "Badge", required: true, purpose: "Initial status: Suspect / High Priority.", system_integration: "Color-codes fishbone nodes.", sample_data: "Suspect (High Priority for CMM Testing)" }
+        ]
+    },
+    "s3_verification": {
+        badge: "Empirical Cause Verification",
+        howToFill: "For every suspect cause on the fishbone, establish an objective, empirical verification protocol: physical measurement, CMM report, trial run, or design of experiments (DOE). Define the standard specification, record the actual measured finding, and classify into: Validated Root Cause, Contributing Cause, or Ruled Out.",
+        methodologyTip: "No cause may be ruled in or ruled out based on opinion—every row requires documented measurement evidence.",
+        fields: [
+            { name: "Cause ID & Description", type: "Text", required: true, purpose: "Reference to fishbone suspect cause.", system_integration: "Links verification back to fishbone.", sample_data: "C-01: Punch-to-die cutting clearance" },
+            { name: "Verification Method", type: "Text", required: true, purpose: "Measurement tool, trial test, or metallurgical test.", system_integration: "Audit record of testing methodology.", sample_data: "Feeler gage and CMM coordinate measurement across 4 die corners" },
+            { name: "Standard Specification", type: "Text", required: true, purpose: "Design limit or drawing tolerance.", system_integration: "Baseline criteria for pass/fail.", sample_data: "0.08mm to 0.10mm (8-10% of sheet thickness)" },
+            { name: "Actual Measured Finding", type: "Textarea", required: true, purpose: "Empirical numerical findings observed.", system_integration: "Evidence base for RCA conclusions.", sample_data: "Measured clearance: 0.18mm on right cavity due to worn guide bushing" },
+            { name: "Verification Result", type: "Select", required: true, purpose: "Validated Root Cause / Contributing / Ruled Out.", system_integration: "Updates post-verification fishbone and Stage 4 register.", sample_data: "Validated Root Cause" }
+        ]
+    },
+    "s3_fishbone_post": {
+        badge: "Post-Verification Fishbone",
+        howToFill: "Review the finalized post-verification fishbone diagram. The system automatically highlights validated root causes in solid green, highlights contributing causes in amber, and strikes through ruled-out causes in muted gray with links to test reports.",
+        methodologyTip: "The post-verification fishbone provides executive stakeholders with instant visual proof of what was confirmed versus disproven.",
+        fields: [
+            { name: "Validated Root Causes Count", type: "Number", required: true, purpose: "Total confirmed technical causes.", system_integration: "Gating validation for Stage 4 transition.", sample_data: "2" },
+            { name: "Ruled Out Causes Count", type: "Number", required: true, purpose: "Total disproven theories with evidence.", system_integration: "Documents thoroughness of investigation.", sample_data: "7" },
+            { name: "Verification Evidence Dossier", type: "File / Link", required: true, purpose: "Attached CMM reports, lab tests, and photo logs.", system_integration: "Permanent technical archive link.", sample_data: "dossier/cmm_report_die_clearance_PR05.pdf" }
+        ]
+    },
+    "s3_hypothesis": {
+        badge: "Hypothesis Testing",
+        howToFill: "Formulate null ($H_0$) and alternative ($H_1$) hypotheses for suspect causes (e.g. $H_0$: Die clearance does not affect burr height; $H_1$: Clearance > 0.15mm significantly increases burr height). Run controlled test batches ($N \\ge 50$) to statistically confirm causality.",
+        methodologyTip: "Statistical hypothesis testing proves that observed differences are real and not caused by common random variation.",
+        fields: [
+            { name: "Hypothesis Statement", type: "Textarea", required: true, purpose: "Formal null (H0) and alternative (H1) formulations.", system_integration: "Recorded in statistical test documentation.", sample_data: "H0: Clearance has no effect; H1: Clearance > 0.15mm causes burr > 0.15mm" },
+            { name: "Test Condition & Sample Size (N)", type: "Text", required: true, purpose: "Experimental setup parameters and batch size.", system_integration: "Defines experimental validity.", sample_data: "50 parts produced at 0.08mm gap vs 50 parts at 0.18mm gap (N = 100)" },
+            { name: "Test Result & P-Value", type: "Text", required: true, purpose: "Quantitative measurement outcome and significance.", system_integration: "Validates statistical significance.", sample_data: "At 0.18mm gap, 100% of parts had burrs > 0.18mm; p < 0.001" },
+            { name: "Hypothesis Conclusion", type: "Select", required: true, purpose: "Accept H0 or Reject H0 (Reject H0 confirms causal link).", system_integration: "Locks causal proof for Reviewer.", sample_data: "Reject H0 (Statistically Significant Causal Effect)" }
+        ]
+    },
+    "s3_pareto_verification": {
+        badge: "Cause Pareto Verification",
+        howToFill: "Re-run Pareto ranking specifically on the verified causes. Verify whether resolving the top confirmed causes will achieve the required ~80% reduction in total defects, confirming that the investigation targeted the right factors.",
+        methodologyTip: "Verification Pareto ensures engineering resources are not squandered on root causes that account for only 5% of defects.",
+        fields: [
+            { name: "Verified Cause Factor", type: "Text", required: true, purpose: "Confirmed cause name.", system_integration: "X-axis category on cause Pareto.", sample_data: "Die Clearance Excessive (Worn Bushing)" },
+            { name: "Defect Contribution (%)", type: "Number", required: true, purpose: "Percentage of total defects attributed to this factor.", system_integration: "Bar height and cumulative calculation.", sample_data: "82.5" },
+            { name: "Cumulative Impact (%)", type: "Calculated", required: false, purpose: "Cumulative impact of confirmed factors.", system_integration: "Validates if 80% defect coverage is reached.", sample_data: "82.5%" }
+        ]
+    },
+    "s3_root_cause_ident": {
+        badge: "Root Cause Summary",
+        howToFill: "Synthesize the empirical findings into a formal Root Cause Identification statement. Clearly explain the physical failure mechanism: how the technical root condition directly produces the non-conformance on the manufactured part.",
+        methodologyTip: "A solid physical failure mechanism bridges the gap between Stage 3 containment and Stage 4 organizational 5-Why drilldown.",
+        fields: [
+            { name: "Identified Physical Root Cause", type: "Textarea", required: true, purpose: "Concise technical statement of the root cause.", system_integration: "Propagates to Stage 4 Why-Why analysis input.", sample_data: "Punch guide bushing clearance worn to 0.18mm, causing sheet tensile tearing rather than clean shearing." },
+            { name: "Physics of Failure Mechanism", type: "Textarea", required: true, purpose: "Detailed engineering explanation of how defect forms.", system_integration: "Included in engineering report and Knowledge Base.", sample_data: "When clearance exceeds 12% of material thickness, blanking shear zone transitions into micro-fractures, leaving an extruded burr." }
+        ]
+    },
+    "s3_verif_checklist": {
+        badge: "Stage Gate Checklist",
+        howToFill: "Complete the Stage 3 Gate Review Checklist: confirm emergency containment remains 100% active, suspect inventory is segregated, all suspect causes are empirically verified, fishbone is complete, and no customer risk exists.",
+        methodologyTip: "A project cannot advance past Stage 3 unless containment effectiveness is audited and confirmed.",
+        fields: [
+            { name: "Containment Active & Audited", type: "Select", required: true, purpose: "Confirm 100% sorting gate is active.", system_integration: "Quality assurance gate compliance check.", sample_data: "Yes - 100% sorting gate active; 0 defectives escaped" },
+            { name: "All Suspect Causes Verified", type: "Select", required: true, purpose: "Confirm every fishbone node has measurement data.", system_integration: "Audit completeness requirement.", sample_data: "Yes - 9 causes tested; 2 confirmed; 7 ruled out" },
+            { name: "Reviewer Stage Gate Sign-off", type: "Select", required: true, purpose: "Quality manager approval to proceed to Stage 4.", system_integration: "Unlocks Stage 4 for team leader editing.", sample_data: "Approved - Advance to Stage 4" }
+        ]
+    },
+
+    // S4
+    "s4_verified_causes": {
+        badge: "Cause Register",
+        howToFill: "Import all verified causes from Stage 3. For each cause, classify into: Occurrence Cause (why did the manufacturing process make the defect?) and Escape / Detection Cause (why did our inspection system fail to catch the defect before leaving the workstation?).",
+        methodologyTip: "World-class 8S problem solving always addresses BOTH Occurrence causes and Escape detection gaps.",
+        fields: [
+            { name: "Cause ID", type: "Text", required: true, purpose: "Unique cause identifier.", system_integration: "Tracks cause through Stage 5 solutions.", sample_data: "RC-01 (Occurrence) / ESC-01 (Escape)" },
+            { name: "Cause Classification", type: "Select", required: true, purpose: "Occurrence Cause vs Escape / Detection Point.", system_integration: "Ensures both failure modes are addressed.", sample_data: "Occurrence Cause" },
+            { name: "Verified Cause Description", type: "Textarea", required: true, purpose: "Detailed description of confirmed cause.", system_integration: "Input row for 5-Why drilldown.", sample_data: "Punch guide bushing clearance worn to 0.18mm (spec 0.08-0.10mm)." }
+        ]
+    },
+    "s4_why_why_analysis": {
+        badge: "5-Why Root Cause Drilldown",
+        howToFill: "Drill down 5 levels of 'Why' for each verified cause. Continue asking 'Why' until reaching a systemic failure (e.g. maintenance policy, SOP deficiency, training gap, design standard). Rule of thumb: Stop when reaching an actionable management process that will permanently prevent recurrence. Validate backwards using 'Therefore'.",
+        methodologyTip: "Test your 5-Why logic in reverse using 'Therefore': If Why 5 occurred, THEREFORE Why 4 occurred, etc.",
+        fields: [
+            { name: "Root Cause ID", type: "Text", required: true, purpose: "Links 5-Why tree to registered cause.", system_integration: "Maintains relational linkage to Stage 3.", sample_data: "RC-01" },
+            { name: "Why 1 (Direct Physical Cause)", type: "Textarea", required: true, purpose: "Immediate physical symptom.", system_integration: "Level 1 why branch.", sample_data: "Burr height exceeded 0.15mm because cutting clearance widened to 0.18mm." },
+            { name: "Why 2 (Equipment/Process Cause)", type: "Textarea", required: true, purpose: "Why did the physical condition occur?", system_integration: "Level 2 why branch.", sample_data: "Guide bushing was severely worn." },
+            { name: "Why 3 (Maintenance/Operational Cause)", type: "Textarea", required: true, purpose: "Why did the equipment wear out unnoticed?", system_integration: "Level 3 why branch.", sample_data: "Bushing had executed 145,000 strokes, exceeding the 100,000 stroke wear limit." },
+            { name: "Why 4 (Inspection/Schedule Cause)", type: "Textarea", required: true, purpose: "Why did tool run past its stroke limit?", system_integration: "Level 4 why branch.", sample_data: "Preventive maintenance schedule did not track tool stroke counts (only calendar months)." },
+            { name: "Why 5 (Systemic/Organizational Root Cause)", type: "Textarea", required: true, purpose: "Root systemic organizational gap.", system_integration: "Target of Stage 5 permanent solutions.", sample_data: "Tool Management SOP lacked stroke-based PM triggers and automated press lockout interlocks." }
+        ]
+    },
+    "s4_hypothesis_testing": {
+        badge: "Statistical Causal Testing",
+        howToFill: "Conduct statistical tests (ANOVA, 2-Sample t-test, or Regression) where causality between process parameters and defect rates is questioned. Document the factor tested, sample size ($N$), calculated p-value, and confidence level ($95\\%$).",
+        methodologyTip: "A p-value < 0.05 demonstrates that the factor has a statistically significant causal effect on defect formation.",
+        fields: [
+            { name: "Process Factor Tested", type: "Text", required: true, purpose: "Independent variable investigated.", system_integration: "Records tested experimental factor.", sample_data: "Tool Stroke Count vs Bushing Clearance Wear" },
+            { name: "Statistical Test Applied", type: "Select", required: true, purpose: "t-test, ANOVA, Regression, or Chi-Square.", system_integration: "Statistical method documentation.", sample_data: "Linear Regression & Two-Sample t-test" },
+            { name: "Sample Size & P-Value", type: "Text", required: true, purpose: "N count and calculated p-value result.", system_integration: "Defines statistical significance.", sample_data: "N = 80 parts | P-value = 0.002 (< 0.05)" },
+            { name: "Statistical Conclusion", type: "Textarea", required: true, purpose: "Engineering interpretation of statistical finding.", system_integration: "Confirms technical causal validity.", sample_data: "Statistically significant wear occurs above 110,000 strokes, proving that stroke-based maintenance is required." }
+        ]
+    },
+    "s4_good_bad_comparison": {
+        badge: "Is / Is Not Analysis",
+        howToFill: "Complete the Kepner-Tregoe Is / Is Not comparative matrix across What, Where, When, and Extent. Compare defect-producing parts/conditions (IS) against identical good parts/conditions (IS NOT) to isolate the unique distinguishing feature causing the defect.",
+        methodologyTip: "The sharp contrast between where the problem IS and where it COULD BE BUT IS NOT isolates the true root cause.",
+        fields: [
+            { name: "Dimension", type: "Select", required: true, purpose: "What, Where, When, or Extent.", system_integration: "Structure for comparative analysis.", sample_data: "Where (Machine Cavity)" },
+            { name: "IS (Defective Condition)", type: "Textarea", required: true, purpose: "Where the defect occurs.", system_integration: "Defect occurrence boundary.", sample_data: "Cavity 2 on Press PR-05" },
+            { name: "IS NOT (Good Condition)", type: "Textarea", required: true, purpose: "Where defect could occur but does not.", system_integration: "Benchmark baseline boundary.", sample_data: "Cavity 1 on Press PR-05 (identical part, 0 defects)" },
+            { name: "What is Different / Distinguishing Feature?", type: "Textarea", required: true, purpose: "The unique variance between IS and IS NOT.", system_integration: "Pinpoints the root cause differentiator.", sample_data: "Cavity 2 guide bushing was replaced with non-OEM unhardened bushing during last breakdown." }
+        ]
+    },
+    "s4_statistical_validation": {
+        badge: "Process Capability (Cp/Cpk)",
+        howToFill: "Calculate process capability metrics ($C_p, C_{pk}$) and standard deviation ($\\sigma$) before implementing changes. Document baseline capability to prove the process is incapable of meeting specifications without permanent corrective actions.",
+        methodologyTip: "Cpk < 1.0 indicates an incapable process generating scrap; target post-improvement Cpk is >= 1.67.",
+        fields: [
+            { name: "Measured Characteristic", type: "Text", required: true, purpose: "Quality parameter evaluated.", system_integration: "Defines capability study target.", sample_data: "Burr Height (Upper Spec Limit: 0.10mm)" },
+            { name: "Sample Size (N) & Mean (μ)", type: "Text", required: true, purpose: "Sample count and arithmetic average.", system_integration: "Calculates central tendency.", sample_data: "N = 120 | Mean = 0.142mm" },
+            { name: "Standard Deviation (σ)", type: "Number", required: true, purpose: "Process spread / variation.", system_integration: "Calculates sigma spread.", sample_data: "0.038" },
+            { name: "Baseline Cp / Cpk", type: "Text", required: true, purpose: "Calculated capability indices.", system_integration: "Establishes pre-fix capability benchmark.", sample_data: "Cp = 0.72 | Cpk = 0.61 (Severely Incapable)" }
+        ]
+    },
+    "s4_data_reconfirmation": {
+        badge: "Replication Confirmation",
+        howToFill: "Execute a deliberate replication test: turn the suspected root cause OFF and ON under controlled conditions. Prove that introducing the condition creates the defect, and removing the condition eliminates the defect, establishing 100% causal certainty.",
+        methodologyTip: "If you can turn the defect on and off at will by altering the factor, you have proven the root cause beyond all doubt.",
+        fields: [
+            { name: "Test Step / Condition", type: "Text", required: true, purpose: "Deliberate test setup.", system_integration: "Replication trial protocol.", sample_data: "Replication 1: Install calibrated 0.08mm OEM bushing" },
+            { name: "Observed Defect Rate", type: "Text", required: true, purpose: "Measured defect output.", system_integration: "Proves defect elimination.", sample_data: "0 defects in 500 consecutive parts (burr height 0.04mm max)" },
+            { name: "Causal Proof Certainty", type: "Select", required: true, purpose: "Degree of causal certainty confirmed.", system_integration: "Quality gate proof requirement.", sample_data: "100% Causal Certainty Proven" }
+        ]
+    },
+    "s4_root_cause_register": {
+        badge: "Master Cause Register",
+        howToFill: "Consolidate all confirmed root causes into the master register. Ensure each cause is tagged with its Why-5 systemic finding, occurrence vs escape role, and assign an engineering owner.",
+        methodologyTip: "This register is the direct input to Stage 5—every row must have a matching permanent corrective action.",
+        fields: [
+            { name: "Root Cause ID", type: "Text", required: true, purpose: "Master cause tracking key.", system_integration: "Keys into Stage 5 solution mapping.", sample_data: "RC-01 (Tooling PM System)" },
+            { name: "Root Cause Statement", type: "Textarea", required: true, purpose: "Full organizational root cause statement.", system_integration: "Permanent project record.", sample_data: "Tool PM system lacked stroke counter monitoring, causing bushing wear beyond 100k stroke threshold." },
+            { name: "Root Cause Type", type: "Select", required: true, purpose: "Occurrence vs Detection Escape.", system_integration: "Balances solution portfolio.", sample_data: "Occurrence Cause" }
+        ]
+    },
+    "s4_root_cause_ranking": {
+        badge: "Cause Prioritization",
+        howToFill: "Rank confirmed root causes by severity and percentage contribution to overall defect generation. Prioritize solutions targeting Priority 1 (P1) causes first to maximize return on engineering investment.",
+        methodologyTip: "Focusing on top-ranked root causes ensures rapid defect reduction within budget constraints.",
+        fields: [
+            { name: "Cause ID", type: "Text", required: true, purpose: "Root cause reference.", system_integration: "Maps to root cause register.", sample_data: "RC-01" },
+            { name: "Occurrence Contribution (%)", type: "Number", required: true, purpose: "Share of defects driven by this cause.", system_integration: "Weights solution prioritization.", sample_data: "76.5" },
+            { name: "Priority Rank", type: "Select", required: true, purpose: "P1 (Critical), P2 (Major), P3 (Minor).", system_integration: "Drives Stage 5 solution urgency.", sample_data: "P1 (Immediate Permanent Action Required)" }
+        ]
+    },
+
+    // S5
+    "s5_root_cause_mapping": {
+        badge: "Cause-to-Solution Mapping",
+        howToFill: "Map each confirmed root cause from Stage 4 directly to candidate permanent solutions. Ensure every root cause has at least one occurrence-prevention countermeasure (Poka-Yoke error-proofing) and one escape-detection countermeasure.",
+        methodologyTip: "A solution that merely reminds operators is Level 1; prefer Level 3 Poka-Yoke that makes the defect physically impossible.",
+        fields: [
+            { name: "Root Cause ID", type: "Text", required: true, purpose: "Links back to Stage 4 Cause Register.", system_integration: "Maintains end-to-end traceability.", sample_data: "RC-01 (Bushing stroke wear)" },
+            { name: "Candidate Solution Concept", type: "Textarea", required: true, purpose: "Permanent solution proposed to eliminate cause.", system_integration: "Feeds Solution Evaluation Matrix.", sample_data: "Install IoT stroke counter with PLC warning at 90k strokes and press lockout at 100k strokes." },
+            { name: "Solution Classification", type: "Select", required: true, purpose: "Occurrence Prevention vs Detection Poka-Yoke.", system_integration: "Balances error-proofing depth.", sample_data: "Occurrence Prevention (Poka-Yoke Level 2)" }
+        ]
+    },
+    "s5_solution_brainstorming": {
+        badge: "Alternative Brainstorming",
+        howToFill: "Brainstorm at least 2 to 3 alternative solution concepts for each root cause (e.g. manual log sheet vs digital counter vs automated tool clamp RFID). Evaluate concepts for simplicity, reliability, and maintenance feasibility.",
+        methodologyTip: "Exploring multiple solution options uncovers low-cost, elegant ideas that outperform expensive retrofits.",
+        fields: [
+            { name: "Target Cause ID", type: "Text", required: true, purpose: "Target root cause.", system_integration: "Groups candidate options.", sample_data: "RC-01" },
+            { name: "Option # & Title", type: "Text", required: true, purpose: "Alternative solution concept title.", system_integration: "Candidate row in evaluation matrix.", sample_data: "Option B: Omron digital stroke sensor with PLC lockout" },
+            { name: "Concept Description", type: "Textarea", required: true, purpose: "How the proposed mechanism functions.", system_integration: "Technical design summary.", sample_data: "Inductive proximity sensor counts crank revolutions; PLC triggers beacon at 90k and disables stroke circuit at 100k." }
+        ]
+    },
+    "s5_solution_evaluation": {
+        badge: "Evaluation Matrix (Scoring)",
+        howToFill: "Score each candidate solution on a 1-5 scale across 4 standardized criteria: Effectiveness / Impact (weight 35%), Technical Feasibility (weight 25%), Implementation Cost (weight 20%), and Safety / Operational Risk (weight 20%). Select solutions scoring >= 80% (weighted score >= 4.0 / 5.0).",
+        methodologyTip: "Weighted scoring removes subjective opinion and provides transparent justification for capital expenditures.",
+        fields: [
+            { name: "Solution ID & Name", type: "Text", required: true, purpose: "Candidate solution evaluated.", system_integration: "Identifies solution in decision register.", sample_data: "SOL-01 (Digital Stroke Sensor & PLC Lockout)" },
+            { name: "Effectiveness (1-5)", type: "Rating", required: true, purpose: "Degree to which defect is permanently eliminated.", system_integration: "Weighted 35% in total score.", sample_data: "5 (Defect physically impossible past 100k)" },
+            { name: "Feasibility (1-5)", type: "Rating", required: true, purpose: "Ease of installation and maintenance.", system_integration: "Weighted 25% in total score.", sample_data: "4 (Standard off-the-shelf sensor; 4-hr install)" },
+            { name: "Cost Score (1-5)", type: "Rating", required: true, purpose: "Cost-effectiveness (5 = lowest cost / highest ROI).", system_integration: "Weighted 20% in total score.", sample_data: "4 (Total cost ₹45,000; payback in 7 days)" },
+            { name: "Risk Score (1-5)", type: "Rating", required: true, purpose: "Safety, ergonomics, and reliability (5 = lowest risk).", system_integration: "Weighted 20% in total score.", sample_data: "5 (Fail-safe normally closed circuit)" },
+            { name: "Weighted Total Score", type: "Calculated", required: false, purpose: "Composite weighted score out of 5.0.", system_integration: "Ranks candidates automatically.", sample_data: "4.55 / 5.0 (91% - Approved)" }
+        ]
+    },
+    "s5_cost_benefit_analysis": {
+        badge: "Cost-Benefit & ROI",
+        howToFill: "Quantify financial economics: calculate total one-time implementation investment (CapEx + OpEx + tooling) versus projected annual scrap, rework, and warranty savings. Compute Net 1st Year Benefit and Payback Period (Months).",
+        methodologyTip: "Projects with payback periods under 3 months are fast-tracked for immediate financial approval.",
+        fields: [
+            { name: "Implementation CapEx / Cost (₹)", type: "Number", required: true, purpose: "Hardware, wiring, and installation expenses.", system_integration: "Investment denominator in ROI calculation.", sample_data: "45000" },
+            { name: "Projected Annual Savings (₹)", type: "Number", required: true, purpose: "Direct savings from scrap and rework reduction.", system_integration: "Benefit numerator in ROI calculation.", sample_data: "2160000" },
+            { name: "Net 1st Year Benefit (₹)", type: "Calculated", required: false, purpose: "Savings minus investment cost.", system_integration: "Executive financial summary metric.", sample_data: "₹21,15,000" },
+            { name: "Payback Period", type: "Calculated", required: false, purpose: "Months required to recover project cost.", system_integration: "Payback benchmark.", sample_data: "0.25 Months (7.5 Days)" }
+        ]
+    },
+    "s5_side_effect_analysis": {
+        badge: "Risk & Side Effect Screening",
+        howToFill: "Screen the proposed solution for unintended side effects: Will it increase cycle time? Cause premature motor wear? Create operator ergonomics strain? Introduce safety hazards? For each risk, define a preventive mitigation control.",
+        methodologyTip: "A permanent corrective action must never introduce secondary defects or safety hazards into the plant.",
+        fields: [
+            { name: "Potential Side Effect / Risk", type: "Textarea", required: true, purpose: "Potential unintended negative consequence.", system_integration: "Feeds Risk Register in Stage 6.", sample_data: "Machine lockout mid-shift could stall production if maintenance is unprepared with spare tool." },
+            { name: "Severity & Probability", type: "Select", required: true, purpose: "Risk assessment rating.", system_integration: "Categorizes risk level.", sample_data: "Medium Severity | Low Probability" },
+            { name: "Preventive Mitigation Plan", type: "Textarea", required: true, purpose: "Action taken to prevent the side effect.", system_integration: "Action item incorporated into Stage 6 plan.", sample_data: "Configure yellow alert beacon at 90k strokes to pre-stage refurbished die 1 shift in advance." }
+        ]
+    },
+    "s5_pilot_solution_verification": {
+        badge: "Controlled Pilot Run",
+        howToFill: "Run a controlled pilot trial on a single line or shift before full-scale rollout. Produce 500-1,000 parts under live production conditions. Measure defect count and confirm defect rate meets the target goal (<= 0.4%).",
+        methodologyTip: "Pilot testing proves operational robustness in real shopfloor conditions without risking plant-wide disruption.",
+        fields: [
+            { name: "Pilot Scope & Duration", type: "Text", required: true, purpose: "Test machine, shift, and sample count.", system_integration: "Pilot test parameters.", sample_data: "Station PR-05 | 1,000 consecutive parts across 2 shifts" },
+            { name: "Observed Defects Count", type: "Number", required: true, purpose: "Number of defects during pilot run.", system_integration: "Validates pilot performance.", sample_data: "1 (burr height 0.05mm; within 0.10mm spec)" },
+            { name: "Pilot Defect Rate (%)", type: "Calculated", required: false, purpose: "Observed percentage reject in pilot.", system_integration: "Target comparison metric.", sample_data: "0.10% (Target <= 0.40%)" },
+            { name: "Pilot Outcome", type: "Select", required: true, purpose: "Approved for Full Rollout vs Requires Modification.", system_integration: "Gating authorization for Stage 6.", sample_data: "Approved for Full Stage 6 Deployment" }
+        ]
+    },
+    "s5_action_plan_3w1h": {
+        badge: "3W1H Implementation Plan",
+        howToFill: "Build the definitive execution plan using 3W1H: What (detailed task description), Who (single named owner), When (hard deadline date), and How (engineering execution and verification method).",
+        methodologyTip: "Clear single ownership prevents diffusion of responsibility and ensures deadlines are strictly met.",
+        fields: [
+            { name: "Action Item # & What", type: "Text", required: true, purpose: "Specific countermeasure deployment task.", system_integration: "Creates work task in Stage 6.", sample_data: "AP-01: Wire PLC stroke sensor to PR-05 panel and test 90k beacon" },
+            { name: "Who (Responsible Owner)", type: "Text", required: true, purpose: "Single responsible engineer or technician.", system_integration: "Assigns task accountability.", sample_data: "Sunil Verma (Maintenance Lead)" },
+            { name: "When (Target Due Date)", type: "Date", required: true, purpose: "Completion deadline.", system_integration: "Monitored against milestone schedule.", sample_data: "2026-03-25" },
+            { name: "How (Execution & Acceptance Criteria)", type: "Textarea", required: true, purpose: "Standard wiring diagram and functional acceptance test.", system_integration: "Defines completion sign-off criteria.", sample_data: "Follow electrical schematic E-44; simulate 100k pulse and verify immediate main clutch disengagement." }
+        ]
+    },
+
+    // S6
+    "s6_countermeasures": {
+        badge: "Countermeasures Deployment",
+        howToFill: "Track the physical rollout of approved permanent countermeasures. Document installation status, actual vs planned completion dates, validation inspections, and operational handoff.",
+        methodologyTip: "Track countermeasure deployment on a daily visual board to prevent milestone slippage.",
+        fields: [
+            { name: "Countermeasure ID & Title", type: "Text", required: true, purpose: "Permanent solution title.", system_integration: "Primary tracking item in Stage 6.", sample_data: "CM-01: Installation of Digital Stroke Sensor & Lockout on PR-05" },
+            { name: "Planned Target Date", type: "Date", required: true, purpose: "Baseline target completion date.", system_integration: "Baseline for schedule variance tracking.", sample_data: "2026-03-25" },
+            { name: "Actual Completion Date", type: "Date", required: true, purpose: "Physical completion date.", system_integration: "Calculates schedule on-time delivery.", sample_data: "2026-03-24 (1 day early)" },
+            { name: "Deployment Status", type: "Select", required: true, purpose: "In Progress, Testing, Deployed, or Verified.", system_integration: "Status badge on project dashboard.", sample_data: "Deployed & Functionally Verified" }
+        ]
+    },
+    "s6_tasks": {
+        badge: "Task Breakdown",
+        howToFill: "Break down each countermeasure into granular mechanical, electrical, and procedural tasks. Assign individual technicians, estimated labor hours, and track task completion.",
+        methodologyTip: "Tasks smaller than 8 hours are easily completed and tracked without delays.",
+        fields: [
+            { name: "Task ID & Description", type: "Text", required: true, purpose: "Specific work package description.", system_integration: "Granular work breakdown item.", sample_data: "TSK-101: Fabricate sensor mounting bracket and route conduit" },
+            { name: "Assigned Technician", type: "Text", required: true, purpose: "Technician executing task.", system_integration: "Tracks technician workload.", sample_data: "Ramesh K. (Toolroom Fitter)" },
+            { name: "Labor Hours", type: "Number", required: true, purpose: "Hours spent on task.", system_integration: "Aggregates project labor expenditure.", sample_data: "3.5" },
+            { name: "Status", type: "Select", required: true, purpose: "Pending, Active, Completed.", system_integration: "Feeds task progress percentage.", sample_data: "Completed (100%)" }
+        ]
+    },
+    "s6_resource_planning_deployment": {
+        badge: "Resource & Budget Tracking",
+        howToFill: "Log allocated budget versus actual expenditures across CapEx (sensors, brackets), OpEx (calibration, testing), and external contractor services. Document vendor PO numbers.",
+        methodologyTip: "Financial discipline ensures projects deliver high ROI without budget overruns.",
+        fields: [
+            { name: "Resource Category", type: "Select", required: true, purpose: "CapEx, OpEx, Tooling, or Manpower.", system_integration: "Categorizes project expenditure.", sample_data: "CapEx (Hardware & Sensor)" },
+            { name: "Item Description & Vendor", type: "Text", required: true, purpose: "Part name and supplier reference.", system_integration: "Procurement tracking record.", sample_data: "Omron E2E Inductive Proximity Sensor & Counter (PO #44120)" },
+            { name: "Budget Allocated (₹)", type: "Number", required: true, purpose: "Approved budget limit.", system_integration: "Budget baseline.", sample_data: "45000" },
+            { name: "Actual Cost Incurred (₹)", type: "Number", required: true, purpose: "Final invoiced amount.", system_integration: "Calculates cost variance.", sample_data: "41200 (+₹3,800 Favorable)" }
+        ]
+    },
+    "s6_change_management": {
+        badge: "ECN / Management of Change",
+        howToFill: "Execute formal Engineering Change Notice (ECN) or Management of Change (MOC) protocol. Record ECN number, approval date, affected technical documents (Drawings, BOM, Control Plan, Maintenance SOP), and customer notification status.",
+        methodologyTip: "Never alter a production process without an approved ECN—it guarantees full configuration management.",
+        fields: [
+            { name: "ECN / MOC Number", type: "Text", required: true, purpose: "Official engineering change control number.", system_integration: "Traceable change management audit record.", sample_data: "ECN-2026-089" },
+            { name: "Change Description", type: "Textarea", required: true, purpose: "Summary of mechanical/electrical change.", system_integration: "Permanent engineering record.", sample_data: "Revision of die maintenance threshold to 100,000 stroke automatic lockout on press PR-05." },
+            { name: "Affected Documents", type: "Text", required: true, purpose: "SOPs, drawings, and work instructions revised.", system_integration: "Feeds Stage 8 standardization list.", sample_data: "SOP-TR-04, PM-SCH-12, DWG-TR-402 Rev D" },
+            { name: "Approval Date & Authority", type: "Date & Text", required: true, purpose: "Quality and Engineering manager sign-off.", system_integration: "Mandatory compliance gate.", sample_data: "Approved: Meera Kapoor (Quality Head) | 2026-03-28" }
+        ]
+    },
+    "s6_risk_resistance": {
+        badge: "Change Resistance Management",
+        howToFill: "Identify potential operator resistance or change barriers (e.g. operators feeling lockout interrupts incentive pay during changeovers). Document change management communication, quick-die-change staging, and alignment sessions.",
+        methodologyTip: "Addressing operator concerns through collaboration ensures 100% adherence to new standards.",
+        fields: [
+            { name: "Stakeholder Group Affected", type: "Text", required: true, purpose: "Operators, maintenance, or supervisors.", system_integration: "Identifies change impact groups.", sample_data: "Press Operators & Setup Technicians (Shift A, B, C)" },
+            { name: "Perceived Concern / Friction", type: "Textarea", required: true, purpose: "Operator concern or hesitation.", system_integration: "Defines change management focus.", sample_data: "Concern that lockout will cause idle time if die swap takes too long." },
+            { name: "Mitigation & Action Taken", type: "Textarea", required: true, purpose: "Proactive steps taken to address concern.", system_integration: "Documents change adoption support.", sample_data: "Established pre-staged quick die change cart so die swap takes < 12 minutes; adjusted setup allowance." }
+        ]
+    },
+    "s6_side_effect_analysis": {
+        badge: "In-Process Side Effect Check",
+        howToFill: "Monitor production continuously for 7-10 days following countermeasure activation. Verify that no unintended negative effects occurred (e.g. surface scratches from new clamp, cycle time increase, or hydraulic pressure drops).",
+        methodologyTip: "In-process monitoring catches minor teething issues before they escalate into major defects.",
+        fields: [
+            { name: "Monitored Parameter", type: "Text", required: true, purpose: "Cycle time, press tonnage, surface finish.", system_integration: "Tracks process health metrics.", sample_data: "Cycle Time per Part (PR-05)" },
+            { name: "Observed Value vs Spec", type: "Text", required: true, purpose: "Measurement result during live production.", system_integration: "Validates process stability.", sample_data: "Observed: 1.32 sec | Spec: 1.30 - 1.35 sec (No cycle time penalty)" },
+            { name: "Secondary Defects Found", type: "Select", required: true, purpose: "Any secondary quality defects observed.", system_integration: "Safety assurance check.", sample_data: "None (0 secondary defects detected)" }
+        ]
+    },
+    "s6_implementation_evidence": {
+        badge: "Visual Implementation Evidence",
+        howToFill: "Upload before-and-after photographic evidence, wiring schematics, calibration certificates, and physical installation photos. Visual proof is required to pass Stage 6 Reviewer gate approval.",
+        methodologyTip: "Clear before-and-after photos provide undeniable proof of physical countermeasure completion.",
+        fields: [
+            { name: "Evidence Item Title", type: "Text", required: true, purpose: "Name of attached visual evidence.", system_integration: "Label in project dossier.", sample_data: "Before/After Die Bushing & IoT Stroke Sensor Installation" },
+            { name: "Evidence Type", type: "Select", required: true, purpose: "Photograph, Wiring Schematic, or Calibration Log.", system_integration: "Categorizes digital artifacts.", sample_data: "High-Resolution Photo (.jpg)" },
+            { name: "File Link / Reference", type: "File / URL", required: true, purpose: "Attachment reference.", system_integration: "Embedded into generated PDF report.", sample_data: "evidence/pr05_sensor_installed_20260324.jpg" }
+        ]
+    },
+    "s6_communication": {
+        badge: "Communication Log",
+        howToFill: "Log all formal communication briefings conducted with line supervisors, shift technicians, and operators regarding the newly deployed countermeasures. Record date, briefing format, attendee count, and signed attendance roster.",
+        methodologyTip: "Shift-to-shift communication ensures consistent operating practices 24 hours a day.",
+        fields: [
+            { name: "Briefing Type", type: "Select", required: true, purpose: "Toolbox Talk, Shift Handover, or Technical Demo.", system_integration: "Categorizes communication event.", sample_data: "Toolbox Talk & Live Demonstration" },
+            { name: "Date & Shift", type: "Date & Text", required: true, purpose: "Date and shift of communication meeting.", system_integration: "Audit trail timestamp.", sample_data: "2026-03-30 | Shift A & B Handover" },
+            { name: "Attendees & Key Message", type: "Textarea", required: true, purpose: "Participants and main operating instructions.", system_integration: "Proof of workforce awareness.", sample_data: "24 Operators & 3 Supervisors briefed on stroke beacon warning and die changeover protocol." }
+        ]
+    },
+    "s6_training": {
+        badge: "Training & Competence",
+        howToFill: "Record operator training sessions conducted on revised standard operating procedures. Track number of operators trained, training hours, trainer names, and post-training practical test scores (target >= 85%).",
+        methodologyTip: "Training transforms a mechanical modification into sustainable frontline capability.",
+        fields: [
+            { name: "Training Module Name", type: "Text", required: true, purpose: "Title of training session.", system_integration: "Skill matrix training record.", sample_data: "SOP-TR-04 Rev D & Stroke Alarm Response" },
+            { name: "Operators Trained Count", type: "Number", required: true, purpose: "Total operators who attended.", system_integration: "Tracks workforce training coverage.", sample_data: "18" },
+            { name: "Competence Test Pass Rate", type: "Text", required: true, purpose: "Percentage passing practical evaluation.", system_integration: "Verification of training effectiveness.", sample_data: "100% Passed (Average score 92%)" }
+        ]
+    },
+    "s6_readiness_verification": {
+        badge: "Readiness Gate Sign-off",
+        howToFill: "Conduct the Stage 6 Readiness Verification gate review: verify countermeasures are 100% operational, ECN is approved, operators are certified, visual evidence is attached, and the line is cleared for regular production.",
+        methodologyTip: "Readiness verification ensures full managerial authorization before entering Stage 7 KPI monitoring.",
+        fields: [
+            { name: "Verification Checklist State", type: "Select", required: true, purpose: "All 5 readiness prerequisites fulfilled.", system_integration: "Stage 6 completion gating.", sample_data: "All Criteria Met - 100% Ready" },
+            { name: "Reviewer Approval", type: "Select & Sign", required: true, purpose: "Reviewer authorization to transition to Stage 7.", system_integration: "Unlocks Stage 7 verification window.", sample_data: "Approved: Meera Kapoor (Quality Head)" }
+        ]
+    },
+
+    // S7
+    "s7_kpi_verification": {
+        badge: "30-Day KPI Verification",
+        howToFill: "Monitor and record quality performance data over a 30 to 60-day stabilization window following full countermeasure deployment. Enter total production units inspected, defect count, and calculate the verified post-improvement defect rate against the Stage 1 target.",
+        methodologyTip: "A minimum of 30 days or 3 production batches is required to demonstrate statistical stabilization.",
+        fields: [
+            { name: "Verification Window", type: "Text", required: true, purpose: "Start and end dates of verification period.", system_integration: "Defines observation timeframe.", sample_data: "2026-04-01 to 2026-04-30 (30 Days)" },
+            { name: "Total Production Inspected", type: "Number", required: true, purpose: "Total production quantity audited.", system_integration: "Denominator for verified defect rate.", sample_data: "48500" },
+            { name: "Total Defects Observed", type: "Number", required: true, purpose: "Defects found during verification period.", system_integration: "Numerator for verified defect rate.", sample_data: "97" },
+            { name: "Verified Defect Rate (%)", type: "Calculated", required: false, purpose: "Actual post-improvement defect rate.", system_integration: "Benchmarked against Stage 1 target.", sample_data: "0.20% (Target was <= 0.40%)" },
+            { name: "Target Achieved?", type: "Select", required: true, purpose: "Confirm whether target goal was achieved.", system_integration: "Project success indicator badge.", sample_data: "Yes - Exceeded Target Goal by 50%" }
+        ]
+    },
+    "s7_before_vs_after": {
+        badge: "Before vs After Scorecard",
+        howToFill: "Compile the side-by-side comparative scorecard contrasting Baseline (Before) versus Verified (After) metrics: Defect Rate (%), Monthly Scrap Cost (₹), Customer Escalation Count, and Process Capability ($C_{pk}$). Compute net percentage reduction for each indicator.",
+        methodologyTip: "The side-by-side Before vs After scorecard is the centerpiece of the executive 8S project summary.",
+        fields: [
+            { name: "Metric Evaluated", type: "Text", required: true, purpose: "KPI parameter.", system_integration: "Row indicator on scorecard.", sample_data: "Reject Rate (%): Before = 4.2% | After = 0.20% | 95.2% Reduction" },
+            { name: "Scrap Cost Comparison", type: "Text", required: true, purpose: "Monthly financial scrap comparison.", system_integration: "Feeds cost savings summary.", sample_data: "Before = ₹1,80,000/mo | After = ₹8,600/mo | Net Savings: ₹1,71,400/mo" },
+            { name: "Process Capability (Cpk)", type: "Text", required: true, purpose: "Statistical capability comparison.", system_integration: "Validates process quality shift.", sample_data: "Before = 0.61 | After = 1.68 | Status: World-Class Capability" }
+        ]
+    },
+    "s7_statistical_validation": {
+        badge: "Statistical Significance (t-test)",
+        howToFill: "Perform a formal two-sample hypothesis test (e.g. 2-proportion Z-test or Two-Sample t-test) comparing Before and After defect rates. Confirm that the calculated p-value is < 0.001, proving that the improvement is statistically significant and not due to chance.",
+        methodologyTip: "Statistical validation confirms with 99.9% scientific confidence that the improvement was caused by the countermeasures.",
+        fields: [
+            { name: "Statistical Test Applied", type: "Select", required: true, purpose: "2-Proportion Z-Test or 2-Sample t-Test.", system_integration: "Records rigorous validation method.", sample_data: "Two-Proportion Z-Test" },
+            { name: "Sample Sizes (N1 & N2)", type: "Text", required: true, purpose: "Baseline sample (N1) vs Post-fix sample (N2).", system_integration: "Statistical degrees of freedom.", sample_data: "N1 = 12,000 (Before) | N2 = 48,500 (After)" },
+            { name: "Calculated P-Value", type: "Text", required: true, purpose: "Calculated p-value result.", system_integration: "Scientific proof of significance.", sample_data: "Z = 28.4 | P-Value < 0.0001" },
+            { name: "Statistical Conclusion", type: "Textarea", required: true, purpose: "Conclusion statement.", system_integration: "Included in project dossier.", sample_data: "Statistically significant improvement confirmed at 99.99% confidence level." }
+        ]
+    },
+    "s7_benefit_realization": {
+        badge: "Financial Benefit Realization",
+        howToFill: "Calculate verified hard and soft annual financial savings. Hard savings include direct scrap material elimination, rework labor saved, and avoided customer warranty claims. Soft savings include recovered machine capacity and downtime reduction. Obtain Finance Controller sign-off.",
+        methodologyTip: "Finance controller sign-off turns engineering achievements into recognized bottom-line corporate value.",
+        fields: [
+            { name: "Hard Scrap Savings (₹/yr)", type: "Number", required: true, purpose: "Direct annual scrap reduction savings.", system_integration: "Audited financial benefit metric.", sample_data: "2056800" },
+            { name: "Rework Labor Savings (₹/yr)", type: "Number", required: true, purpose: "Labor hours recovered from sorting/rework.", system_integration: "Operational efficiency savings.", sample_data: "124000" },
+            { name: "Total Annualized Savings (₹)", type: "Calculated", required: false, purpose: "Combined verified financial benefit.", system_integration: "Main financial KPI on executive dashboard.", sample_data: "₹21,80,800" },
+            { name: "Finance Controller Sign-off", type: "Text & Date", required: true, purpose: "Official Finance sign-off and approval date.", system_integration: "Audited corporate financial validation.", sample_data: "S. Narayanan (Plant Finance Controller) | 2026-05-02" }
+        ]
+    },
+    "s7_roi_validation": {
+        badge: "Project ROI Validation",
+        howToFill: "Compute the formal Project Return on Investment (ROI): (Verified Annual Net Savings / Total Project Investment) * 100%. Calculate the exact payback period in days.",
+        methodologyTip: "OctaQube problem-solving projects consistently generate ROI exceeding 1,000% with payback in under 30 days.",
+        fields: [
+            { name: "Total Project Investment (₹)", type: "Number", required: true, purpose: "Total CapEx + OpEx spent.", system_integration: "Investment denominator.", sample_data: "46200" },
+            { name: "Verified Net Annual Savings (₹)", type: "Number", required: true, purpose: "Audited annual net savings.", system_integration: "Benefit numerator.", sample_data: "2180800" },
+            { name: "Calculated ROI (%)", type: "Calculated", required: false, purpose: "Percentage return on capital invested.", system_integration: "Highlighted in project showcase.", sample_data: "4,720% ROI" },
+            { name: "Payback Period", type: "Calculated", required: false, purpose: "Days to recover investment.", system_integration: "Financial payback benchmark.", sample_data: "7.7 Days" }
+        ]
+    },
+    "s7_sustainability_check": {
+        badge: "Process Sustainability Audits",
+        howToFill: "Conduct post-closure sustainability audits at 30, 60, and 90-day intervals. Inspect workstation control charts to verify data points remain between Upper and Lower Control Limits ($UCL/LCL$) without trends or backsliding.",
+        methodologyTip: "Scheduled 30/60/90 day audits prevent the natural tendency for processes to backslide after team focus shifts.",
+        fields: [
+            { name: "Audit Interval", type: "Select", required: true, purpose: "Day 30, Day 60, or Day 90 audit checkpoint.", system_integration: "Audit milestone schedule.", sample_data: "Day 30 Post-Fix Audit" },
+            { name: "Defect Rate Recorded", type: "Number", required: true, purpose: "Defect % observed during audit.", system_integration: "Confirms ongoing process control.", sample_data: "0.18%" },
+            { name: "Control Chart In-Control?", type: "Select", required: true, purpose: "Confirm zero out-of-control signals on SPC chart.", system_integration: "Statistical process control verification.", sample_data: "Yes - 100% In-Control (Zero Special Cause Signals)" },
+            { name: "Auditor Sign-off", type: "Text & Date", required: true, purpose: "Name of quality auditor and audit date.", system_integration: "Audit compliance record.", sample_data: "Meera Kapoor (Quality Head) | 2026-05-15" }
+        ]
+    },
+    "s7_side_effect_verification": {
+        badge: "Downstream Health Verification",
+        howToFill: "Re-verify that no negative ripple effects surfaced in upstream blanking or downstream welding/assembly. Obtain written confirmation from downstream cell leaders.",
+        methodologyTip: "Verifying downstream health ensures the value stream operates at peak overall performance.",
+        fields: [
+            { name: "Downstream Cell / Process", type: "Text", required: true, purpose: "Downstream customer cell.", system_integration: "Downstream verification scope.", sample_data: "Robotic Weld Cell 2 (Downstream Customer)" },
+            { name: "Quality Status & Fitment", type: "Textarea", required: true, purpose: "Confirmation of part fitment and weld quality.", system_integration: "Downstream sign-off record.", sample_data: "Bracket fitment gap consistently < 0.2mm; zero robot weld spatter or sensor jams." },
+            { name: "Downstream Leader Confirmation", type: "Text", required: true, purpose: "Downstream supervisor sign-off.", system_integration: "Cross-departmental sign-off.", sample_data: "R. Annamalai (Weld Cell Supervisor) - Verified OK" }
+        ]
+    },
+    "s7_lessons_implementation": {
+        badge: "Design Standards Update",
+        howToFill: "Translate lessons learned into permanent updates to internal engineering design manuals, tooling specifications, and supplier procurement standards so future dies incorporate stroke counters by default.",
+        methodologyTip: "Updating design rules at the source prevents identical issues from ever being designed into new products.",
+        fields: [
+            { name: "Design Standard / Manual Revised", type: "Text", required: true, purpose: "Internal engineering document revised.", system_integration: "Corporate design guideline tracking.", sample_data: "Tool Design Standard TDS-08 (Stamping Dies)" },
+            { name: "New Design Rule Added", type: "Textarea", required: true, purpose: "Specific engineering standard rule updated.", system_integration: "Incorporated into CAD/tooling checklists.", sample_data: "Mandatory stroke counter bracket and hardened OEM guide bushing spec required on all new stamping die RFQs." },
+            { name: "Effective Date", type: "Date", required: true, purpose: "Date new rule becomes effective.", system_integration: "Engineering standard release date.", sample_data: "2026-04-25" }
+        ]
+    },
+
+    // S8
+    "s8_standardization": {
+        badge: "SOP & Control Plan Revision",
+        howToFill: "Standardize process improvements: update Standard Operating Procedures (SOP), Work Instructions (WI), Quality Control Plans, and PFMEAs. Record document numbers, old vs new revision levels, change summaries, and effective dates.",
+        methodologyTip: "'Without standards there can be no Kaizen' (Taiichi Ohno). Formal documentation locks in the gains.",
+        fields: [
+            { name: "Document Type", type: "Select", required: true, purpose: "SOP, Control Plan, PFMEA, or Work Instruction.", system_integration: "Categorizes standardized quality document.", sample_data: "Standard Operating Procedure (SOP)" },
+            { name: "Document Number & Title", type: "Text", required: true, purpose: "Document tracking number.", system_integration: "Links to corporate document management system.", sample_data: "SOP-TR-04: Press Line Blanking & Maintenance" },
+            { name: "Old Rev -> New Rev", type: "Text", required: true, purpose: "Revision level shift.", system_integration: "Document revision control.", sample_data: "Rev B -> Rev C" },
+            { name: "Key Changes Standardized", type: "Textarea", required: true, purpose: "Specific operational updates locked in.", system_integration: "Summary in final project dossier.", sample_data: "Added hourly feeler gage burr check and mandatory tool replacement at 100k stroke lockout beacon." },
+            { name: "Effective Date", type: "Date", required: true, purpose: "Official go-live date of revised standard.", system_integration: "Audit compliance baseline.", sample_data: "2026-04-10" }
+        ]
+    },
+    "s8_training_adoption": {
+        badge: "Workforce Adoption & OPL",
+        howToFill: "Ensure complete workforce institutional adoption: create and mount visual One-Point Lessons (OPL) at eye level on machines, train 100% of operators across all 3 shifts, and update the frontline skill competence matrix.",
+        methodologyTip: "One-Point Lessons provide simple visual reminders that prevent operators from forgetting new routines.",
+        fields: [
+            { name: "One-Point Lesson (OPL) Title", type: "Text", required: true, purpose: "Title of visual shopfloor lesson.", system_integration: "OPL repository catalog link.", sample_data: "OPL-042: Burr Gage Inspection & Stroke Beacon Response" },
+            { name: "Operator Shift Training Status", type: "Select", required: true, purpose: "Confirmation of training across all shifts.", system_integration: "Workforce readiness compliance check.", sample_data: "100% Operators Signed Off (24 of 24 across Shifts A, B, C)" },
+            { name: "Skill Matrix Level Updated", type: "Text", required: true, purpose: "Competence level upgrade recorded in HR.", system_integration: "Operator certification update.", sample_data: "Level 3 Certified (Independent Operator & Trainer)" }
+        ]
+    },
+    "s8_horizontal_deployment": {
+        badge: "Yokoten Horizontal Rollout",
+        howToFill: "Identify sister machines, parallel lines, or other company plants utilizing identical tooling or stamping mechanisms. Construct a Yokoten Horizontal Deployment matrix assigning plant locations, similarity ratings (1-5), local owners, target rollout dates, and implementation progress.",
+        methodologyTip: "Yokoten horizontal deployment multiplies a single project's financial savings across the entire corporate enterprise.",
+        fields: [
+            { name: "Target Plant / Machine Line", type: "Text", required: true, purpose: "Sister location with similar equipment.", system_integration: "Yokoten tracking matrix row.", sample_data: "Pune Plant: Press Lines PR-02 & PR-03" },
+            { name: "Process Similarity Rating (1-5)", type: "Rating", required: true, purpose: "Degree of equipment/process equivalence.", system_integration: "Prioritizes horizontal rollout.", sample_data: "5/5 (Identical die clamping mechanism and tonnage)" },
+            { name: "Yokoten Owner & Target Date", type: "Text & Date", required: true, purpose: "Local engineer responsible for deployment.", system_integration: "Assigns replication accountability.", sample_data: "Rajesh Malhotra (Pune QA Lead) | Target: 2026-06-30" },
+            { name: "Replication Status", type: "Select", required: true, purpose: "Planned, In Progress, Deployed, or Completed.", system_integration: "Tracks enterprise-wide replication.", sample_data: "In Progress (Hardware ordered on PO #4901)" }
+        ]
+    },
+    "s8_lessons_learned": {
+        badge: "Lessons Learned & Tags",
+        howToFill: "Capture key technical takeaways, unexpected discoveries, hurdles overcome, and advice for future problem-solving teams. Tag entries with searchable keywords for the OctaQube Global Knowledge Base.",
+        methodologyTip: "Tagging lessons learned enables future teams facing similar defects to instantly retrieve your solution.",
+        fields: [
+            { name: "Key Technical Insight", type: "Textarea", required: true, purpose: "Primary engineering lesson learned.", system_integration: "Indexed for AI semantic search.", sample_data: "Calendar-based PM is dangerous for high-speed dies; stroke-based telemetry prevents micro-wear before visual defects appear." },
+            { name: "Hurdle Overcome", type: "Textarea", required: true, purpose: "How unexpected obstacles were resolved.", system_integration: "Knowledge repository advice note.", sample_data: "Operator concerns over changeover delays were resolved by pre-staging dies on quick-change carts." },
+            { name: "Search Tags / Keywords", type: "Text", required: true, purpose: "Comma-separated search keywords.", system_integration: "Tags for search index.", sample_data: "Stamping, Burr, StrokeCounter, DieWear, IoT, Yokoten, PR-05" }
+        ]
+    },
+    "s8_benefits_summary": {
+        badge: "Executive Benefits Dossier",
+        howToFill: "Compile the final executive scorecard summarizing all verified project benefits: total annualized financial savings (₹), defect rate reduction (%), customer complaints eliminated, downtime hours saved, and total project cycle time in days.",
+        methodologyTip: "This executive dossier forms the briefing document for Executive Leadership and Plant Board reviews.",
+        fields: [
+            { name: "Verified Annual Financial Benefit", type: "Text", required: true, purpose: "Total audited hard and soft savings.", system_integration: "Top banner metric on executive report.", sample_data: "₹21,80,800 Annual Net Savings" },
+            { name: "Quality Defect Reduction", type: "Text", required: true, purpose: "Net percentage defect reduction achieved.", system_integration: "Quality improvement scorecard.", sample_data: "95.2% Reduction (4.2% down to 0.20%)" },
+            { name: "Customer Quality Impact", type: "Text", required: true, purpose: "Customer complaints and escalations eliminated.", system_integration: "Customer satisfaction KPI.", sample_data: "100% Elimination (0 customer complaints in 60 days)" },
+            { name: "Downtime Recovered", type: "Text", required: true, purpose: "Unplanned downtime hours saved per month.", system_integration: "OEE productivity contribution.", sample_data: "14.5 Hours/month recovered (174 hours/year)" }
+        ]
+    },
+    "s8_remaining_opportunities": {
+        badge: "Residual Kaizen Opportunities",
+        howToFill: "Document secondary improvement opportunities or minor residual issues identified during the project that were outside the current charter's scope. Log them into the Kaizen Idea Bank to seed future continuous improvement cycles.",
+        methodologyTip: "Great problem solving never truly stops—it generates the roadmap for next quarter's Kaizen initiatives.",
+        fields: [
+            { name: "Residual Opportunity Description", type: "Textarea", required: true, purpose: "Secondary Kaizen idea identified.", system_integration: "Transfers to Plant Kaizen Idea Bank.", sample_data: "Automated lubricant mist spray optimization during high-speed runs to extend die life from 100k to 140k strokes." },
+            { name: "Estimated Potential Savings", type: "Text", required: false, purpose: "Projected value of next-stage Kaizen.", system_integration: "Kaizen idea bank prioritization.", sample_data: "Potential additional ₹3,50,000 in tool life savings" },
+            { name: "Recommended Next Steps", type: "Text", required: true, purpose: "Target kickoff timeframe or sponsor.", system_integration: "Seeds Q3 continuous improvement backlog.", sample_data: "Log as Kaizen Project for Q3 Circle Competition" }
+        ]
+    },
+    "s8_knowledge_repository": {
+        badge: "Global Knowledge Base Index",
+        howToFill: "Publish the completed project dossier to the OctaQube Global Knowledge Repository. Ensure full report PDF, updated PFMEA, CAD drawings, and Yokoten rollout guides are indexed for global AI search across all plants.",
+        methodologyTip: "Publishing to the enterprise knowledge base guarantees that no other plant wastes time solving the same defect again.",
+        fields: [
+            { name: "Publish to Global Repository?", type: "Select", required: true, purpose: "Authorize enterprise-wide visibility.", system_integration: "Sets global knowledge access permissions.", sample_data: "Yes - Publish to Global Enterprise Knowledge Base" },
+            { name: "Project Dossier Archive Link", type: "File / URL", required: true, purpose: "Compiled master project PDF report.", system_integration: "Permanent dossier download link.", sample_data: "archive/8S_Project_Report_PR05_TrimBurr_2026.pdf" },
+            { name: "AI Semantic Search Status", type: "Badge", required: false, purpose: "Indexation status for AI problem-solving bot.", system_integration: "Enables instant retrieval by chatbot.", sample_data: "Indexed & Searchable Globally" }
+        ]
+    },
+    "s8_team_recognition": {
+        badge: "Team Recognition & Awards",
+        howToFill: "Record formal organizational recognition and rewards awarded to circle members: executive commendation certificates, OctaQube gamification incentive points, dinner vouchers, and nominations for national Kaizen competitions.",
+        methodologyTip: "Recognizing and celebrating problem-solving teams inspires continuous improvement culture across the entire plant.",
+        fields: [
+            { name: "Team Leader Recognition", type: "Text", required: true, purpose: "Award for lead engineer.", system_integration: "Added to employee gamification profile.", sample_data: "Deepak Singh: Star Innovator Award (+250 OctaQube Points)" },
+            { name: "Maintenance & Tooling Award", type: "Text", required: true, purpose: "Award for technical specialists.", system_integration: "Reward points allocation.", sample_data: "Sunil Verma: Technical Excellence Award (+200 OctaQube Points)" },
+            { name: "Frontline Operator Recognition", type: "Text", required: true, purpose: "Award for shopfloor operators.", system_integration: "Rewards and recognition wall.", sample_data: "Priya Sharma & Rajesh M.: Frontline Kaizen Champion (+150 Points each)" },
+            { name: "External Competition Nomination", type: "Text", required: false, purpose: "Nomination for QCFI / National Kaizen Conclave.", system_integration: "Corporate PR and industry award entry.", sample_data: "Nominated for National QCFI Kaizen Convention 2026" }
+        ]
+    },
+    "s8_project_closure": {
+        badge: "Executive Multi-Signoff Gate",
+        howToFill: "Execute the formal 4-tier project closure sign-off: Tier 1 Team Leader -> Tier 2 Facilitator / Coach -> Tier 3 Quality Head / Reviewer -> Tier 4 Executive Sponsor / Plant Head. Formally locks the project against further edits and archives the charter.",
+        methodologyTip: "Formal executive closure provides executive sign-off, releases allocated resources, and celebrates success.",
+        fields: [
+            { name: "Tier 1: Team Leader Sign-off", type: "Sign & Date", required: true, purpose: "Team Leader submission of completed project.", system_integration: "Stage gate tier 1 timestamp.", sample_data: "Signed: Deepak Singh (Team Leader) | 2026-05-02 09:30 AM" },
+            { name: "Tier 2: Facilitator Sign-off", type: "Sign & Date", required: true, purpose: "Lean/Quality Coach verification of 8S rigor.", system_integration: "Stage gate tier 2 timestamp.", sample_data: "Signed: Amit Kumar (Lean Facilitator) | 2026-05-02 11:15 AM" },
+            { name: "Tier 3: Quality Head Sign-off", type: "Sign & Date", required: true, purpose: "Quality department acceptance of validation.", system_integration: "Stage gate tier 3 timestamp.", sample_data: "Signed: Meera Kapoor (Quality Head) | 2026-05-02 02:45 PM" },
+            { name: "Tier 4: Executive Sponsor Sign-off", type: "Sign & Date", required: true, purpose: "VP Operations / Plant Head final closure.", system_integration: "Locks project into read-only archive status.", sample_data: "Signed: R. K. Sharma (VP Operations) | 2026-05-03 10:00 AM | Project Closed" }
+        ]
+    }
+};;
+            return this._builtinSectionGuides;
+        },
+
+        generateFallbackGuide(secId, secType, secLabel) {
+            const label = secLabel || secId || 'Quality Control Section';
+            const type = (secType || 'table').toLowerCase();
+
+            if (type === 'fishbone') {
+                return {
+                    badge: 'Cause & Effect (6M)',
+                    howToFill: 'Construct the Ishikawa diagram for ' + label + '. Brainstorm contributing factors under the 6M categories: Man, Machine, Material, Method, Measurement, and Milieu (Environment). Test each cause empirically.',
+                    methodologyTip: 'Always verify fishbone causes with shopfloor measurements before advancing to root cause drill-down.',
+                    fields: [
+                        { name: '6M Category', type: 'Select', required: true, purpose: 'Primary Ishikawa category.', system_integration: 'Organizes cause branch.', sample_data: 'Machine / Method' },
+                        { name: 'Suspect Cause Description', type: 'Textarea', required: true, purpose: 'Specific potential cause condition.', system_integration: 'Placed on fishbone node.', sample_data: 'Parameter setting variation under high temperature' },
+                        { name: 'Empirical Verification Method', type: 'Text', required: true, purpose: 'Measurement tool or trial method.', system_integration: 'Verification plan link.', sample_data: 'Calibrated multimeter & dial gage inspection' },
+                        { name: 'Verification Outcome', type: 'Select', required: true, purpose: 'Validated Root Cause / Ruled Out.', system_integration: 'Updates fishbone status.', sample_data: 'Validated Root Cause' }
+                    ]
+                };
+            }
+            if (type === 'pareto') {
+                return {
+                    badge: 'Pareto 80/20 Prioritization',
+                    howToFill: 'List distinct defect categories or failure causes for ' + label + ' in descending frequency. The system generates the cumulative percentage curve. Focus root cause investigation on the Vital Few items representing ~80% of total occurrences.',
+                    methodologyTip: 'The 80/20 rule ensures that engineering resources target the highest-impact factors first.',
+                    fields: [
+                        { name: 'Category / Failure Mode', type: 'Text', required: true, purpose: 'Specific defect or cause classification.', system_integration: 'X-axis item on Pareto chart.', sample_data: 'Primary Defect Mode' },
+                        { name: 'Frequency / Count', type: 'Number', required: true, purpose: 'Observed defect count.', system_integration: 'Bar height on chart.', sample_data: '84' },
+                        { name: 'Cumulative Percentage (%)', type: 'Calculated', required: false, purpose: 'Running cumulative contribution.', system_integration: 'Pareto cumulative curve.', sample_data: '68.5%' }
+                    ]
+                };
+            }
+            if (type === 'stratification') {
+                return {
+                    badge: 'Data Stratification',
+                    howToFill: 'Stratify (disaggregate) defect data in ' + label + ' across shifts, machines, materials, or operators to identify high-risk concentration clusters.',
+                    methodologyTip: 'Stratification pinpoints exactly where the problem is concentrated.',
+                    fields: [
+                        { name: 'Stratification Dimension', type: 'Select', required: true, purpose: 'Shift, Machine, Lot, or Operator.', system_integration: 'Categorizes data slice.', sample_data: 'Shift / Operator Group' },
+                        { name: 'Sub-group Name', type: 'Text', required: true, purpose: 'Specific group name.', system_integration: 'X-axis cluster label.', sample_data: 'Shift B (Night)' },
+                        { name: 'Total Inspected', type: 'Number', required: true, purpose: 'Units audited.', system_integration: 'Denominator for defect rate.', sample_data: '500' },
+                        { name: 'Defects Observed', type: 'Number', required: true, purpose: 'Defective units found.', system_integration: 'Numerator for defect rate.', sample_data: '26' }
+                    ]
+                };
+            }
+            if (type === 'check_sheet') {
+                return {
+                    badge: 'Shopfloor Check Sheet',
+                    howToFill: 'Record structured observation counts for ' + label + '. Log time intervals, defect tally marks, total inspected units, and operator ID.',
+                    methodologyTip: 'Check sheets standardize frontline data logging with minimal paperwork burden.',
+                    fields: [
+                        { name: 'Date & Time Slot', type: 'Date & Text', required: true, purpose: 'Time slot of observation.', system_integration: 'Time-series log.', sample_data: '2026-02-15 10:00 - 11:00' },
+                        { name: 'Tally Counts', type: 'Text', required: true, purpose: 'Defect counts observed.', system_integration: 'Aggregates Pareto frequencies.', sample_data: 'Defect A: 5 | Defect B: 1' },
+                        { name: 'Inspector Sign', type: 'Text', required: true, purpose: 'Operator identity.', system_integration: 'Audit compliance trail.', sample_data: 'Inspector Emp #4102' }
+                    ]
+                };
+            }
+            if (type === 'textarea') {
+                return {
+                    badge: 'Factual Documentation',
+                    howToFill: 'Document factual, verifiable observations for ' + label + '. Clearly describe the condition observed on the shopfloor, reference standard operating procedures, and state measurable deviations without speculation.',
+                    methodologyTip: 'Stick strictly to verified facts and observable physical evidence.',
+                    fields: [
+                        { name: label + ' Description', type: 'Textarea', required: true, purpose: 'Core documentation for ' + label + '.', system_integration: 'Saved to stage dataset; included in PDF dossier.', sample_data: 'Detailed shopfloor observation and technical verification.' },
+                        { name: 'Supporting Evidence / Link', type: 'File / URL', required: false, purpose: 'Attached evidence or test report.', system_integration: 'Dossier appendix link.', sample_data: 'evidence/inspection_record.pdf' }
+                    ]
+                };
+            }
+            return {
+                badge: 'Structured Data Log',
+                howToFill: 'Enter verified measurements and operational records for ' + label + '. Ensure all required columns are completed, adherence to engineering standards is audited, and anomalies are flagged for team review.',
+                methodologyTip: 'Consistent, traceable data records ensure audit compliance and support statistical validation.',
+                fields: [
+                    { name: 'Item / Parameter Description', type: 'Text', required: true, purpose: 'Specific parameter or observation item.', system_integration: 'Primary record key.', sample_data: 'Standard Parameter Measurement' },
+                    { name: 'Specified Limit / Standard', type: 'Text', required: true, purpose: 'Drawing or engineering specification.', system_integration: 'Tolerance baseline.', sample_data: 'Nominal ± Tolerance' },
+                    { name: 'Actual Measured Value', type: 'Text', required: true, purpose: 'Shopfloor measured value.', system_integration: 'Variance calculation.', sample_data: 'Actual Measured Finding' },
+                    { name: 'Status & Verification', type: 'Select', required: true, purpose: 'Pass / Fail / Deviation.', system_integration: 'Stage gating criteria.', sample_data: 'Verified (Within Tolerance)' }
+                ]
+            };
+        },
+
+        getSectionGuide(secId, secType, secLabel) {
+            const guides = this.getBuiltinSectionGuides();
+            if (secId && guides[secId]) return guides[secId];
+
+            const normId = (secId || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+            for (const key in guides) {
+                if (normId && (normId.includes(key) || key.includes(normId))) {
+                    return guides[key];
+                }
+            }
+
+            const normLabel = (secLabel || '').toLowerCase();
+            for (const key in guides) {
+                const g = guides[key];
+                if (g.badge && normLabel.includes(g.badge.toLowerCase())) return g;
+            }
+
+            return this.generateFallbackGuide(secId, secType, secLabel);
+        },
+
         async renderDynamic8SUserManual() {
             const accordion = document.getElementById('manualAccordion');
             if (!accordion) return;
 
-            accordion.innerHTML = `
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-xs text-muted mt-2">Loading active 8S stage user manual...</p>
-                </div>
-            `;
+            if (!this._dynamicManualRendered) {
+                accordion.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="text-xs text-muted mt-2">Loading active 8S stage user manual...</p>
+                    </div>
+                `;
+            }
 
             try {
                 const res = await api.get('/admin/stages-template').catch(() => null);
-                const stages = (res && res.stages) ? res.stages : [];
-                
-                if (!stages || stages.length === 0) {
-                    accordion.innerHTML = `
-                        <div class="alert alert-warning p-4 text-center">
-                            <h6>No Stage Template Configured</h6>
-                            <p class="text-xs text-muted mb-0">Please configure your organization's 8D/8S stage template in Stage Settings.</p>
-                        </div>
-                    `;
-                    return;
+                let stages = (res && res.stages && Array.isArray(res.stages) && res.stages.length > 0) ? res.stages : null;
+                if (!stages) {
+                    stages = this.getDefaultStagesList();
                 }
 
                 const builtInObjectives = {
@@ -4579,6 +5488,17 @@ console.log(data);
                     8: "Recognize team contributions, calculate financial savings, archive project lessons learned, and formally close project charter."
                 };
 
+                const stageWorkflowGuides = {
+                    1: "Form cross-functional team -> Detail 5W2H background -> Document baseline scrap/defect KPIs -> Issue immediate containment quarantine -> Set SMART target & 8-stage timeline.",
+                    2: "Go to Gemba workstation -> Perform 3-Point SOP/Spec/Control Plan check -> Stratify defects by shift & machine -> Generate Pareto 80/20 & Check Sheet -> Apply 5G principles.",
+                    3: "Brainstorm potential causes -> Build Ishikawa 6M Fishbone -> Empirically test each cause on shopfloor -> Verify against run-charts -> Confirm physical root causes -> Review gate checklist.",
+                    4: "Document verified occurrence & escape causes -> Drill down 5-Why root causes to systemic policy -> Perform Is/Is-Not comparison -> Validate statistical capability (Cp/Cpk) -> Rank root causes.",
+                    5: "Map root causes to candidate countermeasures -> Brainstorm alternatives -> Score via Solution Evaluation Matrix (Impact, Feasibility, Cost, Risk) -> Run cost-benefit & risk analysis -> Execute pilot verification -> Formulate 3W1H action plan.",
+                    6: "Deploy physical countermeasures & tooling -> Assign work tasks -> Manage CapEx/OpEx resources -> Authorize Engineering Change Notice (ECN) -> Monitor in-process side effects -> Train operators & log sign-offs -> Pass readiness gate.",
+                    7: "Track 30-60 day post-fix defect rate -> Generate Before vs After comparative scorecard -> Perform statistical 2-sample validation -> Calculate verified hard/soft savings -> Audit 30/60/90 day sustainability -> Update engineering design rules.",
+                    8: "Standardize updated SOPs & Control Plans -> Roll out One-Point Lessons (OPL) -> Build Yokoten horizontal deployment matrix -> Archive lessons learned in Global Knowledge Base -> Recognize team with awards & points -> Complete multi-tier executive closure."
+                };
+
                 accordion.innerHTML = stages.map((stg, stgIdx) => {
                     const stgNum = stg.stage_id || (stgIdx + 1);
                     const origId = stg.original_id || stgNum;
@@ -4586,86 +5506,106 @@ console.log(data);
                     const collapseId = `collapseStage${stgNum}`;
 
                     const objectiveText = stg.objective || builtInObjectives[origId] || "Execute process improvement and quality control steps for this stage.";
+                    const workflowGuide = stageWorkflowGuides[origId] || "Complete all required data entries, empirical tests, and verification steps in accordance with quality management guidelines.";
                     const sections = stg.sections || [];
 
                     let sectionsHtml = '';
                     if (sections.length === 0) {
                         sectionsHtml = `
                             <div class="p-3 text-center text-muted text-xs border rounded bg-white">
-                                <em>No sections or fields configured for this stage yet. Add components in Stage Template Editor to populate this manual.</em>
+                                <em>No sections configured for this stage yet. Add components in Stage Template Editor to populate this manual.</em>
                             </div>
                         `;
                     } else {
                         sectionsHtml = sections.map((sec, secIdx) => {
+                            const secId = sec.id || `s${stgNum}_sec_${secIdx + 1}`;
                             const secTitle = OctaQube.escapeHtml(sec.label || sec.title || `Section ${stgNum}.${secIdx + 1}`);
                             const secDesc = OctaQube.escapeHtml(sec.description || sec.about || sec.purpose || '');
                             
-                            // Extract fields
-                            let fieldsList = [];
+                            const guide = this.getSectionGuide(secId, sec.type, sec.label || sec.title);
+                            const badgeText = OctaQube.escapeHtml(guide.badge || 'Standard Form');
+                            const howToFill = guide.howToFill || 'Enter verified data and complete required observations according to shopfloor quality standards.';
+                            const methodologyTip = guide.methodologyTip || '';
+
+                            let fields = [];
                             if (sec.fields && Array.isArray(sec.fields) && sec.fields.length > 0) {
-                                fieldsList = sec.fields;
+                                fields = sec.fields.map(f => ({
+                                    name: f.label || f.name || 'Field Component',
+                                    type: f.type || 'text',
+                                    required: f.required !== false,
+                                    purpose: f.manual_description || f.help_text || f.purpose || f.placeholder || 'Complete field as per guidelines.',
+                                    system_integration: `Saved to Stage ${stgNum}; included in final dossier and reports.`,
+                                    sample_data: f.sample_data || f.sample || 'Valid Entry'
+                                }));
                             } else if (sec.predefined_fields && typeof sec.predefined_fields === 'object') {
-                                fieldsList = Object.entries(sec.predefined_fields).map(([fid, fcfg]) => ({
-                                    id: fid,
-                                    label: fcfg.label || fid,
+                                fields = Object.entries(sec.predefined_fields).map(([fid, fcfg]) => ({
+                                    name: fcfg.label || fid,
                                     type: fcfg.type || 'text',
                                     required: fcfg.required !== false,
-                                    disabled: fcfg.disabled === true,
-                                    manual_description: fcfg.manual_description || fcfg.help_text,
-                                    sample_data: fcfg.sample_data || fcfg.sample
+                                    purpose: fcfg.manual_description || fcfg.help_text || 'Enter required value.',
+                                    system_integration: `Saved to Stage ${stgNum}; feeds analytics.`,
+                                    sample_data: fcfg.sample_data || fcfg.sample || 'Standard Value'
                                 })).filter(f => !f.disabled);
                             }
 
-                            if (fieldsList.length === 0) {
-                                return `
-                                    <div class="mb-4">
-                                        <h6 class="fw-bold text-primary mb-1 text-sm">${secTitle}</h6>
-                                        ${secDesc ? `<div class="p-2 mb-2 text-xs text-secondary bg-light border rounded"><i data-lucide="info" style="width:13px;height:13px;" class="text-primary me-1"></i>${secDesc}</div>` : ''}
-                                        <div class="p-3 text-xs text-muted border rounded bg-white">Standard input component & section guide for ${secTitle}.</div>
-                                    </div>
-                                `;
+                            if (fields.length === 0 && guide.fields && guide.fields.length > 0) {
+                                fields = guide.fields;
+                            }
+
+                            if (fields.length === 0) {
+                                fields = [
+                                    { name: 'Input Entry / Data Log', type: 'text', required: true, purpose: 'Primary data entry or observation value.', system_integration: `Stored in Stage ${stgNum} dataset.`, sample_data: 'Verified Measurement' },
+                                    { name: 'Observation Notes', type: 'textarea', required: false, purpose: 'Contextual notes regarding workstation condition.', system_integration: 'Included in stage review dossier.', sample_data: 'Inspected under live production' },
+                                    { name: 'Status & Verification', type: 'select', required: true, purpose: 'Verification status of the logged record.', system_integration: 'Enables stage completion gating.', sample_data: 'Verified (Pass)' }
+                                ];
                             }
 
                             return `
-                                <div class="mb-4">
-                                    <h6 class="fw-bold text-primary mb-1 text-sm">${secTitle}</h6>
+                                <div class="mb-4 p-3 bg-white border rounded shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom flex-wrap gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-primary text-white text-xs">${stgNum}.${secIdx + 1}</span>
+                                            <h6 class="fw-bold text-primary mb-0 text-sm">${secTitle}</h6>
+                                        </div>
+                                        <span class="badge bg-light text-secondary border text-xs">${badgeText}</span>
+                                    </div>
                                     ${secDesc ? `<div class="p-2 mb-2 text-xs text-secondary bg-light border rounded"><i data-lucide="info" style="width:13px;height:13px;" class="text-primary me-1"></i>${secDesc}</div>` : ''}
+                                    
+                                    <div class="p-2.5 mb-3 text-xs bg-light border-start border-4 border-info rounded">
+                                        <div class="fw-bold text-dark mb-1"><i data-lucide="check-circle-2" style="width:13px;height:13px;" class="text-info me-1"></i><strong>How to Fill This Section:</strong></div>
+                                        <div class="text-secondary lh-base">${howToFill}</div>
+                                        ${methodologyTip ? `<div class="mt-2 pt-2 border-top text-xs text-dark"><span class="badge bg-info-subtle text-info border-0 me-1">Quality Tool Tip</span>${methodologyTip}</div>` : ''}
+                                    </div>
+
                                     <div class="table-responsive">
                                         <table class="table table-sm table-bordered text-xs mb-0 align-middle">
                                             <thead style="background:var(--ds-surface-raised)">
                                                 <tr>
                                                     <th style="width: 20%">Field / Control</th>
-                                                    <th style="width: 15%">Type</th>
-                                                    <th style="width: 35%">Purpose & How to Use (User Guide)</th>
-                                                    <th style="width: 15%">System Integration</th>
-                                                    <th style="width: 15%">Sample Data</th>
+                                                    <th style="width: 12%">Type</th>
+                                                    <th style="width: 34%">Purpose &amp; How to Use (User Guide)</th>
+                                                    <th style="width: 18%">System Integration</th>
+                                                    <th style="width: 16%">Sample Data</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                ${fieldsList.map(f => {
-                                                    const fLabel = OctaQube.escapeHtml(f.label || f.name || 'Field Component');
+                                                ${fields.map(f => {
+                                                    const fLabel = OctaQube.escapeHtml(f.name || f.label || 'Field');
                                                     const isReq = f.required !== false;
                                                     const fType = OctaQube.escapeHtml(f.type || 'text');
-                                                    
-                                                    const desc = OctaQube.escapeHtml(
-                                                        f.manual_description || f.help_text || f.purpose || f.placeholder ||
-                                                        `Complete ${fLabel} according to frontline quality guidelines.`
-                                                    );
-                                                    
-                                                    const sample = OctaQube.escapeHtml(
-                                                        f.sample_data || f.sample ||
-                                                        (fType === 'number' ? '12.5' : (fType === 'select' ? 'Option 1' : 'Valid Entry'))
-                                                    );
+                                                    const desc = OctaQube.escapeHtml(f.purpose || f.description || 'Complete field as per guidelines.');
+                                                    const sys = OctaQube.escapeHtml(f.system_integration || `Saved to Stage ${stgNum}; included in dossier.`);
+                                                    const sample = OctaQube.escapeHtml(f.sample_data || 'Valid Entry');
 
                                                     return `
                                                         <tr>
                                                             <td class="fw-semibold">
                                                                 ${fLabel}
-                                                                ${isReq ? '<span class="text-danger ms-0.5">*</span>' : ''}
+                                                                ${isReq ? '<span class="text-danger ms-0.5" title="Mandatory Field">*</span>' : ''}
                                                             </td>
                                                             <td><span class="badge bg-secondary-subtle text-dark border-0">${fType}</span></td>
                                                             <td class="text-secondary">${desc}</td>
-                                                            <td class="text-muted">Saved to Stage ${stgNum}; included in PDF report and project analytics.</td>
+                                                            <td class="text-muted">${sys}</td>
                                                             <td class="fw-medium text-success font-mono">'${sample}'</td>
                                                         </tr>
                                                     `;
@@ -4688,8 +5628,9 @@ console.log(data);
                             </h2>
                             <div id="${collapseId}" class="accordion-collapse collapse ${stgIdx === 0 ? 'show' : ''}" data-bs-parent="#manualAccordion">
                                 <div class="accordion-body p-4 bg-light-subtle">
-                                    <div class="alert alert-primary mb-4 text-xs" style="background:rgba(var(--ds-primary-rgb),.05); border-left:4px solid var(--ds-primary);">
-                                        <strong>Objective</strong>: ${OctaQube.escapeHtml(objectiveText)}
+                                    <div class="alert alert-primary mb-3 text-xs" style="background:rgba(var(--ds-primary-rgb),.05); border-left:4px solid var(--ds-primary);">
+                                        <strong>Stage Objective</strong>: ${OctaQube.escapeHtml(objectiveText)}
+                                        <div class="mt-1 text-muted"><strong>Workflow Sequence</strong>: ${OctaQube.escapeHtml(workflowGuide)}</div>
                                     </div>
                                     ${sectionsHtml}
                                 </div>
@@ -4698,10 +5639,11 @@ console.log(data);
                     `;
                 }).join('');
 
+                this._dynamicManualRendered = true;
                 if (window.lucide) lucide.createIcons();
             } catch (e) {
                 console.error('Failed to load dynamic 8S User Manual:', e);
-                accordion.innerHTML = `<div class="alert alert-danger">Failed to load dynamic 8S User Manual.</div>`;
+                accordion.innerHTML = '<div class="alert alert-danger p-3">Failed to load 8S User Manual. Please check your network connection or reload.</div>';
             }
         },
 

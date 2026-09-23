@@ -134,7 +134,7 @@ const ProjectApp = {
             metaEl.textContent = `${data.category || 'Quality'} Project · ${data.department || ''} · Status: ${data.status || 'Draft'}`;
         }
 
-        // Render Facilitator Card - ONLY for Team Member role (not Team Leader, Reviewer, etc.)
+        // Render Facilitator Card - ONLY for Team Member role in ACTIVE (non-closed) projects
         const facCard = document.getElementById('facilitatorSupportCard');
         if (facCard) {
             try {
@@ -143,7 +143,10 @@ const ProjectApp = {
                 const role = roleName.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const isTeamMember = (role === 'teammember');
 
-                if (isTeamMember && data.facilitator_name) {
+                const projStatus = (data.status || '').toLowerCase().trim();
+                const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
+
+                if (isTeamMember && data.facilitator_name && !isProjectClosed) {
                     facCard.classList.remove('d-none');
                     document.getElementById('facName').textContent = data.facilitator_name;
                     document.getElementById('facEmail').textContent = data.facilitator_email || '';
@@ -358,6 +361,15 @@ const ProjectApp = {
             // Only relevant for team members
             if (role !== 'teammember') return;
 
+            const projStatus = (this.projectData?.status || '').toLowerCase().trim();
+            const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
+            if (isProjectClosed) {
+                this.myAssistanceRequests = [];
+                const card = document.getElementById('facilitatorReplyCard');
+                if (card) card.classList.add('d-none');
+                return;
+            }
+
             const requests = await api.get(`/projects/${this.projectId}/my-assistance-requests`);
             this.myAssistanceRequests = requests || [];
             // Show reply card for the currently active stage
@@ -373,6 +385,13 @@ const ProjectApp = {
     updateFacReplyCard(stageId) {
         const card = document.getElementById('facilitatorReplyCard');
         if (!card) return;
+
+        const projStatus = (this.projectData?.status || '').toLowerCase().trim();
+        const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
+        if (isProjectClosed) {
+            card.classList.add('d-none');
+            return;
+        }
 
         // Find all requests for this stage
         const forStage = (this.myAssistanceRequests || []).filter(r => Number(r.stage_id) === Number(stageId));
@@ -1944,6 +1963,13 @@ const ProjectApp = {
     facRequestModal: null,
 
     openFacilitatorRequestModal() {
+        const projStatus = (this.projectData?.status || '').toLowerCase().trim();
+        const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
+        if (isProjectClosed) {
+            OctaQube.toast('Facilitator assistance is not available for closed projects.', 'warning');
+            return;
+        }
+
         if (!this.facRequestModal) {
             this.facRequestModal = new bootstrap.Modal(document.getElementById('requestFacilitatorModal'));
         }
@@ -1958,6 +1984,13 @@ const ProjectApp = {
     },
 
     async submitFacilitatorRequest() {
+        const projStatus = (this.projectData?.status || '').toLowerCase().trim();
+        const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
+        if (isProjectClosed) {
+            OctaQube.toast('Cannot request facilitator assistance for a closed project.', 'warning');
+            return;
+        }
+
         const message = document.getElementById('assistanceMessage').value.trim();
         if (!message) return;
         try {
@@ -2321,6 +2354,8 @@ const ProjectApp = {
         const s6 = (workflows.find(w => w.stage_id === 6) || {}).data || {};
         const s7 = (workflows.find(w => w.stage_id === 7) || {}).data || {};
         const s8 = (workflows.find(w => w.stage_id === this._stagesCfg.length) || {}).data || {};
+        const projStatus = (data.status || '').toLowerCase().trim();
+        const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
 
         container.innerHTML = `
             <div class="ds-card-header d-flex justify-content-between align-items-center mb-3">
@@ -2525,10 +2560,28 @@ const ProjectApp = {
 
                 <div id="exec-tab-notes" class="exec-tab-content d-none">
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-xs" for="execOversightNoteInput">Add Review Comment / Guidance</label>
-                        <textarea class="form-control ds-input" id="execOversightNoteInput" rows="3" placeholder="Enter your review comments, guidance, or observations for this project..."></textarea>
-                        <button class="ds-btn ds-btn-primary ds-btn-sm mt-2" onclick="ProjectApp.saveOversightNote()">
-                            <i data-lucide="save" style="width:14px;height:14px;margin-right:6px;"></i> Save Review Comment
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label fw-bold text-xs mb-0" for="execOversightNoteInput">Add Review Comment / Guidance</label>
+                            ${isProjectClosed ? `
+                                <span class="ds-badge ds-badge-sm gray">
+                                    <i data-lucide="lock" style="width:11px;height:11px;" class="me-1"></i> Completed • Locked
+                                </span>
+                            ` : ''}
+                        </div>
+                        ${isProjectClosed ? `
+                            <div class="p-2.5 rounded mb-2 d-flex align-items-center gap-2 text-xs text-muted" style="background: rgba(100, 116, 139, 0.08); border: 1px solid var(--ds-border-color); border-left: 3px solid #64748b;">
+                                <i data-lucide="lock" style="width:14px;height:14px;color:#64748b;flex-shrink:0;"></i>
+                                <span>This project is completed and closed. Review comments and guidance are frozen and disabled.</span>
+                            </div>
+                        ` : ''}
+                        <textarea class="form-control ds-input" id="execOversightNoteInput" rows="3" 
+                            placeholder="${isProjectClosed ? 'Project is completed. Review comments and guidance are frozen.' : 'Enter your review comments, guidance, or observations for this project...'}"
+                            ${isProjectClosed ? 'disabled readonly style="background: var(--ds-surface-2, #f8fafc); cursor: not-allowed; opacity: 0.65; pointer-events: none;"' : ''}></textarea>
+                        <button class="ds-btn ${isProjectClosed ? 'ds-btn-secondary' : 'ds-btn-primary'} ds-btn-sm mt-2" 
+                            id="execOversightSaveBtn"
+                            onclick="${isProjectClosed ? '' : 'ProjectApp.saveOversightNote()'}"
+                            ${isProjectClosed ? 'disabled style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Disabled after project completion"' : ''}>
+                            <i data-lucide="${isProjectClosed ? 'lock' : 'save'}" style="width:14px;height:14px;margin-right:6px;"></i> ${isProjectClosed ? 'Save Review Comment (Frozen)' : 'Save Review Comment'}
                         </button>
                     </div>
                     <hr>
@@ -2787,6 +2840,13 @@ const ProjectApp = {
     },
 
     async saveOversightNote() {
+        const projStatus = (this.projectData?.status || '').toLowerCase().trim();
+        const isProjectClosed = projStatus === 'closed' || projStatus === 'completed' || projStatus === 'archived';
+        if (isProjectClosed) {
+            OctaQube.toast('Cannot add review comments or guidance to a completed project.', 'warning');
+            return;
+        }
+
         const textEl = document.getElementById('execOversightNoteInput');
         if (!textEl) return;
         const text = textEl.value.trim();
