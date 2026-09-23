@@ -1218,7 +1218,7 @@ def login():
     
     # Track session in db safely
     try:
-        from app.infrastructure.database.models.models import SaaSUserSession
+        from app.infrastructure.database.models.models import SaaSUserSession, AuditLog
         from app.presentation.routes.audit_routes import parse_user_agent, get_geo_location, get_real_client_ip, log_audit_event
         
         # Mark old sessions as LoggedOut for security
