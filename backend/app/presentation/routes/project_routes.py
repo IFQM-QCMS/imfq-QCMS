@@ -830,6 +830,12 @@ def create_project():
                     ref_id=f"proj_facil_{new_project.id}", project_id=new_project.id,
                     description=f"Assigned Facilitator for '{new_project.title}'"
                 )
+            if reviewer_id:
+                PointEngineService.award_points(
+                    employee_id=reviewer_id, org_id=user.org_id, activity_type="project_became_reviewer",
+                    ref_id=f"proj_rev_{new_project.id}", project_id=new_project.id,
+                    description=f"Assigned Reviewer for '{new_project.title}'"
+                )
             for mid in all_member_ids:
                 if mid and int(mid) != team_leader_id:
                     PointEngineService.award_points(

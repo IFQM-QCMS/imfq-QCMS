@@ -269,10 +269,42 @@
                                                     <div class="ds-field">
                                                         <label class="ds-label">NEW PASSWORD <span class="text-danger">*</span></label>
                                                         <div class="position-relative">
-                                                            <input type="password" class="ds-input" id="personal_new_pass" placeholder="••••••••" style="padding-right: 42px !important;">
+                                                            <input type="password" class="ds-input" id="personal_new_pass" placeholder="••••••••" style="padding-right: 42px !important;" oninput="settingsManager.updatePasswordStrength(this.value)">
                                                             <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y border-0 bg-transparent p-0 pe-3 d-flex align-items-center justify-content-center" onclick="settingsManager.togglePasswordVisibility('personal_new_pass', this)" title="Toggle password visibility" aria-label="Toggle password visibility" style="box-shadow: none; z-index: 5; cursor: pointer; color: var(--ds-text-secondary, #64748b); height: 100%; width: 40px;">
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye" data-lucide="eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                                                             </button>
+                                                        </div>
+
+                                                        <!-- Password Strength Meter -->
+                                                        <div class="strength-bar-track mt-2" style="height: 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.2); overflow: hidden;">
+                                                            <div class="strength-bar-fill" id="passStrengthBar" style="height: 100%; border-radius: 4px; width: 0%; transition: width 0.35s ease, background-color 0.35s ease;"></div>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between align-items-center mt-1">
+                                                            <span class="text-xxs fw-semibold" id="passStrengthLabel" style="color: var(--ds-text-secondary, #64748b);">Enter a new password</span>
+                                                            <span class="text-xxs text-muted" id="passStrengthScore"></span>
+                                                        </div>
+
+                                                        <!-- Password Requirements Checklist -->
+                                                        <div class="p-2.5 mt-2 rounded-2" style="background: rgba(15, 23, 42, 0.03); border: 1px solid rgba(148, 163, 184, 0.15);">
+                                                            <div class="text-xxs text-muted fw-bold mb-1.5 text-uppercase" style="letter-spacing: 0.05em;">Password Requirements:</div>
+                                                            <ul class="rule-list list-unstyled mb-0 d-flex flex-column gap-1" id="passRuleList" style="font-size: 0.75rem;">
+                                                                <li id="rule-length" class="text-muted d-flex align-items-center gap-1.5">
+                                                                    <span class="rule-icon d-inline-flex align-items-center justify-content-center" style="width: 14px; height: 14px; font-weight: bold;">○</span>
+                                                                    <span>At least 8 characters long</span>
+                                                                </li>
+                                                                <li id="rule-alpha" class="text-muted d-flex align-items-center gap-1.5">
+                                                                    <span class="rule-icon d-inline-flex align-items-center justify-content-center" style="width: 14px; height: 14px; font-weight: bold;">○</span>
+                                                                    <span>Contains uppercase &amp; lowercase letters (alphabets)</span>
+                                                                </li>
+                                                                <li id="rule-number" class="text-muted d-flex align-items-center gap-1.5">
+                                                                    <span class="rule-icon d-inline-flex align-items-center justify-content-center" style="width: 14px; height: 14px; font-weight: bold;">○</span>
+                                                                    <span>Contains at least one number (0-9)</span>
+                                                                </li>
+                                                                <li id="rule-special" class="text-muted d-flex align-items-center gap-1.5">
+                                                                    <span class="rule-icon d-inline-flex align-items-center justify-content-center" style="width: 14px; height: 14px; font-weight: bold;">○</span>
+                                                                    <span>Contains at least one special character (!@#$%^&amp;*...)</span>
+                                                                </li>
+                                                            </ul>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -4858,29 +4890,152 @@ console.log(data);
             }
         },
 
+        updatePasswordStrength(val) {
+            val = val || '';
+            const bar = document.getElementById('passStrengthBar');
+            const label = document.getElementById('passStrengthLabel');
+            const scoreLabel = document.getElementById('passStrengthScore');
+
+            const hasLength = val.length >= 8;
+            const hasUpper = /[A-Z]/.test(val);
+            const hasLower = /[a-z]/.test(val);
+            const hasAlpha = hasUpper && hasLower;
+            const hasNumber = /[0-9]/.test(val);
+            const hasSpecial = /[^A-Za-z0-9]/.test(val);
+
+            const updateRule = (id, passed) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const icon = el.querySelector('.rule-icon');
+                if (passed) {
+                    el.className = 'd-flex align-items-center gap-1.5 fw-semibold';
+                    el.style.color = '#16a34a';
+                    if (icon) {
+                        icon.innerHTML = '✓';
+                        icon.style.color = '#16a34a';
+                    }
+                } else {
+                    el.className = 'text-muted d-flex align-items-center gap-1.5';
+                    el.style.color = '';
+                    if (icon) {
+                        icon.innerHTML = '○';
+                        icon.style.color = 'var(--ds-text-secondary, #64748b)';
+                    }
+                }
+            };
+
+            updateRule('rule-length', hasLength);
+            updateRule('rule-alpha', hasAlpha);
+            updateRule('rule-number', hasNumber);
+            updateRule('rule-special', hasSpecial);
+
+            if (!val) {
+                if (bar) { bar.style.width = '0%'; bar.style.backgroundColor = 'transparent'; }
+                if (label) { label.textContent = 'Enter a new password'; label.style.color = 'var(--ds-text-secondary, #64748b)'; }
+                if (scoreLabel) scoreLabel.textContent = '';
+                return { hasLength, hasAlpha, hasNumber, hasSpecial, isValid: false };
+            }
+
+            let score = 0;
+            if (hasLength) score++;
+            if (hasUpper) score++;
+            if (hasLower) score++;
+            if (hasNumber) score++;
+            if (hasSpecial) score++;
+            if (val.length >= 12) score++;
+
+            let width = '25%';
+            let color = '#ef4444';
+            let text = 'Weak Password';
+
+            if (score <= 2) {
+                width = '25%';
+                color = '#ef4444';
+                text = 'Weak Password';
+            } else if (score === 3 || score === 4) {
+                width = '60%';
+                color = '#f59e0b';
+                text = 'Medium Password';
+            } else if (score >= 5) {
+                const allMet = hasLength && hasAlpha && hasNumber && hasSpecial;
+                if (allMet) {
+                    width = '100%';
+                    color = '#16a34a';
+                    text = 'Strong Password';
+                } else {
+                    width = '75%';
+                    color = '#3b82f6';
+                    text = 'Good Password (more criteria needed)';
+                }
+            }
+
+            if (bar) {
+                bar.style.width = width;
+                bar.style.backgroundColor = color;
+            }
+            if (label) {
+                label.textContent = text;
+                label.style.color = color;
+            }
+            if (scoreLabel) {
+                const metCount = [hasLength, hasAlpha, hasNumber, hasSpecial].filter(Boolean).length;
+                scoreLabel.textContent = `${metCount}/4 requirements met`;
+            }
+
+            const isValid = hasLength && hasAlpha && hasNumber && hasSpecial;
+            return { hasLength, hasAlpha, hasNumber, hasSpecial, isValid };
+        },
+
         async changePassword() {
-            const oldPass = document.getElementById('personal_old_pass').value;
-            const newPass = document.getElementById('personal_new_pass').value;
+            const oldPass = (document.getElementById('personal_old_pass')?.value || '').trim();
+            const newPass = (document.getElementById('personal_new_pass')?.value || '').trim();
             
             if (!oldPass || !newPass) {
-                OctaQube.toast('Please fill in both password fields.', 'error');
-                return;
-            }
-            if (newPass.length < 8) {
-                OctaQube.toast('New password must be at least 8 characters long.', 'error');
+                OctaQube.toast('Please fill in both current and new password fields.', 'error');
                 return;
             }
 
+            const check = this.updatePasswordStrength(newPass);
+
+            if (!check.hasLength) {
+                OctaQube.toast('New password must be at least 8 characters long.', 'error');
+                return;
+            }
+            if (!check.hasAlpha) {
+                OctaQube.toast('New password must contain both uppercase (A-Z) and lowercase (a-z) alphabets.', 'error');
+                return;
+            }
+            if (!check.hasNumber) {
+                OctaQube.toast('New password must contain at least one number (0-9).', 'error');
+                return;
+            }
+            if (!check.hasSpecial) {
+                OctaQube.toast('New password must contain at least one special character (!@#$%^&*...).', 'error');
+                return;
+            }
+
+            const btn = document.querySelector('button[onclick="settingsManager.changePassword()"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Updating...';
+            }
+
             try {
-                await api.put('/auth/change-password', {
+                const res = await api.put('/auth/change-password', {
                     current_password: oldPass,
                     new_password: newPass
                 });
-                OctaQube.toast('Password updated successfully.', 'success');
+                OctaQube.toast(res.msg || res.message || 'Password updated successfully.', 'success');
                 document.getElementById('personal_old_pass').value = '';
                 document.getElementById('personal_new_pass').value = '';
+                this.updatePasswordStrength('');
             } catch (e) {
                 OctaQube.toast(e.message || 'Failed to update password.', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Update Password';
+                }
             }
         },
 

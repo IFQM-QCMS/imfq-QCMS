@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import re
+import csv
+import io
 from app.infrastructure.database.models.models import (
     db, User, Organization, Role, SupportTicket, SupportComment,
     SupportAttachment, SupportSLA, SupportEscalation, SupportRating,
@@ -956,6 +958,76 @@ def export_tickets():
         csv_rows.append(f'{t.id},{t.ticket_number or ""},"{subj}","{req}",{t.priority},{t.status},{t.created_at.isoformat()}')
         
     csv_content = "\n".join(csv_rows)
+    return jsonify({"status": "success", "csv": csv_content}), 200
+
+
+@support_bp.route('/enquiries/export', methods=['GET', 'POST'])
+@support_bp.route('/support/enquiries/export', methods=['GET', 'POST'])
+@jwt_required()
+def export_enquiries():
+    user, err = get_current_user_and_check_rbac()
+    if err:
+        return jsonify({"status": "error", "message": err}), 403
+
+    status_filter = request.args.get('status', '').strip()
+    search_q = request.args.get('q', '').strip()
+    if request.is_json and request.get_json():
+        body = request.get_json()
+        if not status_filter and 'status' in body:
+            status_filter = str(body.get('status', '')).strip()
+        if not search_q and 'q' in body:
+            search_q = str(body.get('q', '')).strip()
+
+    query = SalesEnquiry.query
+
+    if status_filter and status_filter.lower() != 'all':
+        query = query.filter(SalesEnquiry.status == status_filter)
+
+    if search_q:
+        pattern = f"%{search_q}%"
+        query = query.filter(
+            or_(
+                SalesEnquiry.name.ilike(pattern),
+                SalesEnquiry.email.ilike(pattern),
+                SalesEnquiry.company_name.ilike(pattern),
+                SalesEnquiry.phone.ilike(pattern),
+                SalesEnquiry.message.ilike(pattern)
+            )
+        )
+
+    enquiries = query.order_by(SalesEnquiry.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "Enquiry ID",
+        "Submitted Date",
+        "Prospect Name",
+        "Work Email",
+        "Phone Number",
+        "Company Name",
+        "Status",
+        "Source",
+        "Message / Requirement",
+        "Notes"
+    ])
+
+    for item in enquiries:
+        created_str = item.created_at.strftime('%Y-%m-%d %H:%M:%S') if item.created_at else ''
+        writer.writerow([
+            item.id,
+            created_str,
+            item.name or '',
+            item.email or '',
+            item.phone or '',
+            item.company_name or '',
+            item.status or 'New',
+            item.source or 'Talk to Sales',
+            item.message or '',
+            item.notes or ''
+        ])
+
+    csv_content = output.getvalue()
     return jsonify({"status": "success", "csv": csv_content}), 200
 
 

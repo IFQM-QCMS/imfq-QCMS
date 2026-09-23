@@ -1672,6 +1672,10 @@ def change_password():
     if not user.check_password(current_password):
         return jsonify({"msg": "Invalid current password"}), 401
 
+    is_valid, error_msg = validate_password_complexity(new_password)
+    if not is_valid:
+        return jsonify({"msg": error_msg}), 400
+
     settings = get_platform_settings_safe()
     require_email_otp = getattr(settings, 'require_email_otp', True) if settings else True
 
@@ -1693,9 +1697,9 @@ def change_password():
     db.session.add(user)
     
     # Invalidate all active user sessions across DB and Redis cache for security
-    from app.infrastructure.cache.redis_adapter import cache
-    cache.set(f"user_active:{user.id}", "inactive", ex=30)
     try:
+        from app.infrastructure.cache.redis_adapter import cache
+        cache.set(f"user_active:{user.id}", "inactive", ex=30)
         from app.infrastructure.database.models.auth import SaaSUserSession
         active_sessions = SaaSUserSession.query.filter_by(user_id=user.id, status='Active').all()
         for s in active_sessions:
@@ -1703,7 +1707,7 @@ def change_password():
             s.logout_time = datetime.now(timezone.utc).replace(tzinfo=None)
             cache.set(f"sess_status:{s.session_id}", "Terminated", ex=3600)
     except Exception as e:
-        print(f"[AUTH] Error terminating user sessions: {e}")
+        print(f"[AUTH] Non-blocking warning terminating user sessions: {e}")
 
     # Send notification email
     EmailUtils.send_password_change_notification(user)
@@ -1807,6 +1811,8 @@ def validate_password_complexity(password):
         return False, "Password must be at least 8 characters long."
     if not re.search(r'[A-Z]', password):
         return False, "Password must contain at least one uppercase letter (A-Z)."
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter (a-z)."
     if not re.search(r'[0-9]', password):
         return False, "Password must contain at least one number (0-9)."
     if not re.search(r'[^A-Za-z0-9]', password):

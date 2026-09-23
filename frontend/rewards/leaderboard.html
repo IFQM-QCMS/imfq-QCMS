@@ -445,7 +445,6 @@
                             <select class="ds-input ds-select py-1 px-3 text-xs" id="roleFilter" style="width:auto;" onchange="rewardsApp && rewardsApp.loadLeaderboard(1)">
                                 <option value="">All Roles</option>
                                 <option value="Team Member">Team Members</option>
-                                <option value="Team Leader">Team Leaders</option>
                                 <option value="Facilitator">Facilitators</option>
                                 <option value="Reviewer">Reviewers</option>
                             </select>
@@ -630,7 +629,6 @@
                                 <select class="ds-input ds-select ds-input-sm" id="exportRoleSelect">
                                     <option value="">All Roles</option>
                                     <option value="Team Member">Team Members</option>
-                                    <option value="Team Leader">Team Leaders</option>
                                     <option value="Facilitator">Facilitators</option>
                                     <option value="Reviewer">Quality Reviewers</option>
                                 </select>
@@ -980,7 +978,7 @@
                     `;
                 } else if (this.currentScope === 'role') {
                     // Render Role Champions Grid (Excluding Admin and CEO)
-                    const excludedRoles = ['admin', 'ceo', 'superadmin', 'system admin', 'administrator'];
+                    const excludedRoles = ['admin', 'ceo', 'superadmin', 'system admin', 'administrator', 'team leader'];
                     const roles = (this.championsSummary.roles || []).filter(r => !excludedRoles.includes((r.role_name || '').trim().toLowerCase()));
                     if (!roles.length) {
                         container.innerHTML = '<div class="text-center py-4 text-muted text-xs">No role champions data available.</div>';
@@ -1187,11 +1185,17 @@
                 const tbody = document.getElementById('leaderboardTbody');
 
                 if (!this.leaderboardData || !this.leaderboardData.length) {
+                    const currentRole = (document.getElementById('roleFilter')?.value || '').trim();
+                    let roleTitle = 'Team Members';
+                    if (currentRole === 'Reviewer') roleTitle = 'Reviewers';
+                    else if (currentRole === 'Facilitator') roleTitle = 'Facilitators';
+                    else if (currentRole) roleTitle = `${currentRole}s`;
+
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="10" class="text-center py-5 text-muted">
                                 <i data-lucide="award" class="mb-2 text-muted" style="width:32px;height:32px;opacity:0.5;"></i>
-                                <div class="fw-semibold text-main text-sm">No Team Members on Leaderboard Yet</div>
+                                <div class="fw-semibold text-main text-sm">No ${roleTitle} on Leaderboard Yet</div>
                                 <div class="text-xxs text-secondary mt-1">Organization administrators are excluded from employee rewards rankings. Member rankings appear as teams contribute.</div>
                             </td>
                         </tr>

@@ -2225,24 +2225,96 @@ const SupportDesk = {
     },
 
     async exportCSV() {
+        if (this.currentTab === 'enquiry') {
+            return this.exportEnquiriesCSV();
+        } else if (this.currentTab === 'trial-extensions') {
+            return this.exportTrialExtensionsCSV();
+        }
+        return this.exportTicketsCSV();
+    },
+
+    async exportTicketsCSV() {
         try {
-            OctaQube.toast('Preparing CSV file export...', 'info');
+            OctaQube.toast('Preparing tickets CSV export...', 'info');
             const res = await api.post('/support/tickets/export', {});
             const csvData = (res && res.csv) ? res.csv : (typeof res === 'string' ? res : JSON.stringify(res));
-            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `support_tickets_${Date.now()}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            OctaQube.toast('Export downloaded successfully', 'success');
+            this.downloadCSV(csvData, `support_tickets_${Date.now()}.csv`);
+            OctaQube.toast('Tickets export downloaded successfully', 'success');
         } catch (e) {
-            console.error('CSV Export Error:', e);
-            OctaQube.toast('Failed to generate export file', 'error');
+            console.error('Tickets Export Error:', e);
+            OctaQube.toast('Failed to generate tickets export file', 'error');
         }
+    },
+
+    async exportEnquiriesCSV() {
+        try {
+            OctaQube.toast('Preparing sales enquiries CSV export...', 'info');
+            const params = {
+                status: this.enquiryFilters?.status || 'All',
+                q: this.enquiryFilters?.q || ''
+            };
+            const res = await api.post('/support/enquiries/export', params);
+            const csvData = (res && res.csv) ? res.csv : (typeof res === 'string' ? res : JSON.stringify(res));
+            this.downloadCSV(csvData, `sales_enquiries_${Date.now()}.csv`);
+            OctaQube.toast('Sales enquiries export downloaded successfully', 'success');
+        } catch (e) {
+            console.error('Enquiries Export Error:', e);
+            OctaQube.toast('Failed to generate sales enquiries export file', 'error');
+        }
+    },
+
+    async exportTrialExtensionsCSV() {
+        try {
+            OctaQube.toast('Preparing trial extensions CSV export...', 'info');
+            const data = this._trialExtensionsData || [];
+            if (!data.length) {
+                OctaQube.toast('No trial extensions data to export', 'warning');
+                return;
+            }
+            const headers = ['Org ID', 'Organization Name', 'Org Code', 'Admin Email', 'Status', 'Requested Days', 'Extensions Granted', 'Reason', 'Requested At', 'Trial Ends At'];
+            const escapeCsv = (val) => {
+                const s = val === null || val === undefined ? '' : String(val);
+                return `"${s.replace(/"/g, '""')}"`;
+            };
+            const rows = [headers.map(escapeCsv).join(',')];
+            data.forEach(o => {
+                const p = o.pending_request || {};
+                let status = 'Standard Trial';
+                if (o.is_auto_approving && o.seconds_remaining > 0) status = 'Auto-Approving';
+                else if (p.status === 'Pending') status = 'Pending Review';
+                else if (o.auto_approved_trial_extensions > 0 || o.manual_approved_trial_extensions > 0) status = `Extended (${o.total_trial_requests}x)`;
+
+                rows.push([
+                    escapeCsv(o.id),
+                    escapeCsv(o.name),
+                    escapeCsv(o.org_code),
+                    escapeCsv(o.admin_email),
+                    escapeCsv(status),
+                    escapeCsv(p.days || ''),
+                    escapeCsv(o.total_trial_requests || 0),
+                    escapeCsv(p.reason || ''),
+                    escapeCsv(p.requested_at ? OctaQube.formatDate(p.requested_at) : ''),
+                    escapeCsv(o.trial_ends_at ? OctaQube.formatDate(o.trial_ends_at) : '')
+                ].join(','));
+            });
+            this.downloadCSV(rows.join('\n'), `trial_extensions_${Date.now()}.csv`);
+            OctaQube.toast('Trial extensions export downloaded successfully', 'success');
+        } catch (e) {
+            console.error('Trial Extensions Export Error:', e);
+            OctaQube.toast('Failed to generate trial extensions export file', 'error');
+        }
+    },
+
+    downloadCSV(csvContent, filename) {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
     },
 
     // --- 5. SALES ENQUIRIES MODULE ---
@@ -2423,9 +2495,12 @@ const SupportDesk = {
                                     <option value="Closed" ${this.enquiryFilters.status === 'Closed' ? 'selected' : ''}>Closed</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 text-end">
-                                <button class="ds-btn ds-btn-outline ds-btn-sm" onclick="SupportDesk.loadEnquiriesList()">
+                            <div class="col-md-3 text-end d-flex justify-content-end gap-2">
+                                <button class="ds-btn ds-btn-outline ds-btn-sm" onclick="SupportDesk.loadEnquiriesList()" title="Refresh enquiries list">
                                     <i data-lucide="refresh-cw" class="me-1" style="width:13px;"></i> Refresh
+                                </button>
+                                <button class="ds-btn ds-btn-outline ds-btn-sm" onclick="SupportDesk.exportCSV()" title="Export sales enquiries to CSV">
+                                    <i data-lucide="download" class="me-1" style="width:13px;"></i> Export
                                 </button>
                             </div>
                         </div>

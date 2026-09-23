@@ -93,6 +93,15 @@ class ProjectClosureService:
                         ref_id=f"PRJ_MEM_{project.id}_{m.id}",
                         description=f"Participated in project '{project.title}' closure."
                     )
+            if getattr(project, 'reviewer_id', None):
+                PointEngineService.award_points(
+                    employee_id=project.reviewer_id,
+                    org_id=project.org_id,
+                    activity_type="project_reviewer_approved",
+                    points=50,
+                    ref_id=f"PRJ_REV_{project.id}",
+                    description=f"Reviewed and approved project '{project.title}' for closure."
+                )
         except Exception as pts_err:
             logger.warning(f"[ProjectClosureService] Points awarding notice: {pts_err}")
 

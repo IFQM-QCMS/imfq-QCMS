@@ -206,7 +206,17 @@ def get_leaderboard():
         query = query.filter(User.department_id == dept_id)
 
     if role_param:
-        query = query.filter(Role.name.ilike(f"%{role_param}%"))
+        clean_role = role_param.strip()
+        role_lower = clean_role.lower()
+        if role_lower in ('reviewers', 'reviewer', 'quality reviewer', 'quality reviewers'):
+            clean_role = 'Reviewer'
+        elif role_lower in ('team members', 'team member', 'members', 'member'):
+            clean_role = 'Team Member'
+        elif role_lower in ('facilitators', 'facilitator'):
+            clean_role = 'Facilitator'
+        elif role_lower.endswith('s') and not role_lower.endswith('ss'):
+            clean_role = clean_role[:-1]
+        query = query.filter(Role.name.ilike(f"%{clean_role}%"))
 
     if search_q:
         pattern = f"%{search_q}%"
@@ -326,7 +336,7 @@ def get_leaderboard():
         if d_name and d_name not in dept_champs_dict:
             dept_champs_dict[d_name] = u_summary
             
-        EXCLUDED_ROLE_CHAMPS = {'admin', 'ceo', 'superadmin', 'system admin', 'administrator'}
+        EXCLUDED_ROLE_CHAMPS = {'admin', 'ceo', 'superadmin', 'system admin', 'administrator', 'team leader'}
         if r_name and r_name.strip().lower() not in EXCLUDED_ROLE_CHAMPS and r_name not in role_champs_dict:
             role_champs_dict[r_name] = u_summary
 
@@ -516,7 +526,17 @@ def export_leaderboard():
         query = query.filter(User.department_id == dept_id)
 
     if role_param:
-        query = query.filter(Role.name.ilike(f"%{role_param}%"))
+        clean_role = role_param.strip()
+        role_lower = clean_role.lower()
+        if role_lower in ('reviewers', 'reviewer', 'quality reviewer', 'quality reviewers'):
+            clean_role = 'Reviewer'
+        elif role_lower in ('team members', 'team member', 'members', 'member'):
+            clean_role = 'Team Member'
+        elif role_lower in ('facilitators', 'facilitator'):
+            clean_role = 'Facilitator'
+        elif role_lower.endswith('s') and not role_lower.endswith('ss'):
+            clean_role = clean_role[:-1]
+        query = query.filter(Role.name.ilike(f"%{clean_role}%"))
 
     if search_q:
         pattern = f"%{search_q}%"
