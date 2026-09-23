@@ -3441,12 +3441,22 @@ def save_stages_template():
     # Apply to projects based on scope
     org_projects = Project.query.filter_by(org_id=org.id).all()
     updated_count = 0
+    stage_meta_map = {s.get('stage_id'): s for s in stages if isinstance(s, dict)}
     for p in org_projects:
         is_closed = p.status in ('Closed', 'Completed', 'Archived') or (p.current_stage == 8 and p.status in ('Stage 8 Approved', 'Completed', 'Closed'))
         if is_closed:
             # Freeze closed projects to their previous structure permanently if not already set
             if p.stages_config is None:
                 p.stages_config = copy.deepcopy(prev_stages)
+                flag_modified(p, 'stages_config')
+            elif isinstance(p.stages_config, list):
+                # Synchronize stage titles & icons so display names match the updated template
+                for pstg in p.stages_config:
+                    sid = pstg.get('stage_id')
+                    if sid in stage_meta_map:
+                        pstg['title'] = stage_meta_map[sid].get('title', pstg.get('title'))
+                        if 'icon' in stage_meta_map[sid]:
+                            pstg['icon'] = stage_meta_map[sid]['icon']
                 flag_modified(p, 'stages_config')
         else:
             # Active/In-Progress project
@@ -3458,6 +3468,14 @@ def save_stages_template():
                 # Keep active project on previous template snapshot so it's not affected
                 if p.stages_config is None:
                     p.stages_config = copy.deepcopy(prev_stages)
+                    flag_modified(p, 'stages_config')
+                elif isinstance(p.stages_config, list):
+                    for pstg in p.stages_config:
+                        sid = pstg.get('stage_id')
+                        if sid in stage_meta_map:
+                            pstg['title'] = stage_meta_map[sid].get('title', pstg.get('title'))
+                            if 'icon' in stage_meta_map[sid]:
+                                pstg['icon'] = stage_meta_map[sid]['icon']
                     flag_modified(p, 'stages_config')
 
     db.session.commit()

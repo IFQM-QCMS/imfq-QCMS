@@ -4893,7 +4893,10 @@ const SuperAdmin = {
                     <tbody>`;
                 diffKeys.forEach(k => {
                     const item = diffs[k];
-                    const bVal = typeof item.before === 'object' ? JSON.stringify(item.before) : String(item.before !== undefined ? item.before : '(None)');
+                    let bVal = typeof item.before === 'object' ? JSON.stringify(item.before) : String(item.before !== undefined ? item.before : '(None)');
+                    if (bVal === '(Previous Value)' || bVal === '(Previous)') {
+                        bVal = '(None - Initial Value)';
+                    }
                     const aVal = typeof item.after === 'object' ? JSON.stringify(item.after) : String(item.after !== undefined ? item.after : '(None)');
                     tableHtml += `
                     <tr>

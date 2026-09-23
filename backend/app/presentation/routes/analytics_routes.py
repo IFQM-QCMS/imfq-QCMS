@@ -154,7 +154,7 @@ def get_project_roster():
             stage_label = _stage_labels[min(7, max(0, curr_stage - 1))]
 
             comp_pct = 100 if p.status in ('Closed', 'Completed', 'Archived') else min(95, max(10, (int(curr_stage / 8.0) * 100)))
-            mgr_name = p.team_leader.full_name or p.team_leader.username if p.team_leader else (p.creator.full_name if p.creator else 'Manager')
+            mgr_name = (p.team_leader and (p.team_leader.full_name or p.team_leader.username)) or (p.creator and (p.creator.full_name or p.creator.username)) or 'Manager'
             dept_name = p.department.name if p.department else 'Manufacturing'
 
             items.append({
@@ -163,7 +163,7 @@ def get_project_roster():
                 "title": p.title,
                 "department": dept_name,
                 "manager": mgr_name,
-                "manager_avatar": f"https://ui-avatars.com/api/?name={mgr_name.replace(' ', '+')}&background=2563eb&color=fff",
+                "manager_avatar": f"https://ui-avatars.com/api/?name={str(mgr_name).replace(' ', '+')}&background=2563eb&color=fff",
                 "status": p.status or 'Active',
                 "priority": getattr(p, 'priority', 'High') or 'High',
                 "completion_pct": comp_pct,
@@ -310,7 +310,7 @@ def get_dashboard_data():
                 elif days_rem <= 7:
                     health = 'Needs Attention'
 
-            mgr_name = p.team_leader.full_name or p.team_leader.username if p.team_leader else (p.creator.full_name if p.creator else 'Manager')
+            mgr_name = (p.team_leader and (p.team_leader.full_name or p.team_leader.username)) or (p.creator and (p.creator.full_name or p.creator.username)) or 'Manager'
             dept_name = p.department.name if p.department else 'Manufacturing'
             
             project_performance_table.append({
@@ -319,7 +319,7 @@ def get_dashboard_data():
                 "title": p.title,
                 "department": dept_name,
                 "manager": mgr_name,
-                "manager_avatar": f"https://ui-avatars.com/api/?name={mgr_name.replace(' ', '+')}&background=2563eb&color=fff",
+                "manager_avatar": f"https://ui-avatars.com/api/?name={str(mgr_name).replace(' ', '+')}&background=2563eb&color=fff",
                 "status": p.status or 'Active',
                 "priority": getattr(p, 'priority', 'High') or 'High',
                 "completion_pct": comp_pct,
@@ -646,10 +646,10 @@ def get_dashboard_data():
                 lead_logs = AuditLog.query.filter_by(project_id=target_project_id, user_id=proj.team_leader_id).count() if proj.team_leader_id else 0
                 detailed_team.append({
                     "id": proj.team_leader_id or 1,
-                    "name": mgr_name,
+                    "name": tl_name,
                     "role": "Team Leader",
                     "email": proj.team_leader.email if proj.team_leader else "leader@qcms.internal",
-                    "avatar": f"https://ui-avatars.com/api/?name={mgr_name.replace(' ', '+')}&background=2563eb&color=fff",
+                    "avatar": f"https://ui-avatars.com/api/?name={str(tl_name).replace(' ', '+')}&background=2563eb&color=fff",
                     "meetings_attended": real_meetings_count,
                     "activities_count": lead_logs
                 })
@@ -677,30 +677,47 @@ def get_dashboard_data():
 
             total_meetings_held = real_meetings_count
 
-            # 8 Stages detailed breakdown
-            stage_names = [
-                "Stage 1: Problem Identification & Selection",
-                "Stage 2: Problem Definition & Goal Setting",
-                "Stage 3: Root Cause Analysis (Fishbone / 5-Why)",
-                "Stage 4: Data Collection & Cause Verification",
-                "Stage 5: Countermeasure Formulation",
-                "Stage 6: Implementation & Trial Run",
-                "Stage 7: Standardization & Control Plan",
-                "Stage 8: Review, Financial ROI & Closure"
-            ]
-            stage_descriptions = [
-                "Identify area problems, form Circle team, select project theme & define scope.",
-                "Quantify baseline defect rates, set SMART goals, define target completion dates.",
-                "Brainstorm causes using Ishikawa (Fishbone) diagram and perform 5-Why root cause analysis.",
-                "Gather empirical process data, verify main root causes with Pareto analysis.",
-                "Formulate solutions using 5W2H method, evaluate feasibility & cost-benefit ratio.",
-                "Execute action items, run trial batch, monitor preliminary improvements.",
-                "Establish standard operating procedures (SOPs), update work instructions & control charts.",
-                "Measure tangible cost savings, evaluate intangible benefits, submit final report for closure."
-            ]
+            # 8 Stages detailed breakdown - dynamically derived from organization 8-Stage Template
+            from app.infrastructure.database.models.tenant import Organization
+            org_stages = (proj.organization.get_stages_config() if proj.organization else None) or []
+            if not org_stages:
+                org_stages = Organization.DEFAULT_STAGES_CONFIG
 
+            stage_cfg_map = {}
+            for idx, sc in enumerate(org_stages):
+                if isinstance(sc, dict):
+                    sid = sc.get('stage_id') or (idx + 1)
+                    stage_cfg_map[sid] = sc
+
+            # If project has custom stages_config with additional stages
+            if proj.stages_config and isinstance(proj.stages_config, list):
+                for idx, sc in enumerate(proj.stages_config):
+                    if isinstance(sc, dict):
+                        sid = sc.get('stage_id') or (idx + 1)
+                        if sid not in stage_cfg_map:
+                            stage_cfg_map[sid] = sc
+
+            DEFAULT_STAGE_DESCRIPTIONS = {
+                1: "Plan and establish team, define problem background, current performance, and schedule.",
+                2: "Define problem, gemba observations, stratification, Pareto analysis, and check sheets.",
+                3: "Interim containment actions, initial cause verification, and risk mitigation.",
+                4: "Determine verified root causes through 5-Why analysis and statistical validation.",
+                5: "Choose and formulate permanent corrective actions and evaluate cost-benefit ratios.",
+                6: "Implement corrective actions, monitor trial run, and manage execution readiness.",
+                7: "Take preventive measures, verify KPI improvement, and ensure sustainability.",
+                8: "Standardize procedures, realize tangible benefits, recognize team, and complete closure."
+            }
+
+            def _get_stage_info(st_num):
+                cfg = stage_cfg_map.get(st_num, {})
+                title = cfg.get('title') or f"Stage {st_num}"
+                desc = cfg.get('description') or cfg.get('subtitle') or DEFAULT_STAGE_DESCRIPTIONS.get(st_num, f"Stage {st_num} execution and deliverables.")
+                icon = cfg.get('icon') or 'git-commit'
+                return title, desc, icon
+
+            total_stages = max(8, len(stage_cfg_map))
             stages_8_detail = []
-            for st_num in range(1, 9):
+            for st_num in range(1, total_stages + 1):
                 tracker = tracker_map.get(st_num)
                 if tracker and tracker.status == 'Completed':
                     st_status = 'Completed'
@@ -719,10 +736,13 @@ def get_dashboard_data():
                     start_str = 'Upcoming'
                     comp_str = 'Pending'
 
+                st_title, st_desc, st_icon = _get_stage_info(st_num)
+
                 stages_8_detail.append({
                     "stage_number": st_num,
-                    "title": stage_names[st_num - 1],
-                    "description": stage_descriptions[st_num - 1],
+                    "title": st_title,
+                    "description": st_desc,
+                    "icon": st_icon,
                     "status": st_status,
                     "started_at": start_str,
                     "completed_at": comp_str
@@ -738,7 +758,7 @@ def get_dashboard_data():
             wf_by_user = {}
             for wf in wf_entries:
                 if wf.updated_by:
-                    stg_title = stage_names[min(7, max(0, wf.stage_id - 1))] if wf.stage_id and wf.stage_id <= 8 else f"Stage {wf.stage_id}"
+                    stg_title = _get_stage_info(wf.stage_id)[0] if wf.stage_id else f"Stage {wf.stage_id}"
                     fields = list(wf.data.keys()) if isinstance(wf.data, dict) else []
                     wf_by_user.setdefault(wf.updated_by, []).append({
                         "stage_id": wf.stage_id,
@@ -1390,7 +1410,7 @@ def get_dashboard_data():
                 rev_role = rev_user.role.name if (rev_user and rev_user.role) else "Reviewer"
                 rev_avatar = f"https://ui-avatars.com/api/?name={rev_name.replace(' ', '+')}&background=f59e0b&color=fff"
 
-                stg_label = stage_names[min(7, max(0, (rev.stage_number or 1) - 1))] if rev.stage_number else f"Stage {rev.stage_number or '?'}"
+                stg_label = _get_stage_info(rev.stage_number)[0] if rev.stage_number else f"Stage {rev.stage_number or '?'}"
                 decision = (rev.decision or rev.status or 'Reviewed').strip()
                 remarks = (rev.comments or '').strip()
 
@@ -1534,8 +1554,8 @@ def get_dashboard_data():
                     "description": proj.description or 'Enterprise quality management initiative.',
                     "category": proj.category or 'Quality',
                     "department": dept_name,
-                    "manager": mgr_name,
-                    "manager_avatar": f"https://ui-avatars.com/api/?name={mgr_name.replace(' ', '+')}&background=2563eb&color=fff",
+                    "manager": tl_name,
+                    "manager_avatar": f"https://ui-avatars.com/api/?name={str(tl_name).replace(' ', '+')}&background=2563eb&color=fff",
                     "status": proj.status or 'Active',
                     "priority": getattr(proj, 'priority', 'High') or 'High',
                     "health": health,

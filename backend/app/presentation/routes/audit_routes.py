@@ -449,6 +449,88 @@ def get_audit_dashboard():
     return jsonify({"status": "success", "data": kpis}), 200
 
 
+def _get_preceding_audit_context(log):
+    """
+    Finds the immediately preceding audit log for the same entity or user activity,
+    and returns a dictionary of previous values for fields.
+    """
+    if not log or not getattr(log, 'id', None):
+        return {}
+
+    prev_log = None
+    try:
+        # 1. Target table and target ID match (most specific for entities like plants, departments, projects, users)
+        if log.target_table and log.target_id:
+            prev_log = AuditLog.query.filter(
+                AuditLog.id < log.id,
+                AuditLog.target_table == log.target_table,
+                AuditLog.target_id == log.target_id
+            ).order_by(AuditLog.id.desc()).first()
+
+        # 2. For login / auth / session actions, check preceding action for same user
+        if not prev_log and log.action and ('LOGIN' in log.action or 'SESSION' in log.action or log.target_table == 'users'):
+            uid = log.user_id or (log.target_id if log.target_table == 'users' else None)
+            if uid:
+                prev_log = AuditLog.query.filter(
+                    AuditLog.id < log.id,
+                    db.or_(AuditLog.user_id == uid, db.and_(AuditLog.target_table == 'users', AuditLog.target_id == uid)),
+                    AuditLog.action == log.action
+                ).order_by(AuditLog.id.desc()).first()
+
+        # 3. For any other action by same user
+        if not prev_log and log.user_id and log.action:
+            prev_log = AuditLog.query.filter(
+                AuditLog.id < log.id,
+                AuditLog.user_id == log.user_id,
+                AuditLog.action == log.action
+            ).order_by(AuditLog.id.desc()).first()
+
+        # 4. Global org action (e.g. UPDATE_ROLE_PERMISSIONS)
+        if not prev_log and log.action and getattr(log, 'org_id', None):
+            prev_log = AuditLog.query.filter(
+                AuditLog.id < log.id,
+                AuditLog.org_id == log.org_id,
+                AuditLog.action == log.action
+            ).order_by(AuditLog.id.desc()).first()
+    except Exception:
+        prev_log = None
+
+    if not prev_log:
+        return {}
+
+    prev_data = {}
+    if prev_log.ip_address:
+        prev_data['ip'] = prev_log.ip_address
+        prev_data['ip_address'] = prev_log.ip_address
+    if prev_log.browser:
+        prev_data['browser'] = prev_log.browser
+    if prev_log.os:
+        prev_data['os'] = prev_log.os
+    if prev_log.device:
+        prev_data['device'] = prev_log.device
+    if prev_log.location:
+        prev_data['location'] = prev_log.location
+    if prev_log.user and prev_log.user.username:
+        prev_data['username'] = prev_log.user.username
+    if prev_log.user and prev_log.user.email:
+        prev_data['email'] = prev_log.user.email
+
+    for col in (prev_log.after_data, prev_log.before_data, prev_log.details):
+        if col:
+            col_dict = col if isinstance(col, dict) else (json.loads(col) if isinstance(col, str) and col.startswith('{') else {})
+            if isinstance(col_dict, dict):
+                for k, v in col_dict.items():
+                    if k not in prev_data or prev_data[k] is None:
+                        if isinstance(v, dict):
+                            val = v.get('after') or v.get('new') or v.get('current') or v.get('before') or v.get('old')
+                            if val is not None:
+                                prev_data[k] = val
+                        else:
+                            prev_data[k] = v
+
+    return prev_data
+
+
 def extract_audit_diff_and_summary(log):
     """
     Extracts past data (before/old) vs current data (after/new) along with a human-readable change summary.
@@ -537,11 +619,19 @@ def extract_audit_diff_and_summary(log):
             has_diff = True
             summary = "Role permissions updated"
             perms = details['permissions']
+            preceding_context = _get_preceding_audit_context(log)
+            prev_perms = preceding_context.get('permissions') if preceding_context else None
             if isinstance(perms, dict):
                 for r_name, p_map in perms.items():
                     enabled_modules = [m for m, v in p_map.items() if v] if isinstance(p_map, dict) else []
+                    prev_p_map = prev_perms.get(r_name) if isinstance(prev_perms, dict) else None
+                    if isinstance(prev_p_map, dict):
+                        prev_enabled = [m for m, v in prev_p_map.items() if v]
+                        before_str = f"Enabled: {', '.join(prev_enabled) if prev_enabled else 'None'}"
+                    else:
+                        before_str = "(Baseline Matrix)"
                     diffs[f"Role: {r_name}"] = {
-                        "before": "(Previous Matrix)",
+                        "before": before_str,
                         "after": f"Enabled: {', '.join(enabled_modules) if enabled_modules else 'None'}"
                     }
 
@@ -549,17 +639,20 @@ def extract_audit_diff_and_summary(log):
         elif any(k in ('changes', 'delta', 'modified') for k in details.keys()):
             changes = details.get('changes') or details.get('delta') or details.get('modified')
             if isinstance(changes, dict):
+                preceding_context = _get_preceding_audit_context(log)
                 for k, v in changes.items():
                     if isinstance(v, dict) and ('before' in v or 'after' in v):
                         diffs[k] = {"before": v.get('before', '(None)'), "after": v.get('after', '(None)')}
                     else:
-                        diffs[k] = {"before": "(Previous)", "after": v}
+                        prev_val = preceding_context.get(k) if preceding_context else None
+                        diffs[k] = {"before": prev_val if prev_val is not None else "(None - Initial Value)", "after": v}
                 if diffs:
                     has_diff = True
                     summary = f"{len(diffs)} field{'s' if len(diffs) > 1 else ''} modified"
 
         # Case F: Any other descriptive details dictionary
         if isinstance(details, dict) and not diffs:
+            preceding_context = _get_preceding_audit_context(log)
             for k, v in details.items():
                 if k not in ('password', 'hashed_password', 'secret', 'token', 'access_token', 'session_id', 'request_id'):
                     if isinstance(v, dict) and ('before' in v or 'after' in v):
@@ -567,7 +660,15 @@ def extract_audit_diff_and_summary(log):
                     elif isinstance(v, dict) and ('old' in v or 'new' in v):
                         diffs[k] = {"before": v.get('old', '(None)'), "after": v.get('new', '(None)')}
                     else:
-                        diffs[k] = {"before": "(Previous Value)", "after": v}
+                        prev_val = preceding_context.get(k) if preceding_context else None
+                        if prev_val is not None:
+                            diffs[k] = {"before": prev_val, "after": v}
+                        elif 'LOGIN' in (log.action or ''):
+                            diffs[k] = {"before": "(None - First Login)", "after": v}
+                        elif 'CREATE' in (log.action or ''):
+                            diffs[k] = {"before": "(None - New Record)", "after": v}
+                        else:
+                            diffs[k] = {"before": "(None - Initial Value)", "after": v}
             if diffs:
                 has_diff = True
                 if not summary:

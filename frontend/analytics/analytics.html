@@ -1606,19 +1606,28 @@
                             
                             const badgeClass = isCompleted ? 'bg-success text-white' : (isInProgress ? 'bg-primary text-white' : 'bg-secondary-soft text-muted');
                             const borderStyle = isCompleted ? 'border-success' : (isInProgress ? 'border-primary' : '');
+                            const stTitle = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s.title || `Stage ${s.stage_number}`) : (s.title || `Stage ${s.stage_number}`);
+                            const stDesc = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s.description || '') : (s.description || '');
+                            const stIcon = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s.icon || 'git-commit') : (s.icon || 'git-commit');
+                            const stStatus = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s.status || '') : (s.status || '');
+                            const stStarted = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s.started_at || 'Upcoming') : (s.started_at || 'Upcoming');
+                            const stCompleted = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(s.completed_at || 'Pending') : (s.completed_at || 'Pending');
                             
                             return `
                                 <div class="col-md-6 col-xl-3">
                                     <div class="glass-card p-3 h-100 ${borderStyle}" style="border-radius: 12px;">
                                         <div class="d-flex align-items-center justify-content-between mb-2">
-                                            <span class="badge ${badgeClass} text-xxs fw-bold">Stage ${s.stage_number}</span>
-                                            <span class="text-xxs fw-bold ${isCompleted ? 'text-success' : (isInProgress ? 'text-primary' : 'text-muted')}">${s.status}</span>
+                                            <div class="d-flex align-items-center gap-1.5">
+                                                <i data-lucide="${stIcon}" style="width:13px;height:13px;" class="${isInProgress ? 'text-primary' : (isCompleted ? 'text-success' : 'text-secondary')}"></i>
+                                                <span class="badge ${badgeClass} text-xxs fw-bold">Stage ${s.stage_number}</span>
+                                            </div>
+                                            <span class="text-xxs fw-bold ${isCompleted ? 'text-success' : (isInProgress ? 'text-primary' : 'text-muted')}">${stStatus}</span>
                                         </div>
-                                        <h6 class="fw-bold text-dark text-xs mb-1">${s.title}</h6>
-                                        <p class="text-xxs text-muted mb-2">${s.description}</p>
+                                        <h6 class="fw-bold text-dark text-xs mb-1">${stTitle}</h6>
+                                        <p class="text-xxs text-muted mb-2">${stDesc}</p>
                                         <div class="pt-2 border-top text-xxs text-secondary d-flex justify-content-between align-items-center">
-                                            <div><i data-lucide="play" style="width:10px;"></i> ${s.started_at || 'Upcoming'}</div>
-                                            <div><i data-lucide="check" style="width:10px;"></i> ${s.completed_at || 'Pending'}</div>
+                                            <div><i data-lucide="play" style="width:10px;"></i> ${stStarted}</div>
+                                            <div><i data-lucide="check" style="width:10px;"></i> ${stCompleted}</div>
                                         </div>
                                     </div>
                                 </div>

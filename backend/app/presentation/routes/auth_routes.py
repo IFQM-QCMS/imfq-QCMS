@@ -1255,13 +1255,17 @@ def login():
 
         # Log enriched login audit event
         try:
+            prev_login = AuditLog.query.filter_by(user_id=user.id, action="USER_LOGIN").order_by(AuditLog.id.desc()).first()
+            prev_ip = prev_login.ip_address if prev_login else None
             log_audit_event(
                 org_id=user.org_id,
                 user_id=user.id,
                 action="USER_LOGIN",
                 target_table="users",
                 target_id=user.id,
-                details={"username": user.username, "ip": ip_addr}
+                before_data={"username": user.username, "ip": prev_ip if prev_ip else "(None - First Login)"},
+                after_data={"username": user.username, "ip": ip_addr},
+                details={"username": user.username, "ip": ip_addr, "previous_ip": prev_ip}
             )
         except Exception:
             pass

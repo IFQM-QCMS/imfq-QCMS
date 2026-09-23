@@ -673,22 +673,6 @@
                         </div>
                     ` : ''}
 
-                    ${settings.webhook_secret ? `
-                        <div class="mt-4 p-3.5 rounded-4 border border-warning border-opacity-20 bg-warning bg-opacity-5 d-flex align-items-center justify-content-between gap-3">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="rounded-3 p-2 bg-warning bg-opacity-10 text-warning">
-                                    <i data-lucide="shield-alert" style="width:18px; height:18px;"></i>
-                                </div>
-                                <div>
-                                    <strong class="text-xs text-main d-block mb-0.5">Webhook Security Secret Key</strong>
-                                    <span class="text-xxs text-secondary">Rotate this key if you suspect credentials have been leaked or compromised.</span>
-                                </div>
-                            </div>
-                            <button type="button" class="ds-btn ds-btn-secondary btn-sm d-flex align-items-center gap-1.5" onclick="window.IntegrationsModule.rotateSecretKey('${item.provider_id}')" style="border-radius:8px;">
-                                <i data-lucide="rotate-cw" style="width:13px; height:13px;"></i> Rotate Secret
-                            </button>
-                        </div>
-                    ` : ''}
                 </form>
             `;
         },
