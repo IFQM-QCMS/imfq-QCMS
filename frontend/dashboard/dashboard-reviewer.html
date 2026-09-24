@@ -851,7 +851,7 @@
                 commentBox.style.setProperty('border-left', '4px solid var(--ds-success)', 'important');
             }
 
-            const comments = (item.comments || item.restart_reviewer_comments || '').trim();
+            const comments = (item.comments || item.final_comments || item.reviewer_notes || item.review_comments || item.restart_reviewer_comments || '').trim();
             const commentEl = document.getElementById('revCommText');
             if (commentEl) {
                 if (comments) {
@@ -3542,9 +3542,6 @@
                                 <span class="ds-badge ${p.approved ? 'green' : 'orange'}">${p.status || 'Pending'}</span>
                             </div>
                             <div class="d-flex gap-2">
-                                <button class="ds-btn ds-btn-sm ds-btn-ghost" onclick="revDash.openNoteModal(${p.id}, 8)">
-                                    <i data-lucide="message-square" style="width:13px;height:13px;"></i> Note
-                                </button>
                                 ${!p.approved ? `<button class="ds-btn ds-btn-sm ds-btn-primary" onclick="revDash.openApproveModal(${p.id})">Approve Results</button>` : `<span class="ds-badge green">✓ Approved</span>`}
                             </div>
                         </div>

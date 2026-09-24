@@ -164,6 +164,145 @@ def get_stats():
         "avg_improvement": f"{avg_improvement}%"
     })
 
+def _resolve_approval_comments(p, stage_num=None, explicit_comments=None):
+    comments = (explicit_comments or "").strip()
+    if comments:
+        return comments
+    stage = stage_num or p.current_stage or 8
+
+    # 1. ProjectReview for this stage with decision Approved
+    rev = ProjectReview.query.filter(
+        ProjectReview.project_id == p.id,
+        ProjectReview.stage_number == stage,
+        ProjectReview.decision == 'Approved',
+        ProjectReview.comments.isnot(None),
+        ProjectReview.comments != ''
+    ).order_by(ProjectReview.decided_at.desc(), ProjectReview.id.desc()).first()
+    if rev and rev.comments and rev.comments.strip():
+        return rev.comments.strip()
+
+    # 2. Workflow for this stage
+    wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=stage).first()
+    if wf and wf.data and isinstance(wf.data, dict):
+        wf_rev = wf.data.get('review', {})
+        if isinstance(wf_rev, dict) and wf_rev.get('decision', '').lower() in ('approved', 'approve'):
+            c = wf_rev.get('comments')
+            if c and str(c).strip():
+                return str(c).strip()
+        wf_c = (
+            wf.data.get('review_comments') or
+            wf.data.get('comments') or
+            wf.data.get('reviewer_notes') or
+            wf.data.get('notes') or
+            ''
+        )
+        if isinstance(wf_c, str) and wf_c.strip():
+            return wf_c.strip()
+
+    # 3. Stage 8 final_comments (for stage 8 or closed/completed projects)
+    if stage == 8 or p.status in ('Completed', 'Closed', 'Stage 8 Approved', 'Stage 8 Reviewer Approved', 'Pending CEO Review'):
+        s8 = Stage8Standardization.query.filter_by(project_id=p.id).first()
+        if s8 and s8.final_comments and str(s8.final_comments).strip():
+            return str(s8.final_comments).strip()
+
+    # 4. Any other Approved review for this project
+    any_app_rev = ProjectReview.query.filter(
+        ProjectReview.project_id == p.id,
+        ProjectReview.decision == 'Approved',
+        ProjectReview.comments.isnot(None),
+        ProjectReview.comments != ''
+    ).order_by(ProjectReview.decided_at.desc(), ProjectReview.id.desc()).first()
+    if any_app_rev and any_app_rev.comments and any_app_rev.comments.strip():
+        return any_app_rev.comments.strip()
+
+    # 5. Audit log approval or closure comments
+    logs = AuditLog.query.filter(
+        AuditLog.project_id == p.id
+    ).order_by(AuditLog.created_at.desc()).all()
+    for log in logs:
+        action_u = (log.action or '').upper()
+        if 'APPROV' in action_u or 'CLOSE' in action_u:
+            if log.details and isinstance(log.details, dict):
+                c = log.details.get('comments') or log.details.get('reviewer_notes') or log.details.get('final_comments')
+                if c and str(c).strip():
+                    return str(c).strip()
+
+    # 6. Any other review for this stage if still empty
+    any_rev = ProjectReview.query.filter(
+        ProjectReview.project_id == p.id,
+        ProjectReview.stage_number == stage,
+        ProjectReview.comments.isnot(None),
+        ProjectReview.comments != ''
+    ).order_by(ProjectReview.decided_at.desc(), ProjectReview.id.desc()).first()
+    if any_rev and any_rev.comments and any_rev.comments.strip():
+        return any_rev.comments.strip()
+
+    if p.restart_reviewer_comments and str(p.restart_reviewer_comments).strip():
+        return str(p.restart_reviewer_comments).strip()
+
+    return ""
+
+def _resolve_approved_at(p, stage_num=None, explicit_decided_at=None):
+    if explicit_decided_at:
+        return explicit_decided_at.isoformat() + "Z"
+    stage = stage_num or p.current_stage or 8
+
+    rev = ProjectReview.query.filter_by(project_id=p.id, stage_number=stage, decision='Approved').order_by(ProjectReview.decided_at.desc()).first()
+    if rev and rev.decided_at:
+        return rev.decided_at.isoformat() + "Z"
+
+    tracker = ProjectStageTracker.query.filter_by(project_id=p.id, stage_number=stage).first()
+    if tracker and tracker.completed_at:
+        return tracker.completed_at.isoformat() + "Z"
+
+    if stage == 8 or p.status in ('Completed', 'Closed'):
+        s8 = Stage8Standardization.query.filter_by(project_id=p.id).first()
+        if s8 and s8.final_approval_at:
+            return s8.final_approval_at.isoformat() + "Z"
+
+    log = AuditLog.query.filter(
+        AuditLog.project_id == p.id,
+        AuditLog.action.ilike(f'%Stage {stage}%Approv%')
+    ).order_by(AuditLog.created_at.desc()).first()
+    if not log and (stage == 8 or p.status in ('Completed', 'Closed')):
+        log = AuditLog.query.filter(
+            AuditLog.project_id == p.id,
+            AuditLog.action.ilike('%CLOSED%')
+        ).order_by(AuditLog.created_at.desc()).first()
+    if log and log.created_at:
+        return log.created_at.isoformat() + "Z"
+
+    if p.restart_reviewed_at:
+        return p.restart_reviewed_at.isoformat() + "Z"
+
+    return p.created_at.isoformat() + "Z" if p.created_at else ""
+
+def _resolve_submitted_at(p, stage_num=None, cutoff_date=None):
+    stage = stage_num or p.current_stage or 1
+    query = AuditLog.query.filter(
+        AuditLog.project_id == p.id,
+        AuditLog.action.ilike(f'%Stage {stage}%Submitted%')
+    )
+    if cutoff_date:
+        query = query.filter(AuditLog.created_at <= cutoff_date)
+    sub_log = query.order_by(AuditLog.created_at.desc()).first()
+    if not sub_log:
+        query2 = AuditLog.query.filter(
+            AuditLog.project_id == p.id,
+            AuditLog.action.ilike('%Submitted%')
+        )
+        if cutoff_date:
+            query2 = query2.filter(AuditLog.created_at <= cutoff_date)
+        sub_log = query2.order_by(AuditLog.created_at.desc()).first()
+    if sub_log and sub_log.created_at:
+        return sub_log.created_at.isoformat() + "Z"
+
+    tracker = ProjectStageTracker.query.filter_by(project_id=p.id, stage_number=stage).first()
+    if tracker and tracker.started_at:
+        return tracker.started_at.isoformat() + "Z"
+
+    return p.created_at.isoformat() + "Z" if p.created_at else ""
+
 def _get_approved_projects_list(user, is_admin):
     # Fetch all discrete stage approval reviews made by this reviewer (or across org if Admin)
     if is_admin:
@@ -193,26 +332,9 @@ def _get_approved_projects_list(user, is_admin):
         tl = p.team_leader
         tl_name = (tl.full_name or tl.username) if tl else "Unassigned"
         
-        approved_at = r.decided_at.isoformat() + "Z" if r.decided_at else (p.created_at.isoformat() + "Z" if p.created_at else "")
-        stage_num = r.stage_number or 1
-        comments = (r.comments or "").strip()
-        if not comments:
-            wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=stage_num).first()
-            if wf and wf.data and isinstance(wf.data, dict):
-                comments = wf.data.get('review', {}).get('comments') or ""
-        
-        sub_log = AuditLog.query.filter(
-            AuditLog.project_id == p.id,
-            AuditLog.action.ilike(f'%Stage {stage_num}%Submitted%'),
-            AuditLog.created_at <= (r.decided_at or r.created_at)
-        ).order_by(AuditLog.created_at.desc()).first()
-        if not sub_log:
-            sub_log = AuditLog.query.filter(
-                AuditLog.project_id == p.id,
-                AuditLog.action.ilike('%Submitted%'),
-                AuditLog.created_at <= (r.decided_at or r.created_at)
-            ).order_by(AuditLog.created_at.desc()).first()
-        submitted_at = sub_log.created_at.isoformat() + "Z" if sub_log else (p.created_at.isoformat() + "Z" if p.created_at else "")
+        approved_at = _resolve_approved_at(p, stage_num, r.decided_at)
+        comments = _resolve_approval_comments(p, stage_num, r.comments)
+        submitted_at = _resolve_submitted_at(p, stage_num, r.decided_at or r.created_at)
 
         result.append({
             "id": p.id,
@@ -229,6 +351,8 @@ def _get_approved_projects_list(user, is_admin):
             "is_restart_approved": False,
             "is_stopped_project": False,
             "comments": comments,
+            "final_comments": comments,
+            "reviewer_notes": comments,
             "submitted_at": submitted_at,
             "approved_at": approved_at
         })
@@ -254,12 +378,7 @@ def _get_approved_projects_list(user, is_admin):
         tl = p.team_leader
         tl_name = (tl.full_name or tl.username) if tl else "Unassigned"
 
-        sub_log = AuditLog.query.filter(
-            AuditLog.project_id == p.id,
-            AuditLog.action.ilike('%Submitted%')
-        ).order_by(AuditLog.created_at.desc()).first()
-        submitted_at = sub_log.created_at.isoformat() + "Z" if sub_log else (p.created_at.isoformat() + "Z" if p.created_at else "")
-
+        submitted_at = _resolve_submitted_at(p, 1, p.restart_reviewed_at or p.restart_requested_at)
         restart_req_at = p.restart_requested_at.isoformat() + "Z" if p.restart_requested_at else ""
         approved_at = p.restart_reviewed_at.isoformat() + "Z" if p.restart_reviewed_at else (p.created_at.isoformat() + "Z" if p.created_at else "")
         comments = (p.restart_reviewer_comments or "Approved to restart from Stage 1.").strip()
@@ -284,6 +403,8 @@ def _get_approved_projects_list(user, is_admin):
             "restart_reviewed_at": approved_at,
             "restart_reviewer_comments": comments,
             "comments": comments,
+            "final_comments": comments,
+            "reviewer_notes": comments,
             "submitted_at": submitted_at or restart_req_at,
             "approved_at": approved_at
         })
@@ -306,8 +427,9 @@ def _get_approved_projects_list(user, is_admin):
             tl = p.team_leader
             tl_name = (tl.full_name or tl.username) if tl else "Unassigned"
             stage_num = p.current_stage or 8
-            wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=stage_num).first()
-            comments = wf.data.get('review', {}).get('comments') if (wf and wf.data and isinstance(wf.data, dict)) else ""
+            comments = _resolve_approval_comments(p, stage_num)
+            approved_at = _resolve_approved_at(p, stage_num)
+            submitted_at = _resolve_submitted_at(p, stage_num)
             result.append({
                 "id": p.id,
                 "review_id": None,
@@ -323,8 +445,10 @@ def _get_approved_projects_list(user, is_admin):
                 "is_restart_approved": False,
                 "is_stopped_project": False,
                 "comments": comments,
-                "submitted_at": p.created_at.isoformat() + "Z" if p.created_at else "",
-                "approved_at": p.created_at.isoformat() + "Z" if p.created_at else ""
+                "final_comments": comments,
+                "reviewer_notes": comments,
+                "submitted_at": submitted_at,
+                "approved_at": approved_at
             })
             
     return result
@@ -1042,21 +1166,53 @@ def approve_stage8_submission(project_id):
         tracker.status = 'Approved'
 
     payload = request.get_json() or {}
+    comments = (payload.get('comments') or payload.get('reviewer_notes') or '').strip()
     team_recognition = payload.get('team_recognition')
-    if team_recognition:
-        wf = ProjectWorkflow.query.filter_by(project_id=project_id, stage_id=8).first()
-        if wf:
-            d = dict(wf.data or {})
-            d['team_recognition'] = team_recognition
-            wf.data = d
-            flag_modified(wf, 'data')
-        s8 = Stage8Standardization.query.filter_by(project_id=project_id).first()
-        if not s8:
-            s8 = Stage8Standardization(project_id=project_id, org_id=project.org_id)
-            db.session.add(s8)
-        s8.team_recognition = team_recognition
 
-    log_action(project.org_id, user.id, "Approved Stage 8 Submission by Reviewer", project_id)
+    wf = ProjectWorkflow.query.filter_by(project_id=project_id, stage_id=8).first()
+    if not wf:
+        wf = ProjectWorkflow(project_id=project_id, org_id=project.org_id, stage_id=8, data={})
+        db.session.add(wf)
+    d = dict(wf.data or {})
+    if team_recognition:
+        d['team_recognition'] = team_recognition
+    if comments:
+        d['review'] = {
+            'decision': 'approved',
+            'comments': comments,
+            'reviewer': user.username,
+            'reviewed_at': datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        }
+    wf.data = d
+    flag_modified(wf, 'data')
+
+    s8 = Stage8Standardization.query.filter_by(project_id=project_id).first()
+    if not s8:
+        s8 = Stage8Standardization(project_id=project_id, org_id=project.org_id)
+        db.session.add(s8)
+    if team_recognition:
+        s8.team_recognition = team_recognition
+    if comments:
+        s8.final_comments = comments
+    s8.facilitator_validation = True
+
+    # Record or update ProjectReview
+    approval = ProjectReview.query.filter_by(project_id=project_id, stage_number=8).order_by(ProjectReview.id.desc()).first()
+    if not approval:
+        approval = ProjectReview(
+            project_id=project_id,
+            org_id=user.org_id,
+            stage_number=8,
+            reviewer_id=user.id
+        )
+        db.session.add(approval)
+    approval.decision = 'Approved'
+    if comments:
+        approval.comments = comments
+    approval.decided_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    approval.status = 'Completed'
+
+    log_action(project.org_id, user.id, "Approved Stage 8 Submission by Reviewer", project_id, {"comments": comments} if comments else None)
     db.session.commit()
     return jsonify({"msg": "Stage 8 submission approved. Proceed to Impact Review."}), 200
 
@@ -1221,10 +1377,12 @@ def complete_closure(project_id):
     # Direct Reviewer Closure via Domain Service
     from app.domain.services.project_closure_service import ProjectClosureService
     try:
+        reviewer_note = (data.get('reviewer_notes') or data.get('comments') or '').strip()
+        closure_comments = reviewer_note or "Reviewer signed off. Project closed."
         res = ProjectClosureService.execute_closure(
             project_id=project_id,
             user_id=user.id,
-            comments="Reviewer signed off. Project closed.",
+            comments=closure_comments,
             sign_off_by_role="Reviewer"
         )
         return jsonify({

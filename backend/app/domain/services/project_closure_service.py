@@ -62,6 +62,40 @@ class ProjectClosureService:
             tracker.status = 'Completed'
             tracker.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
+        # 3b. Ensure ProjectReview & ProjectWorkflow record reviewer approval comments
+        try:
+            from app.infrastructure.database.models import ProjectWorkflow
+            from sqlalchemy.orm.attributes import flag_modified
+            approval = ProjectReview.query.filter_by(project_id=project_id, stage_number=8).order_by(ProjectReview.id.desc()).first()
+            if not approval:
+                approval = ProjectReview(
+                    project_id=project_id,
+                    org_id=project.org_id,
+                    stage_number=8,
+                    reviewer_id=user.id
+                )
+                db.session.add(approval)
+            approval.decision = 'Approved'
+            approval.comments = comments
+            approval.decided_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            approval.status = 'Completed'
+
+            wf = ProjectWorkflow.query.filter_by(project_id=project_id, stage_id=8).first()
+            if not wf:
+                wf = ProjectWorkflow(project_id=project_id, org_id=project.org_id, stage_id=8, data={})
+                db.session.add(wf)
+            wf_d = dict(wf.data or {})
+            wf_d['review'] = {
+                'decision': 'approved',
+                'comments': comments,
+                'reviewer': user.username,
+                'reviewed_at': datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+            }
+            wf.data = wf_d
+            flag_modified(wf, 'data')
+        except Exception as rev_err:
+            logger.warning(f"[ProjectClosureService] Review record sync notice: {rev_err}")
+
         db.session.commit()
 
         # 4. Auto-archive to Knowledge Repository

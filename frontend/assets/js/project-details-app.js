@@ -639,7 +639,7 @@ const ProjectApp = {
         if (window.hasUnsavedChanges) {
             this.showUnsavedChangesWarningModal(() => {
                 this.doSwitchStage(stageId);
-            });
+            }, stageId);
             return;
         }
         this.doSwitchStage(stageId);
@@ -1457,16 +1457,16 @@ const ProjectApp = {
         const role = ((sessionUser.role && sessionUser.role.name) ? sessionUser.role.name : (sessionUser.role || '')).toLowerCase().replace(/[^a-z0-9]/g, '');
         if (!['teamleader', 'teammember'].includes(role)) {
             OctaQube.toast('Access denied. Only assigned Team Leader and Team Members can edit project details.', 'warning');
-            return;
+            return false;
         }
 
         if (this.projectData && (this.projectData.status === 'Rejected' || this.projectData.status === 'Stage 1 Rejected' || (this.projectData.status && this.projectData.status.includes('Rejected')))) {
             OctaQube.toast('This project has been permanently rejected and cannot be modified.', 'warning');
-            return;
+            return false;
         }
 
         const module = StageModules[this.activeStageId];
-        if (!module) return;
+        if (!module) return false;
 
         this.clearValidationHighlights();
         try {
@@ -1515,8 +1515,10 @@ const ProjectApp = {
 
             window.hasUnsavedChanges = false;
             OctaQube.toast(`Stage ${this.activeStageId} draft saved successfully.`, 'success');
+            return true;
         } catch (e) {
             OctaQube.toast('Save failed: ' + e.message, 'error');
+            return false;
         }
     },
 
@@ -1634,22 +1636,168 @@ const ProjectApp = {
 
     attachDirtyListeners(container) {
         if (!container) return;
-        const markDirty = () => { window.hasUnsavedChanges = true; };
-        container.addEventListener('input', markDirty);
-        container.addEventListener('change', markDirty);
-        container.querySelectorAll('button, .ds-btn').forEach(btn => {
-            btn.addEventListener('click', markDirty);
-        });
+        const markDirty = (e) => {
+            if (e && e.type === 'click') {
+                const btn = e.target.closest('button, .ds-btn, .btn, [role="tab"], .nav-link');
+                if (!btn) return;
+                // Exclude tab navigation, accordion toggles, modal dismissals
+                if (btn.classList.contains('nav-link') ||
+                    btn.getAttribute('role') === 'tab' ||
+                    btn.hasAttribute('data-bs-toggle') ||
+                    btn.hasAttribute('data-bs-dismiss') ||
+                    btn.closest('.nav-tabs, .nav-pills, .dropdown-menu, .modal')) {
+                    return;
+                }
+            }
+            window.hasUnsavedChanges = true;
+        };
+
+        container.addEventListener('input', markDirty, true);
+        container.addEventListener('change', markDirty, true);
+        container.addEventListener('click', markDirty, true);
     },
 
     setupUnsavedChangesNavigationGuard() {
         window.hasUnsavedChanges = false;
+        window.addEventListener('beforeunload', (e) => {
+            if (window.hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
     },
 
-    showUnsavedChangesWarningModal(onProceed) {
-        window.hasUnsavedChanges = false;
-        if (typeof onProceed === 'function') onProceed();
-        return Promise.resolve(true);
+    showUnsavedChangesWarningModal(onProceed, targetStageId) {
+        return new Promise((resolve) => {
+            let modalEl = document.getElementById('unsavedChangesWarningModal');
+            if (!modalEl) {
+                modalEl = document.createElement('div');
+                modalEl.id = 'unsavedChangesWarningModal';
+                modalEl.className = 'modal fade';
+                modalEl.setAttribute('tabindex', '-1');
+                modalEl.setAttribute('aria-hidden', 'true');
+                modalEl.setAttribute('data-bs-backdrop', 'static');
+                document.body.appendChild(modalEl);
+            }
+
+            const currentStage = this.activeStageId || 1;
+            const targetStageText = targetStageId ? `Stage ${targetStageId}` : 'another stage';
+
+            modalEl.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered" style="max-width: 490px;">
+                    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden; background: var(--ds-bg-card, #ffffff);">
+                        <div class="modal-header border-0 pb-0 pt-4 px-4 d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; flex-shrink: 0; background: rgba(245, 158, 11, 0.12); color: #f59e0b;">
+                                    <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
+                                </div>
+                                <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.1rem;">
+                                    Unsaved Changes in Stage ${currentStage}
+                                </h5>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body px-4 py-3">
+                            <p class="text-secondary text-sm mb-2" style="line-height: 1.6;">
+                                You have unsaved changes in <strong>Stage ${currentStage}</strong>. If you switch to <strong>${targetStageText}</strong> without saving, your entered data will be lost.
+                            </p>
+                            <p class="text-xs text-muted mb-0">
+                                Click <strong>Save Draft &amp; Switch</strong> to save your entered work, or <strong>Discard Changes</strong> to switch without saving.
+                            </p>
+                        </div>
+                        <div class="modal-footer border-0 pt-2 pb-4 px-4 d-flex justify-content-between align-items-center gap-2">
+                            <button type="button" class="ds-btn ds-btn-ghost text-xs text-danger" id="discardChangesBtn">
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px; margin-right: 4px;"></i> Discard Changes
+                            </button>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="ds-btn ds-btn-secondary text-xs" data-bs-dismiss="modal">
+                                    Keep Editing
+                                </button>
+                                <button type="button" class="ds-btn ds-btn-primary text-xs" id="saveAndSwitchBtn">
+                                    <i data-lucide="save" style="width: 14px; height: 14px; margin-right: 4px;"></i> Save Draft &amp; Switch
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (window.lucide) lucide.createIcons();
+
+            let bsModal;
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                }
+            } catch (mErr) {
+                console.warn("[OctaQube] bootstrap modal init warning:", mErr);
+            }
+
+            const saveAndSwitchBtn = modalEl.querySelector('#saveAndSwitchBtn');
+            const discardChangesBtn = modalEl.querySelector('#discardChangesBtn');
+
+            if (saveAndSwitchBtn) {
+                saveAndSwitchBtn.onclick = async () => {
+                    const originalHtml = saveAndSwitchBtn.innerHTML;
+                    saveAndSwitchBtn.disabled = true;
+                    saveAndSwitchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving...';
+                    try {
+                        const saved = await this.saveDraft();
+                        if (saved !== false) {
+                            window.hasUnsavedChanges = false;
+                            if (bsModal) {
+                                try { bsModal.hide(); } catch (_) {}
+                            }
+                            if (typeof onProceed === 'function') onProceed();
+                            resolve(true);
+                            return;
+                        }
+                    } catch (err) {
+                        console.error("[OctaQube] Error auto-saving draft:", err);
+                        OctaQube.toast('Failed to save draft before switching: ' + err.message, 'error');
+                    } finally {
+                        saveAndSwitchBtn.disabled = false;
+                        saveAndSwitchBtn.innerHTML = originalHtml;
+                        if (window.lucide) lucide.createIcons();
+                    }
+                };
+            }
+
+            if (discardChangesBtn) {
+                discardChangesBtn.onclick = () => {
+                    window.hasUnsavedChanges = false;
+                    if (bsModal) {
+                        try { bsModal.hide(); } catch (_) {}
+                    }
+                    if (typeof onProceed === 'function') onProceed();
+                    resolve(true);
+                };
+            }
+
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                resolve(false);
+            }, { once: true });
+
+            if (bsModal) {
+                bsModal.show();
+            } else {
+                const confirmSave = window.confirm(`You have unsaved changes in Stage ${currentStage}. Would you like to save your draft before switching to ${targetStageText}? Click OK to Save & Switch, or Cancel to Discard.`);
+                if (confirmSave) {
+                    this.saveDraft().then((saved) => {
+                        if (saved !== false) {
+                            window.hasUnsavedChanges = false;
+                            if (typeof onProceed === 'function') onProceed();
+                        }
+                        resolve(true);
+                    });
+                } else {
+                    window.hasUnsavedChanges = false;
+                    if (typeof onProceed === 'function') onProceed();
+                    resolve(true);
+                }
+            }
+        });
     },
 
     showSubmissionWarningModal(stageId) {
@@ -1855,6 +2003,7 @@ const ProjectApp = {
             await api.post(routeSave, data);
             const submitResult = await api.post(routeSubmit, {});
 
+            window.hasUnsavedChanges = false;
             OctaQube.toast(isReviewStage ? `Stage ${stageNum} submitted for review successfully!` : `Stage ${stageNum} submitted successfully!`, 'success');
             
             // Update UI badge and status immediately

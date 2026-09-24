@@ -1710,7 +1710,7 @@
 
                     const typeEl = document.getElementById('projType');
                     if (typeEl && idea.category) {
-                        let foundOpt = Array.from(typeEl.options).find(o => o.value.toLowerCase() === idea.category.toLowerCase());
+                        let foundOpt = Array.from(typeEl.options || []).find(o => o.value && o.value.toLowerCase() === idea.category.toLowerCase());
                         if (foundOpt) {
                             typeEl.value = foundOpt.value;
                         } else {
@@ -1735,14 +1735,47 @@
                         this.attachImportIndicator(srcEl, idea.idea_code);
                     }
 
-                    // Auto-select department if available in options
+                    // Auto-select department if available
                     const deptEl = document.getElementById('projDepartment');
-                    if (deptEl && idea.department) {
-                        let foundDept = Array.from(deptEl.options).find(o => o.textContent.trim().toLowerCase() === idea.department.trim().toLowerCase() || o.value.toLowerCase() === idea.department.trim().toLowerCase());
-                        if (foundDept) {
-                            deptEl.value = foundDept.value;
-                            this.handleDepartmentChange(foundDept.value);
+                    const deptIdHidden = document.getElementById('projDepartmentId');
+                    const deptName = (idea.department || '').trim();
+
+                    if (deptEl && deptName) {
+                        try {
+                            if (!this.allDepartments || !this.allDepartments.length) {
+                                const plantName = (document.getElementById('projPlant')?.value || '').trim();
+                                const url = plantName ? `/projects/departments?plant_name=${encodeURIComponent(plantName)}` : '/projects/departments';
+                                const depts = await api.get(url);
+                                if (Array.isArray(depts)) this.allDepartments = depts;
+                            }
+
+                            let matchedDept = (this.allDepartments || []).find(d => 
+                                (d.name && d.name.trim().toLowerCase() === deptName.toLowerCase()) ||
+                                String(d.id) === deptName
+                            );
+
+                            if (!matchedDept && deptEl.options) {
+                                const opt = Array.from(deptEl.options || []).find(o => 
+                                    (o.textContent && o.textContent.trim().toLowerCase() === deptName.toLowerCase()) || 
+                                    (o.value && o.value.toLowerCase() === deptName.toLowerCase())
+                                );
+                                if (opt) {
+                                    matchedDept = { id: opt.value, name: opt.textContent.trim() };
+                                }
+                            }
+
+                            if (!deptEl.readOnly) {
+                                if (matchedDept) {
+                                    deptEl.value = matchedDept.name;
+                                    if (deptIdHidden) deptIdHidden.value = matchedDept.id;
+                                    await this.handleDepartmentChange(matchedDept.id);
+                                } else {
+                                    deptEl.value = deptName;
+                                }
+                            }
                             this.attachImportIndicator(deptEl, idea.idea_code);
+                        } catch (errDept) {
+                            console.warn('Could not auto-select department for imported idea:', errDept);
                         }
                     }
 
@@ -1783,7 +1816,7 @@
                 badge = document.createElement('div');
                 badge.className = 'imported-field-indicator text-xs text-success fw-bold mt-1 d-flex align-items-center gap-1';
                 badge.title = `Imported using Idea Code: ${ideaCode}`;
-                badge.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;"></i> ✓ Imported from Approved Idea`;
+                badge.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;"></i> Imported from Approved Idea`;
                 element.parentNode.appendChild(badge);
             } else {
                 badge.title = `Imported using Idea Code: ${ideaCode}`;
@@ -1884,6 +1917,12 @@
             if (projSourceCustomContainer) projSourceCustomContainer.style.display = 'none';
             const projSourceCustom = document.getElementById('projSourceCustom');
             if (projSourceCustom) projSourceCustom.value = '';
+
+            // Reset source selection & imported data
+            const optCreateNew = document.getElementById('optCreateNew');
+            if (optCreateNew) optCreateNew.checked = true;
+            this.handleSourceOptionChange('new');
+            this.clearImportedIdeaData();
 
             this.renderSelectedMembersList();
             this.initModal.show();
