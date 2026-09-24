@@ -301,20 +301,26 @@
             <div class="modal-content" style="border-radius: 16px;">
                 <div class="modal-header border-0 pb-0">
                     <div>
-                        <h5 class="modal-title fw-bold">📋 Stage 8 Closure &amp; Review</h5>
+                        <h5 class="modal-title fw-bold">📋 Stage 8 Final Closure &amp; Sign-Off</h5>
                         <div class="text-xs text-muted mt-1">Project: <strong class="text-primary fs-6" id="closureProjectTitle">--</strong> <span class="ms-1 text-muted font-mono" id="closureProjectUid"></span></div>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="closureProjectId">
+                    
+                    <div class="alert alert-light border d-flex align-items-center gap-2 p-2 mb-3 text-xs text-secondary" style="border-radius: 8px;">
+                        <i data-lucide="info" style="width:16px;height:16px;flex-shrink:0;" class="text-primary"></i>
+                        <span>Choose whether to <strong>Sign Off &amp; Close Directly</strong> or <strong>Send to CEO for Executive Review &amp; Closure</strong>.</span>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-medium text-xs">Lessons Learned <span class="text-danger">*</span></label>
-                        <textarea class="form-control text-xs" id="closureLessons" rows="3" placeholder="What did the team learn?"></textarea>
+                        <textarea class="form-control text-xs" id="closureLessons" rows="3" placeholder="What did the team learn? Key takeaways, challenges, and insights..."></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-medium text-xs">Preventive Actions</label>
-                        <textarea class="form-control text-xs" id="closurePreventive" rows="2" placeholder="Actions to prevent recurrence..."></textarea>
+                        <textarea class="form-control text-xs" id="closurePreventive" rows="2" placeholder="Mistake-proofing, horizontal deployment, and actions to prevent recurrence..."></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-medium text-xs">Reviewer Escalation / Closing Notes</label>
@@ -325,10 +331,10 @@
                     <button type="button" class="ds-btn ds-btn-sm ds-btn-ghost text-xs" data-bs-dismiss="modal">Cancel</button>
                     <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="ds-btn ds-btn-sm ds-btn-outline text-warning border-warning text-xs py-1.5 px-3" onclick="revDash.submitClosure('ceo')" title="Send to CEO to Review & Close">
-                            <i data-lucide="send" style="width:13px;height:13px;margin-right:4px;"></i> Send to CEO
+                            <i data-lucide="send" style="width:13px;height:13px;margin-right:4px;"></i> Send to CEO for Closure
                         </button>
                         <button type="button" class="ds-btn ds-btn-sm ds-btn-primary text-xs py-1.5 px-3" onclick="revDash.submitClosure('direct')" title="Sign Off & Close Directly">
-                            <i data-lucide="check-circle" style="width:13px;height:13px;margin-right:4px;"></i> Sign Off & Close
+                            <i data-lucide="check-circle" style="width:13px;height:13px;margin-right:4px;"></i> Sign Off &amp; Close Project
                         </button>
                     </div>
                 </div>
@@ -482,7 +488,7 @@
     </div>
 
     <script src="/assets/dist/bootstrap.bundle.min.js"></script>
-    <script src="/assets/dist/core-bundle.604eb7e8.min.js"></script>
+    <script src="/assets/dist/core-bundle.df013f3f.min.js"></script>
     <script>
     const revDash = {
         selectedProjectId: null,
@@ -3654,12 +3660,14 @@
                 return;
             }
             body.innerHTML = projects.map(p => {
-                const isUnderCeo = p.is_pending_ceo || p.status === 'Pending CEO Review';
+                const isUnderCeo = p.is_pending_ceo || p.status === 'Pending CEO Review' || p.status === 'Pending CEO Closure';
+                const hasSignedOff = Boolean(p.reviewer_signoff || p.has_signed_off);
+
                 let signoffStatus = '<span class="ds-badge orange">Pending</span>';
                 if (isUnderCeo) {
                     signoffStatus = '<span class="ds-badge yellow"><i data-lucide="clock" style="width:12px;height:12px;margin-right:2px;"></i> Under CEO Review</span>';
-                } else if (p.facilitator_signoff) {
-                    signoffStatus = '<span class="ds-badge green">Signed Off</span>';
+                } else if (hasSignedOff) {
+                    signoffStatus = '<span class="ds-badge green"><i data-lucide="check" style="width:12px;height:12px;margin-right:2px;"></i> Signed Off</span>';
                 }
 
                 return `<tr>
@@ -3672,9 +3680,24 @@
                     <td>${p.has_training_records ? '✅' : '—'}</td>
                     <td>${signoffStatus}</td>
                     <td class="text-end">
-                        ${!isUnderCeo && !p.facilitator_signoff ? `<button class="ds-btn ds-btn-sm ds-btn-primary" onclick="revDash.openClosureModal(${p.id})">Review &amp; Close</button>` : ''}
-                        ${isUnderCeo ? `<button class="ds-btn ds-btn-sm ds-btn-outline border-warning text-warning" onclick="revDash.openClosureModal(${p.id})">Update Review</button>` : ''}
-                        <button class="ds-btn ds-btn-sm ds-btn-ghost ms-1" onclick="revDash.viewSOP(${p.id})">View SOP</button>
+                        <div class="d-inline-flex gap-1 align-items-center">
+                            ${!isUnderCeo && !hasSignedOff ? `
+                                <button class="ds-btn ds-btn-sm ds-btn-primary" onclick="revDash.openClosureModal(${p.id})" title="Sign Off & Close or Send to CEO">
+                                    <i data-lucide="shield-check" style="width:13px;height:13px;margin-right:3px;"></i> Sign Off / Close
+                                </button>
+                            ` : ''}
+                            ${isUnderCeo ? `
+                                <button class="ds-btn ds-btn-sm ds-btn-outline border-warning text-warning" onclick="revDash.openClosureModal(${p.id})" title="Update Review / Escalation Notes">
+                                    <i data-lucide="edit" style="width:13px;height:13px;margin-right:3px;"></i> Update Review
+                                </button>
+                            ` : ''}
+                            ${hasSignedOff && !isUnderCeo ? `
+                                <span class="ds-badge green"><i data-lucide="check" style="width:12px;height:12px;margin-right:2px;"></i> Signed Off</span>
+                            ` : ''}
+                            <button class="ds-btn ds-btn-sm ds-btn-ghost ms-1" onclick="revDash.viewSOP(${p.id})" title="View Standard Operating Procedure">
+                                <i data-lucide="file-text" style="width:13px;height:13px;margin-right:3px;"></i> View SOP
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
             }).join('');
@@ -3885,11 +3908,26 @@
                 uidEl.textContent = pUid ? ('(' + pUid + ')') : '';
             }
 
-            document.getElementById('closureLessons').value = '';
-            document.getElementById('closurePreventive').value = '';
+            // Pre-fill lessons learned and preventive actions if available from project
+            let lessons = project?.lessons_learned || '';
+            let preventive = project?.preventive_actions || '';
+            if (typeof lessons === 'object' && lessons !== null) {
+                lessons = Array.isArray(lessons) ? lessons.map(l => typeof l === 'object' ? (l.lesson || l.text || JSON.stringify(l)) : l).join('\n') : (lessons.text || lessons.content || JSON.stringify(lessons));
+            }
+            if (typeof preventive === 'object' && preventive !== null) {
+                preventive = Array.isArray(preventive) ? preventive.map(p => typeof p === 'object' ? (p.action || p.text || JSON.stringify(p)) : p).join('\n') : (preventive.text || preventive.content || JSON.stringify(preventive));
+            }
+
+            if (!lessons) {
+                lessons = 'Project objectives achieved in Stage 8. Standard operating procedures established and verified.';
+            }
+
+            document.getElementById('closureLessons').value = lessons || '';
+            document.getElementById('closurePreventive').value = preventive || '';
             const notesEl = document.getElementById('closureReviewerNotes');
             if (notesEl) notesEl.value = '';
             this.closureModal.show();
+            if (window.lucide) lucide.createIcons();
         },
 
         async submitClosure(mode = 'direct') {

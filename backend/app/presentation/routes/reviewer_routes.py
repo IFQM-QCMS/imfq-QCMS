@@ -863,6 +863,7 @@ def _get_closure_projects_list(user, is_admin):
             or wf_data.get('training_records')
             or wf_data.get('horizontal_deployment')
         )
+        reviewer_signed_off = bool(std and std.final_approval) or (p.status == 'Closed')
         result.append({
             "id": p.id,
             "project_uid": p.project_uid or f"PRJ-{p.id}",
@@ -873,7 +874,11 @@ def _get_closure_projects_list(user, is_admin):
             "sop_id": sop.id if sop else None,
             "has_training_records": has_training,
             "has_lessons": has_lessons,
+            "lessons_learned": (std.lessons_learned if std else None) or wf_data.get('lessons_learned') or (sop.lessons_learned if sop else ''),
+            "preventive_actions": (getattr(std, 'preventive_actions', None) if std else None) or wf_data.get('preventive_actions') or (sop.preventive_actions if sop else ''),
             "facilitator_signoff": std.facilitator_validation if std else False,
+            "reviewer_signoff": reviewer_signed_off,
+            "has_signed_off": reviewer_signed_off,
             "admin_closure": std.admin_closure if std else False
         })
     return result

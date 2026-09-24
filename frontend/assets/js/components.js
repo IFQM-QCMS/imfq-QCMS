@@ -3911,7 +3911,7 @@ OctaQube.showDecisionConfirmationDialog = function({
 
     const configs = {
         'Approved': {
-            title: 'Confirm Project Stage Approval',
+            title: stageNumber === 8 ? 'Confirm Final Project Closure & Sign-Off' : 'Confirm Project Stage Approval',
             badge: stageNumber === 8 ? 'Final Closure Sign-Off' : `Stage ${stageNumber || ''} Approval`,
             badgeClass: 'bg-success text-white',
             borderColor: '#10b981',
@@ -3919,7 +3919,7 @@ OctaQube.showDecisionConfirmationDialog = function({
             iconColor: '#10b981',
             btnClass: 'ds-btn ds-btn-primary',
             btnStyle: 'background:#10b981; border-color:#10b981; color:#fff;',
-            confirmText: 'Yes, Approve & Advance',
+            confirmText: stageNumber === 8 ? 'Yes, Sign Off & Close Project' : 'Yes, Approve & Advance',
             impacts: [
                 { icon: 'arrow-right-circle', text: stageNumber === 8 ? '<strong>Project Closure:</strong> Formally marks this project as Completed & archives it in the Knowledge Repository.' : `<strong>Stage Progression:</strong> Automatically advances the project to <strong>Stage ${(stageNumber || 0) + 1}</strong> and unlocks next deliverables.` },
                 { icon: 'award', text: '<strong>Recognition & Points:</strong> Officially credits nominated team awards and leaderboard rewards to all participating members.' },
