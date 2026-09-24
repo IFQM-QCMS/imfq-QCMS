@@ -300,7 +300,10 @@
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content" style="border-radius: 16px;">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">📋 Stage 8 Closure & Review</h5>
+                    <div>
+                        <h5 class="modal-title fw-bold">📋 Stage 8 Closure &amp; Review</h5>
+                        <div class="text-xs text-muted mt-1">Project: <strong class="text-primary fs-6" id="closureProjectTitle">--</strong> <span class="ms-1 text-muted font-mono" id="closureProjectUid"></span></div>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -3446,7 +3449,10 @@
                 return;
             }
 
-            const projectTitle = this.currentProject?.title || (this.queueData || []).find(p => p.id === this.selectedProjectId)?.title || '';
+            const projectTitle = this.currentProject?.title 
+                || (this.queueData || []).find(p => p.id == this.selectedProjectId)?.title 
+                || (this.queue || []).find(p => p.id == this.selectedProjectId)?.title 
+                || '';
 
             OctaQube.showDecisionConfirmationDialog({
                 decision,
@@ -3531,10 +3537,27 @@
                 if (window.lucide) lucide.createIcons();
                 return;
             }
+
+            const getVal = (v) => {
+                if (v === null || v === undefined) return '—';
+                if (typeof v === 'object') {
+                    return (v.value !== undefined && v.value !== null && String(v.value).trim() !== '') ? v.value : '—';
+                }
+                const s = String(v).trim();
+                return s !== '' ? s : '—';
+            };
+
             body.innerHTML = `<div class="p-3 d-flex flex-column gap-3">
                 ${projects.map(p => {
-                    const pct = p.kpi_improvement_pct;
-                    const pctColor = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '#6b7280';
+                    const metricsList = (p.results_data && Array.isArray(p.results_data) && p.results_data.length > 0)
+                        ? p.results_data
+                        : [{
+                            label: p.baseline?.label || p.final?.label || 'Primary KPI',
+                            baseline: p.baseline,
+                            final: p.final,
+                            kpi_improvement_pct: p.kpi_improvement_pct
+                        }];
+
                     return `<div class="border rounded p-3">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div>
@@ -3545,11 +3568,65 @@
                                 ${!p.approved ? `<button class="ds-btn ds-btn-sm ds-btn-primary" onclick="revDash.openApproveModal(${p.id})">Approve Results</button>` : `<span class="ds-badge green">✓ Approved</span>`}
                             </div>
                         </div>
-                        <div class="row g-2">
-                            <div class="col-4"><div class="impact-stat"><div class="val text-muted">${p.baseline?.value ?? '—'}</div><div class="lbl">Baseline</div></div></div>
-                            <div class="col-4"><div class="impact-stat"><div class="val" style="color:${pctColor}">${pct != null ? (pct > 0 ? '+' : '') + pct + '%' : '—'}</div><div class="lbl">KPI Change</div></div></div>
-                            <div class="col-4"><div class="impact-stat"><div class="val text-success">${p.final?.value ?? '—'}</div><div class="lbl">Final</div></div></div>
-                        </div>
+
+                        ${metricsList.length === 1 ? (() => {
+                            const m = metricsList[0];
+                            const mBase = getVal(m.baseline);
+                            const mFinal = getVal(m.final);
+                            let mPct = m.kpi_improvement_pct;
+                            if ((mPct === null || mPct === undefined || mPct === '') && mBase !== '—' && mFinal !== '—') {
+                                const bNum = parseFloat(String(mBase).replace(/[^\d.-]/g, ''));
+                                const fNum = parseFloat(String(mFinal).replace(/[^\d.-]/g, ''));
+                                if (!isNaN(bNum) && !isNaN(fNum) && bNum !== 0) {
+                                    mPct = Math.round(((fNum - bNum) / bNum) * 100 * 100) / 100;
+                                }
+                            }
+                            let pctColor = '#6b7280';
+                            let pctText = '—';
+                            if (mPct !== null && mPct !== undefined && mPct !== '' && !isNaN(mPct)) {
+                                const numPct = Number(mPct);
+                                pctColor = numPct > 0 ? '#16a34a' : numPct < 0 ? '#dc2626' : '#6b7280';
+                                pctText = (numPct > 0 ? '+' : '') + numPct + '%';
+                            }
+                            return `<div class="row g-2">
+                                <div class="col-4"><div class="impact-stat"><div class="val text-muted">${mBase}</div><div class="lbl">Baseline${m.label ? ` (${m.label})` : ''}</div></div></div>
+                                <div class="col-4"><div class="impact-stat"><div class="val" style="color:${pctColor}">${pctText}</div><div class="lbl">KPI Change</div></div></div>
+                                <div class="col-4"><div class="impact-stat"><div class="val text-success">${mFinal}</div><div class="lbl">Final</div></div></div>
+                            </div>`;
+                        })() : `
+                        <div class="d-flex flex-column gap-2">
+                            ${metricsList.map((m, idx) => {
+                                const mBase = getVal(m.baseline);
+                                const mFinal = getVal(m.final);
+                                let mPct = m.kpi_improvement_pct;
+                                if ((mPct === null || mPct === undefined || mPct === '') && mBase !== '—' && mFinal !== '—') {
+                                    const bNum = parseFloat(String(mBase).replace(/[^\d.-]/g, ''));
+                                    const fNum = parseFloat(String(mFinal).replace(/[^\d.-]/g, ''));
+                                    if (!isNaN(bNum) && !isNaN(fNum) && bNum !== 0) {
+                                        mPct = Math.round(((fNum - bNum) / bNum) * 100 * 100) / 100;
+                                    }
+                                }
+                                let pctColor = '#6b7280';
+                                let pctText = '—';
+                                if (mPct !== null && mPct !== undefined && mPct !== '' && !isNaN(mPct)) {
+                                    const numPct = Number(mPct);
+                                    pctColor = numPct > 0 ? '#16a34a' : numPct < 0 ? '#dc2626' : '#6b7280';
+                                    pctText = (numPct > 0 ? '+' : '') + numPct + '%';
+                                }
+                                return `<div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-xs fw-semibold text-dark"><i data-lucide="target" style="width:12px;height:12px;margin-right:4px;"></i>${m.label || ('KPI #' + (idx + 1))}</span>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-4"><div class="impact-stat"><div class="val text-muted" style="font-size:0.95rem;">${mBase}</div><div class="lbl">Baseline</div></div></div>
+                                        <div class="col-4"><div class="impact-stat"><div class="val" style="color:${pctColor};font-size:0.95rem;">${pctText}</div><div class="lbl">KPI Change</div></div></div>
+                                        <div class="col-4"><div class="impact-stat"><div class="val text-success" style="font-size:0.95rem;">${mFinal}</div><div class="lbl">Final</div></div></div>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>`}
+
+                        ${p.cost_savings ? `<div class="mt-2 text-xs text-muted"><span class="fw-semibold text-dark">Estimated Savings:</span> ₹${Number(p.cost_savings).toLocaleString('en-IN')}</div>` : ''}
                     </div>`;
                 }).join('')}
             </div>`;
@@ -3633,8 +3710,14 @@
 
             const rowId = 'impact_row_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
             const label = data.label || '';
-            const baseline = data.baseline !== undefined ? data.baseline : '';
-            const final = data.final !== undefined ? data.final : '';
+            const cleanVal = (val) => {
+                if (val === null || val === undefined) return '';
+                if (typeof val === 'object' && val.value !== undefined) val = val.value;
+                const match = String(val).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+                return match ? match[0] : '';
+            };
+            const baseline = cleanVal(data.baseline);
+            const final = cleanVal(data.final);
 
             const rowHtml = `
                 <div class="card p-2 border rounded-3 bg-light impact-metric-row" id="${rowId}">
@@ -3705,13 +3788,24 @@
             if (container) container.innerHTML = '';
 
             const p = (this.impactData || []).find(item => item.id === projectId);
+            const cleanVal = (val) => {
+                if (val === null || val === undefined) return '';
+                if (typeof val === 'object' && val.value !== undefined) val = val.value;
+                const match = String(val).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+                return match ? match[0] : '';
+            };
+
             if (p && p.results_data && Array.isArray(p.results_data) && p.results_data.length > 0) {
-                p.results_data.forEach(m => this.addImpactMetricRow(m));
+                p.results_data.forEach(m => this.addImpactMetricRow({
+                    label: m.label || m.metric || 'KPI',
+                    baseline: cleanVal(m.baseline),
+                    final: cleanVal(m.final)
+                }));
             } else if (p && (p.baseline || p.final)) {
                 this.addImpactMetricRow({
-                    label: p.baseline?.label || 'Defect Rate',
-                    baseline: p.baseline?.value ?? '',
-                    final: p.final?.value ?? ''
+                    label: (typeof p.baseline === 'object' ? p.baseline?.label : null) || (typeof p.final === 'object' ? p.final?.label : null) || 'Defect Rate',
+                    baseline: cleanVal(p.baseline),
+                    final: cleanVal(p.final)
                 });
             } else {
                 this.addImpactMetricRow({ label: 'Defect Rate (%)', baseline: '', final: '' });
@@ -3773,6 +3867,24 @@
 
         openClosureModal(projectId) {
             document.getElementById('closureProjectId').value = projectId;
+            const project = (this.closureData || []).find(p => p.id == projectId)
+                || (this.queueData || []).find(p => p.id == projectId)
+                || (this.impactData || []).find(p => p.id == projectId)
+                || (this.approvedData || []).find(p => p.id == projectId)
+                || (this.queue || []).find(p => p.id == projectId);
+            this.selectedClosureProject = project;
+
+            const pTitle = project?.title || project?.name || '';
+            const pUid = project?.project_uid || project?.uid || '';
+            const titleEl = document.getElementById('closureProjectTitle');
+            if (titleEl) {
+                titleEl.textContent = pTitle || ('Project #' + projectId);
+            }
+            const uidEl = document.getElementById('closureProjectUid');
+            if (uidEl) {
+                uidEl.textContent = pUid ? ('(' + pUid + ')') : '';
+            }
+
             document.getElementById('closureLessons').value = '';
             document.getElementById('closurePreventive').value = '';
             const notesEl = document.getElementById('closureReviewerNotes');
@@ -3788,7 +3900,15 @@
             if (!lessons) return OctaQube.toast('Lessons learned is required', 'warning');
 
             const sendToCeo = (mode === 'ceo');
-            const projectTitle = document.getElementById('closureProjectTitle')?.textContent || `Project #${projectId}`;
+            const project = this.selectedClosureProject
+                || (this.closureData || []).find(p => p.id == projectId)
+                || (this.queueData || []).find(p => p.id == projectId)
+                || (this.impactData || []).find(p => p.id == projectId)
+                || (this.approvedData || []).find(p => p.id == projectId)
+                || (this.queue || []).find(p => p.id == projectId);
+
+            const domTitle = document.getElementById('closureProjectTitle')?.textContent?.trim();
+            const projectTitle = project?.title || project?.name || (domTitle && !domTitle.startsWith('Project #') && domTitle !== '--' ? domTitle : '') || ('Project #' + projectId);
 
             OctaQube.showDecisionConfirmationDialog({
                 decision: sendToCeo ? 'SendToCEO' : 'Approved',
@@ -3797,7 +3917,7 @@
                 comments: reviewerNotes,
                 onConfirm: async () => {
                     try {
-                        const res = await api.post(`/reviewer/closure/${projectId}/complete`, { 
+                        const res = await api.post('/reviewer/closure/' + projectId + '/complete', { 
                             lessons_learned: lessons, 
                             preventive_actions: preventive,
                             reviewer_notes: reviewerNotes,

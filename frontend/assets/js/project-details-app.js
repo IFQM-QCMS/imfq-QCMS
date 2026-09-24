@@ -1649,7 +1649,12 @@ const ProjectApp = {
                     return;
                 }
             }
-            window.hasUnsavedChanges = true;
+            if (!window.hasUnsavedChanges) {
+                window.hasUnsavedChanges = true;
+                try {
+                    window.history.pushState({ unsavedGuard: true }, document.title, window.location.href);
+                } catch (_) {}
+            }
         };
 
         container.addEventListener('input', markDirty, true);
@@ -1659,6 +1664,8 @@ const ProjectApp = {
 
     setupUnsavedChangesNavigationGuard() {
         window.hasUnsavedChanges = false;
+
+        // 1. Browser tab close / reload protection
         window.addEventListener('beforeunload', (e) => {
             if (window.hasUnsavedChanges) {
                 e.preventDefault();
@@ -1666,9 +1673,110 @@ const ProjectApp = {
                 return e.returnValue;
             }
         });
+
+        // 2. Browser back / forward button protection (popstate)
+        window.addEventListener('popstate', () => {
+            if (window.hasUnsavedChanges) {
+                try {
+                    window.history.pushState({ unsavedGuard: true }, document.title, window.location.href);
+                } catch (_) {}
+                this.showUnsavedChangesWarningModal(() => {
+                    window.hasUnsavedChanges = false;
+                    window.history.back();
+                }, 'Previous Page');
+            }
+        });
+
+        // 3. In-app navigation guard (sidebar links, navbar links, user pill, breadcrumbs, etc.)
+        document.addEventListener('click', (e) => {
+            if (!window.hasUnsavedChanges) return;
+
+            // Do not intercept clicks inside the warning modal itself
+            if (e.target.closest('#unsavedChangesWarningModal')) return;
+
+            // Check for logout link/button
+            const logoutTarget = e.target.closest('[onclick*="logout"], [onclick*="OctaQube.logout"], .sidebar-link.text-danger');
+            if (logoutTarget) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.showUnsavedChangesWarningModal(() => {
+                    if (window.OctaQube && typeof OctaQube.logout === 'function') {
+                        OctaQube.logout();
+                    } else {
+                        window.location.href = '/index.html';
+                    }
+                }, 'Logout');
+                return;
+            }
+
+            // Check for user profile pill
+            const userPill = e.target.closest('.user-pill');
+            if (userPill) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.showUnsavedChangesWarningModal(() => {
+                    window.location.href = '/admin/settings.html?tab=personal';
+                }, 'Profile / Settings');
+                return;
+            }
+
+            // Check for history.back button
+            const backTarget = e.target.closest('[onclick*="history.back"], [onclick*="window.history.back"]');
+            if (backTarget) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.showUnsavedChangesWarningModal(() => {
+                    window.history.back();
+                }, 'Previous Page');
+                return;
+            }
+
+            // Check for anchor link navigation
+            const anchor = e.target.closest('a');
+            if (!anchor) return;
+
+            // Ignore non-navigation anchors
+            const href = anchor.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('javascript:')) return;
+            if (href.startsWith('#')) return; // in-page jump
+            if (anchor.getAttribute('target') === '_blank') return; // new tab
+            if (anchor.hasAttribute('download')) return; // file download
+            if (anchor.hasAttribute('data-bs-toggle') || anchor.hasAttribute('data-bs-target')) return; // modal / dropdown
+            if (anchor.getAttribute('role') === 'tab') return; // bootstrap tab
+            if (anchor.classList.contains('nav-link') && anchor.closest('.nav-tabs, .nav-pills')) return;
+
+            // Check if link is leaving current page
+            const currentUrl = window.location.href.split('#')[0];
+            const targetUrl = anchor.href.split('#')[0];
+            if (targetUrl === currentUrl) return;
+
+            // Intercept navigation
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            // Extract friendly destination name
+            let destName = anchor.innerText.trim().replace(/\s+/g, ' ');
+            if (!destName || destName.length > 40) {
+                if (href.includes('dashboard')) destName = 'Overview';
+                else if (href.includes('projects-repository') || href.includes('repository')) destName = 'Project Repository';
+                else if (href.includes('leaderboard')) destName = 'Leaderboard & Rewards';
+                else if (href.includes('knowledge') || href.includes('sources')) destName = 'Additional Sources';
+                else if (href.includes('manual')) destName = 'User Manual';
+                else if (href.includes('settings')) destName = 'Settings';
+                else destName = 'another page';
+            }
+
+            this.showUnsavedChangesWarningModal(() => {
+                window.location.href = anchor.href;
+            }, destName);
+        }, true);
     },
 
-    showUnsavedChangesWarningModal(onProceed, targetStageId) {
+    showUnsavedChangesWarningModal(onProceed, destinationInfo) {
         return new Promise((resolve) => {
             let modalEl = document.getElementById('unsavedChangesWarningModal');
             if (!modalEl) {
@@ -1682,7 +1790,10 @@ const ProjectApp = {
             }
 
             const currentStage = this.activeStageId || 1;
-            const targetStageText = targetStageId ? `Stage ${targetStageId}` : 'another stage';
+            const isStageSwitch = typeof destinationInfo === 'number' || (typeof destinationInfo === 'string' && destinationInfo.startsWith('Stage '));
+            const targetStageText = typeof destinationInfo === 'number' ? `Stage ${destinationInfo}` : (destinationInfo || 'another page');
+            const actionVerb = isStageSwitch ? 'switch' : 'leave';
+            const switchBtnText = isStageSwitch ? 'Save Draft &amp; Switch' : 'Save Draft &amp; Leave';
 
             modalEl.innerHTML = `
                 <div class="modal-dialog modal-dialog-centered" style="max-width: 490px;">
@@ -1700,10 +1811,10 @@ const ProjectApp = {
                         </div>
                         <div class="modal-body px-4 py-3">
                             <p class="text-secondary text-sm mb-2" style="line-height: 1.6;">
-                                You have unsaved changes in <strong>Stage ${currentStage}</strong>. If you switch to <strong>${targetStageText}</strong> without saving, your entered data will be lost.
+                                You have unsaved changes in <strong>Stage ${currentStage}</strong>. If you ${actionVerb} to <strong>${targetStageText}</strong> without saving, your entered data will be lost.
                             </p>
                             <p class="text-xs text-muted mb-0">
-                                Click <strong>Save Draft &amp; Switch</strong> to save your entered work, or <strong>Discard Changes</strong> to switch without saving.
+                                Click <strong>${switchBtnText}</strong> to save your entered work, or <strong>Discard Changes</strong> to proceed without saving.
                             </p>
                         </div>
                         <div class="modal-footer border-0 pt-2 pb-4 px-4 d-flex justify-content-between align-items-center gap-2">
@@ -1715,7 +1826,7 @@ const ProjectApp = {
                                     Keep Editing
                                 </button>
                                 <button type="button" class="ds-btn ds-btn-primary text-xs" id="saveAndSwitchBtn">
-                                    <i data-lucide="save" style="width: 14px; height: 14px; margin-right: 4px;"></i> Save Draft &amp; Switch
+                                    <i data-lucide="save" style="width: 14px; height: 14px; margin-right: 4px;"></i> ${switchBtnText}
                                 </button>
                             </div>
                         </div>
@@ -1755,7 +1866,7 @@ const ProjectApp = {
                         }
                     } catch (err) {
                         console.error("[OctaQube] Error auto-saving draft:", err);
-                        OctaQube.toast('Failed to save draft before switching: ' + err.message, 'error');
+                        OctaQube.toast('Failed to save draft: ' + err.message, 'error');
                     } finally {
                         saveAndSwitchBtn.disabled = false;
                         saveAndSwitchBtn.innerHTML = originalHtml;
@@ -1782,7 +1893,7 @@ const ProjectApp = {
             if (bsModal) {
                 bsModal.show();
             } else {
-                const confirmSave = window.confirm(`You have unsaved changes in Stage ${currentStage}. Would you like to save your draft before switching to ${targetStageText}? Click OK to Save & Switch, or Cancel to Discard.`);
+                const confirmSave = window.confirm(`You have unsaved changes in Stage ${currentStage}. Would you like to save your draft before moving to ${targetStageText}? Click OK to Save, or Cancel to Discard.`);
                 if (confirmSave) {
                     this.saveDraft().then((saved) => {
                         if (saved !== false) {

@@ -580,6 +580,180 @@ def _get_rejected_projects_list(user, is_admin):
             
     return result
 
+def _extract_project_impact_metrics(p, impact):
+    wf8 = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
+    wf8_data = wf8.data if (wf8 and isinstance(wf8.data, dict)) else {}
+    wf7 = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=7).first()
+    wf7_data = wf7.data if (wf7 and isinstance(wf7.data, dict)) else {}
+    wf1 = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=1).first()
+    wf1_data = wf1.data if (wf1 and isinstance(wf1.data, dict)) else {}
+    s7 = Stage7PerformanceVerificationBenefitsRealization.query.filter_by(project_id=p.id).first()
+
+    metrics = []
+
+    # Priority 1: wf8 'metrics' (explicit reviewer post-data)
+    raw_m = wf8_data.get('metrics')
+    if isinstance(raw_m, list) and raw_m:
+        for m in raw_m:
+            if isinstance(m, dict):
+                b = m.get('baseline')
+                f = m.get('final')
+                pct = m.get('kpi_improvement_pct')
+                lbl = m.get('label') or m.get('metric') or 'KPI'
+                if b is not None or f is not None:
+                    metrics.append({'label': lbl, 'baseline': b, 'final': f, 'kpi_improvement_pct': pct})
+
+    # Priority 2: wf8 'benefits_summary' (Section 8.5)
+    if not metrics:
+        raw_bs = wf8_data.get('benefits_summary')
+        if isinstance(raw_bs, list) and raw_bs:
+            for b in raw_bs:
+                if isinstance(b, dict):
+                    b_val = b.get('baseline')
+                    f_val = b.get('final')
+                    lbl = b.get('metric') or 'Benefit'
+                    if b_val is not None or f_val is not None:
+                        metrics.append({'label': lbl, 'baseline': b_val, 'final': f_val, 'total_savings': b.get('total_savings')})
+
+    # Priority 3: Stage 7 'kpi_verification' (Section 7.1)
+    if not metrics:
+        raw_kv = wf7_data.get('kpi_verification')
+        if isinstance(raw_kv, list) and raw_kv:
+            for k in raw_kv:
+                if isinstance(k, dict):
+                    b_val = k.get('baseline')
+                    f_val = k.get('actual')
+                    tgt_val = k.get('target')
+                    lbl = k.get('metric') or 'KPI Verification'
+                    if b_val is not None or f_val is not None:
+                        metrics.append({'label': lbl, 'baseline': b_val, 'final': f_val, 'target': tgt_val})
+
+    # Priority 4: Stage 7 'before_vs_after' (Section 7.2) or s7.before_after_comparison
+    if not metrics:
+        raw_bva = wf7_data.get('before_vs_after') or getattr(s7, 'before_after_comparison', None)
+        if isinstance(raw_bva, list) and raw_bva:
+            for r in raw_bva:
+                if isinstance(r, dict):
+                    b_val = r.get('before_condition')
+                    f_val = r.get('after_condition')
+                    imp_val = r.get('improvement_pct')
+                    lbl = r.get('metric') or 'Before vs After'
+                    if b_val is not None or f_val is not None:
+                        metrics.append({'label': lbl, 'baseline': b_val, 'final': f_val, 'kpi_improvement_pct': imp_val})
+
+    # Priority 5: Stage 7 'benefit_realization' (Section 7.4)
+    if not metrics:
+        raw_br = wf7_data.get('benefit_realization')
+        if isinstance(raw_br, list) and raw_br:
+            for r in raw_br:
+                if isinstance(r, dict):
+                    b_val = r.get('expected')
+                    f_val = r.get('actual')
+                    lbl = r.get('benefit_category') or 'Benefit'
+                    if b_val is not None or f_val is not None:
+                        metrics.append({'label': lbl, 'baseline': b_val, 'final': f_val})
+
+    # Priority 6: Direct wf8 baseline / final
+    if not metrics:
+        b_raw = wf8_data.get('baseline') or wf8_data.get('baseline_data')
+        f_raw = wf8_data.get('final') or wf8_data.get('final_data')
+        if b_raw is not None or f_raw is not None:
+            b_val = b_raw.get('value') if isinstance(b_raw, dict) else b_raw
+            f_val = f_raw.get('value') if isinstance(f_raw, dict) else f_raw
+            lbl = (b_raw.get('label') if isinstance(b_raw, dict) else None) or (f_raw.get('label') if isinstance(f_raw, dict) else None) or 'KPI'
+            metrics.append({'label': lbl, 'baseline': b_val, 'final': f_val})
+
+    # Priority 7: Stage 1 current performance
+    if not metrics:
+        cp = wf1_data.get('current_performance')
+        if isinstance(cp, dict):
+            b_val = cp.get('current_kpi') or cp.get('defect_rate') or cp.get('cost_impact') or cp.get('downtime')
+            f_val = wf1_data.get('target') or wf1_data.get('target_kpi')
+            if b_val is not None or f_val is not None:
+                metrics.append({'label': 'Initial KPI', 'baseline': b_val, 'final': f_val})
+
+    import re
+
+    def _parse_num(v):
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, dict):
+            v = v.get('value')
+            if v is None:
+                return None
+        s = str(v).replace(',', '').strip()
+        match = re.search(r"[-+]?\d*\.?\d+", s)
+        if match:
+            try:
+                return float(match.group(0))
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    for m in metrics:
+        b_val = m.get('baseline')
+        f_val = m.get('final')
+        tgt_val = m.get('target')
+        curr_pct = m.get('kpi_improvement_pct')
+        lbl_lower = (m.get('label') or '').lower()
+        
+        if curr_pct is not None and str(curr_pct).strip() != '':
+            parsed_curr = _parse_num(curr_pct)
+            if parsed_curr is not None:
+                m['kpi_improvement_pct'] = round(parsed_curr, 2)
+        
+        if m.get('kpi_improvement_pct') is None and b_val is not None and f_val is not None:
+            bv = _parse_num(b_val)
+            fv = _parse_num(f_val)
+            tv = _parse_num(tgt_val)
+            if bv is not None and fv is not None and bv != 0:
+                if tv is not None:
+                    calc_pct = ((bv - fv) / bv) * 100 if tv < bv else ((fv - bv) / bv) * 100
+                elif any(word in lbl_lower for word in ('defect', 'ppm', 'scrap', 'downtime', 'cycle', 'time', 'cost', 'loss', 'tat', 'delay', 'reject', 'waste')):
+                    calc_pct = ((bv - fv) / bv) * 100
+                else:
+                    calc_pct = abs((bv - fv) / bv) * 100
+                m['kpi_improvement_pct'] = round(calc_pct, 2)
+
+    overall_kpi_pct = getattr(impact, 'kpi_improvement_pct', None) if impact else None
+    if overall_kpi_pct is None or overall_kpi_pct == 0:
+        overall_kpi_pct = wf8_data.get('kpi_improvement_pct')
+
+    if metrics:
+        first = metrics[0]
+        baseline_data = {
+            'label': first.get('label') or 'KPI',
+            'value': first.get('baseline') if first.get('baseline') is not None else '—'
+        }
+        final_data = {
+            'label': first.get('label') or 'KPI',
+            'value': first.get('final') if first.get('final') is not None else '—'
+        }
+        if overall_kpi_pct is None or overall_kpi_pct == 0:
+            calc_list = [m['kpi_improvement_pct'] for m in metrics if m.get('kpi_improvement_pct') is not None]
+            if calc_list:
+                overall_kpi_pct = round(sum(calc_list) / len(calc_list), 2)
+            else:
+                overall_kpi_pct = 0
+    else:
+        baseline_data = {'label': 'Baseline', 'value': '—'}
+        final_data = {'label': 'Final', 'value': '—'}
+        if overall_kpi_pct is None:
+            overall_kpi_pct = 0
+
+    cost_savings = impact.cost_savings if impact else (wf8_data.get('cost_savings', 0) or 0)
+    if not cost_savings and wf7_data:
+        roi = wf7_data.get('roi_validation')
+        if isinstance(roi, dict) and roi.get('annual_savings'):
+            try:
+                cost_savings = float(str(roi['annual_savings']).replace(',', '').replace('₹', '').strip())
+            except (ValueError, TypeError):
+                pass
+
+    return baseline_data, final_data, overall_kpi_pct, metrics, cost_savings
+
 def _get_impact_projects_list(user, is_admin):
     approved_impact_ids = [s.project_id for s in Stage8Standardization.query.filter_by(status='Approved').all()]
 
@@ -609,29 +783,14 @@ def _get_impact_projects_list(user, is_admin):
     for p in projects:
         impact = Stage8Standardization.query.filter_by(project_id=p.id).first()
         sop = SOP.query.filter_by(project_id=p.id).first()
-        wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
-        wf_data = wf.data if (wf and wf.data) else {}
-
-        has_sop = (sop is not None) or bool(impact and impact.sop_standardization) or bool(wf_data.get('sop_standardization'))
-        
-        baseline_data = getattr(impact, 'baseline_data', None) or wf_data.get('baseline') or wf_data.get('baseline_data')
-        final_data = getattr(impact, 'final_data', None) or wf_data.get('final') or wf_data.get('final_data') or wf_data.get('metrics')
-        has_impact = bool(final_data is not None)
-
-        kpi_pct = getattr(impact, 'kpi_improvement_pct', None)
-        if (kpi_pct is None or kpi_pct == 0) and baseline_data and final_data:
-            try:
-                b_val = float(str(baseline_data.get('value', 0) if isinstance(baseline_data, dict) else baseline_data))
-                f_val = float(str(final_data.get('value', 0) if isinstance(final_data, dict) else final_data))
-                if b_val > 0:
-                    kpi_pct = round(((f_val - b_val) / b_val) * 100, 2)
-            except (ValueError, TypeError, AttributeError):
-                pass
-        if kpi_pct is None:
-            kpi_pct = wf_data.get('kpi_improvement_pct', 0)
-
-        # Fetch action_plan from Stage 7
+        wf8 = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
+        wf8_data = wf8.data if (wf8 and wf8.data) else {}
         s7 = Stage7PerformanceVerificationBenefitsRealization.query.filter_by(project_id=p.id).first()
+
+        has_sop = (sop is not None) or bool(impact and impact.sop_standardization) or bool(wf8_data.get('sop_standardization'))
+        
+        baseline_data, final_data, kpi_pct, results_data, cost_savings = _extract_project_impact_metrics(p, impact)
+        has_impact = bool(results_data or (final_data.get('value') not in (None, '', '—')))
 
         result.append({
             "id": p.id,
@@ -639,8 +798,9 @@ def _get_impact_projects_list(user, is_admin):
             "baseline": baseline_data,
             "final": final_data,
             "kpi_improvement_pct": kpi_pct or 0,
+            "results_data": results_data,
             "kpi_target": s7.action_plan if (s7 and s7.action_plan) else {},
-            "cost_savings": impact.cost_savings if impact else (wf_data.get('cost_savings', 0) or 0),
+            "cost_savings": cost_savings,
             "status": p.status,
             "impact_status": impact.status if impact else "Pending",
             "approved": (impact.status == "Approved") if impact else False,
@@ -705,6 +865,7 @@ def _get_closure_projects_list(user, is_admin):
         )
         result.append({
             "id": p.id,
+            "project_uid": p.project_uid or f"PRJ-{p.id}",
             "title": p.title,
             "status": p.status,
             "is_pending_ceo": p.status in ['Pending CEO Review', 'Pending CEO Closure'],

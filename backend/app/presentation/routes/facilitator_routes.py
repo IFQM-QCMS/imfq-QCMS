@@ -302,29 +302,17 @@ def get_impact_review():
     result = []
     for p in projects:
         from app.infrastructure.database.models.models import Stage8Implementation, Stage7Development, SOP, ProjectWorkflow
+        from app.presentation.routes.reviewer_routes import _extract_project_impact_metrics
         impact = Stage8Implementation.query.filter_by(project_id=p.id).first()
         s7 = Stage7Development.query.filter_by(project_id=p.id).first()
         sop = SOP.query.filter_by(project_id=p.id).first()
-        wf = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
-        wf_data = wf.data if (wf and wf.data) else {}
+        wf8 = ProjectWorkflow.query.filter_by(project_id=p.id, stage_id=8).first()
+        wf8_data = wf8.data if (wf8 and wf8.data) else {}
 
-        has_sop = (sop is not None) or bool(impact and impact.sop_standardization) or bool(wf_data.get('sop_standardization'))
+        has_sop = (sop is not None) or bool(impact and impact.sop_standardization) or bool(wf8_data.get('sop_standardization'))
         
-        baseline_data = getattr(impact, 'baseline_data', None) or wf_data.get('baseline') or wf_data.get('baseline_data')
-        final_data = getattr(impact, 'final_data', None) or wf_data.get('final') or wf_data.get('final_data') or wf_data.get('metrics')
-        has_impact = bool(final_data is not None)
-
-        kpi_pct = getattr(impact, 'kpi_improvement_pct', None)
-        if (kpi_pct is None or kpi_pct == 0) and baseline_data and final_data:
-            try:
-                b_val = float(str(baseline_data.get('value', 0) if isinstance(baseline_data, dict) else baseline_data))
-                f_val = float(str(final_data.get('value', 0) if isinstance(final_data, dict) else final_data))
-                if b_val > 0:
-                    kpi_pct = round(((f_val - b_val) / b_val) * 100, 2)
-            except (ValueError, TypeError, AttributeError):
-                pass
-        if kpi_pct is None:
-            kpi_pct = wf_data.get('kpi_improvement_pct', 0)
+        baseline_data, final_data, kpi_pct, results_data, cost_savings = _extract_project_impact_metrics(p, impact)
+        has_impact = bool(results_data or (final_data.get('value') not in (None, '', '—')))
 
         result.append({
             "id": p.id,
@@ -332,8 +320,9 @@ def get_impact_review():
             "baseline": baseline_data,
             "final": final_data,
             "kpi_improvement_pct": kpi_pct or 0,
+            "results_data": results_data,
             "kpi_target": s7.action_plan if (s7 and s7.action_plan) else {},
-            "cost_savings": impact.cost_savings if impact else (wf_data.get('cost_savings', 0) or 0),
+            "cost_savings": cost_savings,
             "status": p.status,
             "impact_status": impact.status if impact else "Pending",
             "approved": (impact.status == "Approved") if impact else False,
