@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Performance & Network Acceleration: Critical Preloads -->
+    <link rel="preload" href="/assets/dist/core.3f133274.min.css" as="style">
+    <link rel="preload" href="/assets/dist/auth-guard.2feac510.min.js" as="script">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting to Project Workspace...</title>
+    <script>
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const projectId = params.get('project') || params.get('id');
+            if (projectId) {
+                params.set('id', projectId);
+                params.delete('project');
+                window.location.replace('/projects/project-details.html?' + params.toString());
+            } else {
+                window.location.replace('/projects/projects-repository.html');
+            }
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

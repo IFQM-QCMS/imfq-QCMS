@@ -1738,16 +1738,39 @@ const uid = proj.project_uid || ('PRJ-' + proj.id);
                 const container = document.getElementById('indProjectLogsContainer');
                 if (!container) return;
 
-                let logs = this.currentProjectLogs || [];
+                // Update badge counts on filter buttons
+                const allLogs = this.currentProjectLogs || [];
+                const allCount = allLogs.length;
+                const memberCount = allLogs.filter(l => l.event_type === 'member_lifecycle').length;
+                const dataEntryCount = allLogs.filter(l => l.event_type === 'data_entry').length;
+                const govCount = allLogs.filter(l => l.event_type === 'governance').length;
+
+                const btnAll = document.querySelector('#auditLogFilterGroup button[onclick*="'all'"]');
+                const btnMem = document.querySelector('#auditLogFilterGroup button[onclick*="'member_lifecycle'"]');
+                const btnData = document.querySelector('#auditLogFilterGroup button[onclick*="'data_entry'"]');
+                const btnGov = document.querySelector('#auditLogFilterGroup button[onclick*="'governance'"]');
+                if (btnAll) btnAll.innerHTML = `All Events <span class="badge bg-secondary-subtle text-secondary ms-1">${allCount}</span>`;
+                if (btnMem) btnMem.innerHTML = `Member Lifecycle <span class="badge bg-primary-subtle text-primary ms-1">${memberCount}</span>`;
+                if (btnData) btnData.innerHTML = `Data Entries <span class="badge bg-info-subtle text-info ms-1">${dataEntryCount}</span>`;
+                if (btnGov) btnGov.innerHTML = `Approvals <span class="badge bg-success-subtle text-success ms-1">${govCount}</span>`;
+
+                let logs = allLogs;
                 if (filterType !== 'all') {
                     logs = logs.filter(l => l.event_type === filterType);
                 }
 
                 if (!logs || logs.length === 0) {
+                    const emptyMessages = {
+                        'all': 'No project audit events recorded yet for this project.',
+                        'member_lifecycle': 'No team member transition or lifecycle changes recorded.',
+                        'data_entry': 'No stage workflow data entries recorded yet.',
+                        'governance': 'No reviewer approvals or stage gate decisions recorded yet.'
+                    };
+                    const msg = emptyMessages[filterType] || 'No project audit events recorded under this filter.';
                     container.innerHTML = `
                         <div class="text-center py-4 text-muted">
                             <i data-lucide="info" class="mb-2 opacity-50" style="width:24px;height:24px;"></i>
-                            <div class="text-xs">No project audit events recorded under this filter.</div>
+                            <div class="text-xs">${msg}</div>
                         </div>
                     `;
                     if (window.lucide) lucide.createIcons();

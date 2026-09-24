@@ -285,30 +285,6 @@
         </main>
     </div>
 
-    <!-- ─── Add Note Modal ───────────────────────────────────────── -->
-    <div class="modal fade" id="noteModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">Add Facilitator Note</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="noteProjectId">
-                    <input type="hidden" id="noteStageNumber">
-                    <div class="mb-3">
-                        <label class="form-label fw-medium">Note / Observation</label>
-                        <textarea class="form-control" id="noteText" rows="4" placeholder="Add your observation, guidance, or requirement for this stage..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="ds-btn ds-btn-ghost" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="ds-btn ds-btn-primary" onclick="facDash.submitNote()">Add Note</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- ─── Validate RCA Modal ────────────────────────────────────── -->
     <div class="modal fade" id="validateRcaModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -450,7 +426,6 @@
     <script src="/assets/dist/core-bundle.604eb7e8.min.js"></script>
     <script>
     const facDash = {
-        noteModal: null,
         validateModal: null,
         replyModal: null,
         assistedDetailsModal: null,
@@ -528,7 +503,6 @@
 
         async init() {
             OctaQube.init();
-            this.noteModal = new bootstrap.Modal(document.getElementById('noteModal'));
             this.validateModal = new bootstrap.Modal(document.getElementById('validateRcaModal'));
             this.assistedDetailsModal = new bootstrap.Modal(document.getElementById('assistedDetailsModal'));
 
@@ -925,12 +899,10 @@
                     <td><span class="ds-badge ${OctaQube.statusColor(p.status)}">${p.status}</span></td>
                     <td class="text-end">
                         <div class="d-flex justify-content-end gap-1">
-                            <a href="/workflow/workspace.html?id=${p.id}" class="ds-btn ds-btn-sm ds-btn-primary">
+                            <a href="/projects/project-details.html?id=${p.id}" class="ds-btn ds-btn-sm ds-btn-primary">
                                 <i data-lucide="external-link" style="width:13px;height:13px;margin-right:4px;"></i> Open
                             </a>
-                            <button class="ds-btn ds-btn-sm ds-btn-ghost" onclick="facDash.openNoteModal(${p.id}, ${p.stage || 1})">
-                                <i data-lucide="file-plus" style="width:13px;height:13px;"></i>
-                            </button>
+
                         </div>
                     </td>
                 </tr>
@@ -1030,7 +1002,7 @@
 
             const openLink = document.getElementById('adOpenStageLink');
             if (openLink) {
-                openLink.href = `/workflow/workspace.html?id=${item.project_id}&stage=${item.stage_id}`;
+                openLink.href = `/projects/project-details.html?id=${item.project_id}&stage=${item.stage_id}`;
             }
 
             if (!this.assistedDetailsModal) {
@@ -1040,25 +1012,6 @@
             if (window.lucide) lucide.createIcons();
         },
 
-        openNoteModal(projectId, stageNumber) {
-            document.getElementById('noteProjectId').value = projectId;
-            document.getElementById('noteStageNumber').value = stageNumber;
-            document.getElementById('noteText').value = '';
-            this.noteModal.show();
-        },
-
-        async submitNote() {
-            const projectId = document.getElementById('noteProjectId').value;
-            const stageNumber = document.getElementById('noteStageNumber').value;
-            const note = document.getElementById('noteText').value.trim();
-            if (!note) return;
-
-            try {
-                await api.post('/facilitator/notes', { project_id: parseInt(projectId), stage_number: parseInt(stageNumber), note });
-                this.noteModal.hide();
-                OctaQube.toast('Note added successfully', 'success');
-            } catch (e) { OctaQube.toast(e.message || 'Failed to add note', 'error'); }
-        },
 
         async submitValidation() {
             const projectId = document.getElementById('validateProjectId').value;

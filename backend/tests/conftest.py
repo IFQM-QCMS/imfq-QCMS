@@ -47,8 +47,8 @@ def auth_context(app):
             db.session.add(admin_role)
             db.session.commit()
 
-        # Find or create active user
-        user = User.query.filter_by(org_id=org.id, is_active=True).first()
+        # Find or create active admin user
+        user = User.query.filter_by(org_id=org.id, role_id=admin_role.id, is_active=True).first()
         if not user:
             ts = int(time.time())
             user = User(

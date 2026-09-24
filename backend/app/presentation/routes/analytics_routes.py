@@ -757,10 +757,11 @@ def get_dashboard_data():
             wf_entries = ProjectWorkflow.query.filter_by(project_id=target_project_id).all()
             wf_by_user = {}
             for wf in wf_entries:
-                if wf.updated_by:
+                u_id = wf.updated_by or proj.team_leader_id or proj.creator_id
+                if u_id:
                     stg_title = _get_stage_info(wf.stage_id)[0] if wf.stage_id else f"Stage {wf.stage_id}"
                     fields = list(wf.data.keys()) if isinstance(wf.data, dict) else []
-                    wf_by_user.setdefault(wf.updated_by, []).append({
+                    wf_by_user.setdefault(u_id, []).append({
                         "stage_id": wf.stage_id,
                         "stage_title": stg_title,
                         "completed_at": wf.completed_at.strftime('%b %d, %Y') if wf.completed_at else None,
@@ -768,7 +769,6 @@ def get_dashboard_data():
                         "fields_entered": fields
                     })
 
-            # Full timeline audit logs
             # Full timeline audit logs
             full_project_logs = []
             seen_lifecycle_keys = set()
@@ -851,7 +851,7 @@ def get_dashboard_data():
                             "member_avatar": m_avatar,
                             "joined_at": joined_dt.strftime('%b %d, %Y %H:%M:%S') if joined_dt else "Project Inception",
                             "left_at": left_dt.strftime('%b %d, %Y %H:%M:%S') if left_dt else "Recently",
-                            "working_period": f"{joined_dt.strftime('%b %d, %Y %H:%M') if joined_dt else 'Start'} \u2192 {left_dt.strftime('%b %d, %Y %H:%M') if left_dt else 'End'}",
+                            "working_period": f"{joined_dt.strftime('%b %d, %Y %H:%M') if joined_dt else 'Start'} → {left_dt.strftime('%b %d, %Y %H:%M') if left_dt else 'End'}",
                             "duration": tenure_str or "N/A",
                             "actor_name": u_name,
                             "actor_role": u_role,
@@ -917,7 +917,173 @@ def get_dashboard_data():
                 elif any(w in act_lower for w in ['approve', 'review', 'reject', 'close', 'closure']):
                     event_type = 'governance'
                     badge_color = 'green' if ('approve' in act_lower or 'close' in act_lower) else 'red'
-                   # 2. Inject synthesized baseline lifecycle logs for Circle Leadership & Roster
+                    transition_type = None
+                elif any(w in act_lower for w in ['meeting', 'attendance', 'scheduled', 'held']):
+                    event_type = 'meeting'
+                    badge_color = 'cyan'
+                    transition_type = None
+                else:
+                    event_type = 'data_entry' if any(w in act_lower for w in ['create', 'update', 'edit', 'input', 'field', 'draft', 'upload', 'attach', 'record', 'fill']) else 'activity'
+                    badge_color = 'blue' if event_type == 'data_entry' else 'secondary'
+                    transition_type = None
+
+                full_project_logs.append({
+                    "id": log.id,
+                    "user_id": log.user_id,
+                    "user_name": u_name,
+                    "user_role": u_role,
+                    "user_avatar": u_avatar,
+                    "action": log.action or "Project Action Logged",
+                    "details": det_str or f"Action performed by {u_name}",
+                    "event_type": event_type,
+                    "transition_type": transition_type,
+                    "badge_color": badge_color,
+                    "timestamp": log.created_at.strftime('%b %d, %Y %H:%M:%S') if log.created_at else "Recently",
+                    "iso_time": log.created_at.isoformat() if log.created_at else None
+                })
+
+            # 1b. Inject workflow stage data entries directly from ProjectWorkflow
+            SECTION_LABELS = {
+                'init': 'Project Charter & Objectives',
+                'team': 'Quality Circle Team Roster',
+                'project_team': 'Circle Team Members',
+                'background_5w2h': '5W2H Problem Background',
+                'problem_5w2h': '5W2H Problem Background',
+                'problem_statement': 'Problem Statement',
+                'current_performance': 'Baseline KPI Performance',
+                'justification': 'Project Justification',
+                'emergency_response': 'Emergency Containment Response',
+                'theme_target_schedule': 'Milestones & Target Schedule',
+                'containment_actions': 'Interim Containment Actions',
+                'data_collection_plan': 'Data Collection & Stratification Plan',
+                'gemba_observations': 'Gemba Observations & Evidence',
+                'process_observation': 'Gemba Process Observation',
+                'current_state': 'Current State Media & Evidence',
+                'interim_verification': 'Interim Verification Checks',
+                'standard_verification': 'Standard Verification Checks',
+                'brainstorming_ideas': 'Brainstorming Ideas',
+                'cause_and_effect': 'Ishikawa Fishbone Diagram',
+                'stratification_data': 'Stratification Data & Pareto',
+                'shortlisted_causes': 'Shortlisted Root Causes',
+                'five_why_analysis': '5-Why Root Cause Analysis',
+                'root_cause_verification': 'Root Cause Verification',
+                'escape_point_analysis': 'Escape Point Analysis',
+                'statistical_validation': 'Statistical Validation Tests',
+                'proposed_countermeasures': 'Proposed Countermeasures',
+                'solution_evaluation_matrix': 'Solution Evaluation Matrix',
+                'risk_assessment_fmea': 'FMEA Risk Assessment',
+                'action_plan_5w1h': '5W1H Action Plan',
+                'pilot_execution': 'Pilot Execution & Trial Run',
+                'full_scale_implementation': 'Full-Scale Implementation',
+                'training_and_sop': 'Training & Work Instructions',
+                'change_management_log': 'Change Management Log',
+                'before_after_comparison': 'Before vs After KPI Comparison',
+                'tangible_benefits': 'Tangible Cost Savings',
+                'intangible_benefits': 'Intangible Quality Benefits',
+                'sustainability_checks': 'Sustainability & Control Checks',
+                'sop': 'Standard Operating Procedure (SOP)',
+                'sop_standardization': 'SOP Standardization',
+                'horizontal_deployment': 'Horizontal Deployment (Yokoten)',
+                'lessons_learned': 'Lessons Learned & Best Practices',
+                'team_recognition': 'Team Recognition & Awards'
+            }
+
+            logged_stage_entry_ids = set()
+            for l in full_project_logs:
+                if l.get('event_type') == 'data_entry':
+                    act_txt = (l.get('action') or '').lower()
+                    for s_idx in range(1, 9):
+                        if f"stage {s_idx}" in act_txt:
+                            logged_stage_entry_ids.add(s_idx)
+
+            for wf in wf_entries:
+                if not wf.stage_id:
+                    continue
+                stg_num = wf.stage_id
+                stg_title, stg_desc, stg_icon = _get_stage_info(stg_num)
+                stg_data = wf.data if isinstance(wf.data, dict) else {}
+                
+                entered_sections = []
+                key_details = {}
+                for k, v in stg_data.items():
+                    if k in ('version_id', 'client_version_id', 'id', 'project_id', 'org_id'):
+                        continue
+                    lbl = SECTION_LABELS.get(k, k.replace('_', ' ').title())
+                    if v:
+                        if isinstance(v, dict):
+                            non_empty_items = [ik for ik, iv in v.items() if iv]
+                            if non_empty_items:
+                                entered_sections.append(lbl)
+                                for ik in ('project_title', 'theme', 'problem_statement', 'target_goal', 'circle_name'):
+                                    if ik in v and v[ik]:
+                                        key_details[ik.replace('_', ' ').title()] = str(v[ik])
+                        elif isinstance(v, list) and len(v) > 0:
+                            entered_sections.append(f"{lbl} ({len(v)} items)")
+                        else:
+                            entered_sections.append(lbl)
+                            if str(v).strip():
+                                key_details[lbl] = str(v)[:100]
+
+                if stg_num not in logged_stage_entry_ids or (stg_data and not any(f"wf_stg_{stg_num}" in str(l.get('id')) for l in full_project_logs)):
+                    stg_u_id = wf.updated_by or proj.team_leader_id or proj.creator_id
+                    stg_u = db.session.get(User, stg_u_id) if stg_u_id else None
+                    stg_u_name = (stg_u.full_name or stg_u.username) if stg_u else (mgr_name or "Circle Team")
+                    stg_u_role = stg_u.role.name if (stg_u and stg_u.role) else ("Team Leader" if stg_u_id == proj.team_leader_id else "Team Member")
+                    stg_u_avatar = f"https://ui-avatars.com/api/?name={stg_u_name.replace(' ', '+')}&background=3b82f6&color=fff"
+                    stg_dt = wf.updated_at or wf.completed_at or proj.created_at or datetime.now(timezone.utc).replace(tzinfo=None)
+
+                    summary_payload = {
+                        "stage": f"Stage {stg_num}: {stg_title}",
+                        "sections_updated": ", ".join(entered_sections) if entered_sections else f"Stage {stg_num} Workflow Parameters",
+                        "total_sections": len(entered_sections) if entered_sections else 1
+                    }
+                    summary_payload.update(key_details)
+
+                    full_project_logs.append({
+                        "id": f"wf_stg_{stg_num}_{wf.id}",
+                        "user_id": stg_u_id,
+                        "user_name": stg_u_name,
+                        "user_role": stg_u_role,
+                        "user_avatar": stg_u_avatar,
+                        "action": f"Stage {stg_num} Data Updated ({stg_title})",
+                        "details": json.dumps(summary_payload),
+                        "event_type": "data_entry",
+                        "transition_type": None,
+                        "badge_color": "blue",
+                        "timestamp": stg_dt.strftime('%b %d, %Y %H:%M:%S') if stg_dt else "Recently",
+                        "iso_time": stg_dt.isoformat() if stg_dt else None
+                    })
+                    logged_stage_entry_ids.add(stg_num)
+
+            # If project is active but no data_entry events exist at all, add baseline Stage 1 initiation
+            if not any(l.get('event_type') == 'data_entry' for l in full_project_logs):
+                init_dt = proj.created_at or datetime.now(timezone.utc).replace(tzinfo=None)
+                lead_u = proj.team_leader or proj.creator
+                l_name = (lead_u.full_name or lead_u.username) if lead_u else (mgr_name or "Team Leader")
+                l_role = lead_u.role.name if (lead_u and lead_u.role) else "Team Leader"
+                l_avatar = f"https://ui-avatars.com/api/?name={l_name.replace(' ', '+')}&background=3b82f6&color=fff"
+                init_payload = {
+                    "stage": "Stage 1: Problem Definition & Team Charter",
+                    "project_title": proj.title,
+                    "sections_updated": "Problem Identification, Team Charter, Initial Scope",
+                    "workflow_status": "Initiated & Draft Saved"
+                }
+                full_project_logs.append({
+                    "id": f"proj_init_de_{proj.id}",
+                    "user_id": lead_u.id if lead_u else None,
+                    "user_name": l_name,
+                    "user_role": l_role,
+                    "user_avatar": l_avatar,
+                    "action": "Stage 1 Project Charter & Problem Definition Initiated",
+                    "details": json.dumps(init_payload),
+                    "event_type": "data_entry",
+                    "transition_type": None,
+                    "badge_color": "blue",
+                    "timestamp": init_dt.strftime('%b %d, %Y %H:%M:%S') if init_dt else "Recently",
+                    "iso_time": init_dt.isoformat() if init_dt else None
+                })
+
+            # 2. Inject synthesized baseline lifecycle logs for Circle Leadership & Roster
             pw_s1 = ProjectWorkflow.query.filter_by(project_id=target_project_id, stage_id=1).first()
             d1_data = pw_s1.data if (pw_s1 and isinstance(pw_s1.data, dict)) else {}
             init_s1 = d1_data.get('init') or {}
