@@ -1866,20 +1866,41 @@ const SupportDesk = {
     async openTicket(ticketId) {
         this.currentTicketId = ticketId;
         try {
+            const modalEl = this.ensureModalInBody('sdTicketDetailModal');
             const res = await api.get(`/support/tickets/${ticketId}`);
-            if (res.status === 'success') {
+            if (res && res.status === 'success') {
                 const t = res.data;
                 
-                document.getElementById('sdModalTicketNumber').textContent = t.ticket_number;
-                document.getElementById('sdModalSubject').textContent = t.subject;
-                document.getElementById('sdModalRequester').textContent = `Raised by: ${t.requester.name} (${t.requester.email})`;
-                document.getElementById('sdModalDate').textContent = `Raised: ${OctaQube.formatDate(t.created_at)}`;
-                document.getElementById('sdModalDesc').textContent = t.description;
+                const elNum = document.getElementById('sdModalTicketNumber');
+                if (elNum) elNum.textContent = t.ticket_number || `TKT-${t.id}`;
+                
+                const elSub = document.getElementById('sdModalSubject');
+                if (elSub) elSub.textContent = t.subject || 'Ticket Details';
+                
+                const elReq = document.getElementById('sdModalRequester');
+                if (elReq) {
+                    const rName = (t.requester && t.requester.name) ? t.requester.name : 'Unknown';
+                    const rEmail = (t.requester && t.requester.email && t.requester.email !== 'N/A') ? ` (${t.requester.email})` : '';
+                    elReq.textContent = `Raised by: ${rName}${rEmail}`;
+                }
+                
+                const elDate = document.getElementById('sdModalDate');
+                if (elDate) {
+                    elDate.textContent = t.created_at ? `Raised: ${OctaQube.formatDate(t.created_at)}` : '';
+                }
+                
+                const elDesc = document.getElementById('sdModalDesc');
+                if (elDesc) elDesc.textContent = t.description || '';
 
                 // Set drop downs
-                document.getElementById('sdModalPriority').value = t.priority;
-                document.getElementById('sdModalStatus').value = t.status;
-                document.getElementById('sdModalCategory').value = t.category;
+                const elPri = document.getElementById('sdModalPriority');
+                if (elPri && t.priority) elPri.value = t.priority;
+                
+                const elStat = document.getElementById('sdModalStatus');
+                if (elStat && t.status) elStat.value = t.status;
+                
+                const elCat = document.getElementById('sdModalCategory');
+                if (elCat && t.category) elCat.value = t.category;
 
                 // Render uploaded attachments
                 const attWrapper = document.getElementById('sdModalAttachmentsWrapper');
@@ -1914,27 +1935,35 @@ const SupportDesk = {
                 }
 
                 // Load timeline comments
-                this.renderComments(t.comments);
+                this.renderComments(t.comments || []);
 
                 // Render SLA configurations
                 const slaBlock = document.getElementById('sdModalSlaBlock');
-                if (t.sla && t.sla.first_response_due) {
-                    slaBlock.innerHTML = `
-                        <div class="text-xs text-white">First Response Due: <span class="fw-bold">${OctaQube.formatDate(t.sla.first_response_due)}</span></div>
-                        <div class="text-xs text-secondary mt-1">Resolution Due: <span class="fw-bold">${OctaQube.formatDate(t.sla.resolution_due)}</span></div>
-                        <div class="text-xxs text-warning fw-bold mt-1.5">Timer Status: ${t.sla.is_paused ? 'PAUSED (Awaiting Customer)' : 'RUNNING'}</div>
-                    `;
-                } else {
-                    slaBlock.innerHTML = `<span class="text-xs text-muted">No SLA configured for this ticket category</span>`;
+                if (slaBlock) {
+                    if (t.sla && t.sla.first_response_due) {
+                        slaBlock.innerHTML = `
+                            <div class="text-xs text-white">First Response Due: <span class="fw-bold">${OctaQube.formatDate(t.sla.first_response_due)}</span></div>
+                            <div class="text-xs text-secondary mt-1">Resolution Due: <span class="fw-bold">${OctaQube.formatDate(t.sla.resolution_due)}</span></div>
+                            <div class="text-xxs text-warning fw-bold mt-1.5">Timer Status: ${t.sla.is_paused ? 'PAUSED (Awaiting Customer)' : 'RUNNING'}</div>
+                        `;
+                    } else {
+                        slaBlock.innerHTML = `<span class="text-xs text-muted">No SLA configured for this ticket category</span>`;
+                    }
+                }
+
+                if (window.lucide && modalEl) {
+                    window.lucide.createIcons({ container: modalEl });
                 }
 
                 // Show modal
-                const modalEl = this.ensureModalInBody('sdTicketDetailModal');
                 const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
                 modal.show();
+            } else {
+                OctaQube.toast(res?.message || 'Failed to load ticket details', 'error');
             }
         } catch (e) {
-            OctaQube.toast('Failed to load ticket details', 'error');
+            console.error('[SupportDesk] openTicket error:', e);
+            OctaQube.toast(e.message || 'Failed to load ticket details', 'error');
         }
     },
 

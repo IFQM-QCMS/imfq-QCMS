@@ -476,47 +476,47 @@ def get_ticket_details(ticket_id):
             "uploaded_at": att.uploaded_at.isoformat() if hasattr(att, 'uploaded_at') and att.uploaded_at else ""
         })
 
-        eng_name = "Unassigned"
-        if ticket.assigned_engineer:
-            if ticket.assigned_engineer.full_name and ticket.assigned_engineer.full_name.strip() and ticket.assigned_engineer.full_name.strip() != '—':
-                eng_name = ticket.assigned_engineer.full_name.strip()
-            elif ticket.assigned_engineer.username:
-                e_uname = ticket.assigned_engineer.username.strip()
-                eng_name = e_uname.split('@')[0] if '@' in e_uname else e_uname
+    eng_name = "Unassigned"
+    if ticket.assigned_engineer:
+        if ticket.assigned_engineer.full_name and ticket.assigned_engineer.full_name.strip() and ticket.assigned_engineer.full_name.strip() != '—':
+            eng_name = ticket.assigned_engineer.full_name.strip()
+        elif ticket.assigned_engineer.username:
+            e_uname = ticket.assigned_engineer.username.strip()
+            eng_name = e_uname.split('@')[0] if '@' in e_uname else e_uname
 
-        req_name = "N/A"
-        req_email = "N/A"
-        if ticket.user:
-            req_email = ticket.user.email or "N/A"
-            if ticket.user.full_name and ticket.user.full_name.strip() and ticket.user.full_name.strip() != '—':
-                req_name = ticket.user.full_name.strip()
-            elif ticket.user.username:
-                uname = ticket.user.username.strip()
-                req_name = uname.split('@')[0] if '@' in uname else uname
-            elif req_email != "N/A":
-                req_name = req_email.split('@')[0]
+    req_name = "N/A"
+    req_email = "N/A"
+    if ticket.user:
+        req_email = ticket.user.email or "N/A"
+        if ticket.user.full_name and ticket.user.full_name.strip() and ticket.user.full_name.strip() != '—':
+            req_name = ticket.user.full_name.strip()
+        elif ticket.user.username:
+            uname = ticket.user.username.strip()
+            req_name = uname.split('@')[0] if '@' in uname else uname
+        elif req_email != "N/A":
+            req_name = req_email.split('@')[0]
 
-        return jsonify({
-            "status": "success",
-            "data": {
-                "id": ticket.id,
-                "ticket_number": ticket.ticket_number or f"TKT-{ticket.id:06d}",
-                "subject": ticket.subject,
-                "description": ticket.message,
-                "priority": ticket.priority,
-                "status": ticket.status,
-                "category": ticket.category,
-                "created_at": ticket.created_at.isoformat() if ticket.created_at else "",
-                "resolved_at": ticket.resolved_at.isoformat() if ticket.resolved_at else None,
-                "resolution": ticket.resolution,
-                "assigned_engineer": eng_name,
-                "assigned_team": ticket.assigned_team or "Support Desk",
-                "tags": ticket.tags or [],
-                "attachments": ticket_att_list,
-                "requester": {
-                    "name": req_name,
-                    "email": req_email
-                },
+    return jsonify({
+        "status": "success",
+        "data": {
+            "id": ticket.id,
+            "ticket_number": ticket.ticket_number or f"TKT-{ticket.id:06d}",
+            "subject": ticket.subject,
+            "description": ticket.message,
+            "priority": ticket.priority,
+            "status": ticket.status,
+            "category": ticket.category,
+            "created_at": ticket.created_at.isoformat() if ticket.created_at else "",
+            "resolved_at": ticket.resolved_at.isoformat() if ticket.resolved_at else None,
+            "resolution": ticket.resolution,
+            "assigned_engineer": eng_name,
+            "assigned_team": ticket.assigned_team or "Support Desk",
+            "tags": ticket.tags or [],
+            "attachments": ticket_att_list,
+            "requester": {
+                "name": req_name,
+                "email": req_email
+            },
             "organization": {
                 "id": org.id if org else None,
                 "name": org.name if org else "N/A",

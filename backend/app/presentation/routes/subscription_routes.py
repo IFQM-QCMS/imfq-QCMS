@@ -2981,54 +2981,65 @@ def deactivate_plan(plan_id):
     return jsonify({'status': 'success', 'message': 'Plan deactivated successfully'})
 
 
-# ==============================================================================
-# [DEAD CODE - UNUSED BY FRONTEND / REMOVED FEATURE]
-# Function: delete_plan (Lines 2884-2925)
-# Reason: Hard plan deletion.
-# ==============================================================================
-# @subscription_bp.route('/plans/<int:plan_id>', methods=['DELETE'])
-# @jwt_required()
-# def delete_plan(plan_id):
-#     user = _get_current_user()
-#     err = _require_super_admin(user)
-#     if err:
-#         return err
+@subscription_bp.route('/plans/<int:plan_id>', methods=['DELETE'])
+@jwt_required()
+def delete_plan(plan_id):
+    user = _get_current_user()
+    err = _require_super_admin(user)
+    if err:
+        return err
 
-#     plan = SaaSPlan.query.get_or_404(plan_id)
+    plan = db.session.get(SaaSPlan, plan_id) if hasattr(db.session, 'get') else SaaSPlan.query.get(plan_id)
+    if not plan:
+        return jsonify({'status': 'error', 'message': 'Plan not found'}), 404
 
-#     is_trial_plan = getattr(plan, 'is_default_trial', False) or (plan.plan_type and 'trial' in plan.plan_type.lower()) or (plan.code and plan.code.lower() in ['t1', 'trial', 'trial_default'])
-#     if is_trial_plan:
-#         err_msg = "System default trial plan cannot be deleted."
-#         return jsonify({'status': 'error', 'error': err_msg, 'message': err_msg}), 400
+    is_trial_plan = getattr(plan, 'is_default_trial', False) or (plan.plan_type and 'trial' in plan.plan_type.lower()) or (plan.code and plan.code.lower() in ['t1', 'trial', 'trial_default'])
+    if is_trial_plan:
+        err_msg = "System default trial plan cannot be deleted."
+        return jsonify({'status': 'error', 'error': err_msg, 'message': err_msg}), 400
 
-#     # Prevent deleting plans with active subscribers
-#     org_subscribers = Organization.query.filter(
-#         (Organization.is_deleted == False) &
-#         (Organization.is_platform_org == False) &
-#         (
-#             (func.lower(func.trim(Organization.subscription_plan)) == plan.name.strip().lower()) |
-#             (func.lower(func.trim(Organization.subscription_plan)) == plan.code.strip().lower())
-#         )
-#     ).count()
-#     active_subs = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
-#         (Organization.is_deleted == False) &
-#         (Organization.is_platform_org == False) &
-#         (
-#             (func.lower(func.trim(Subscription.plan_name)) == plan.name.strip().lower()) |
-#             (func.lower(func.trim(Subscription.plan_name)) == plan.code.strip().lower())
-#         ) &
-#         (Subscription.subscription_status.in_(['Active', 'Trial', 'Grace Period']))
-#     ).count()
-#     subscribers = max(org_subscribers, active_subs)
-#     if subscribers > 0:
-#         err_msg = f"Cannot delete plan '{plan.name}' because it has {subscribers} active subscriber(s). Please reassign or cancel those subscriptions first."
-#         return jsonify({'error': err_msg, 'message': err_msg}), 400
+    # Prevent deleting plans with active subscribers
+    org_subscribers = Organization.query.filter(
+        (Organization.is_deleted == False) &
+        (Organization.is_platform_org == False) &
+        (
+            (func.lower(func.trim(Organization.subscription_plan)) == plan.name.strip().lower()) |
+            (func.lower(func.trim(Organization.subscription_plan)) == plan.code.strip().lower())
+        )
+    ).count()
+    active_subs = Subscription.query.join(Organization, Subscription.org_id == Organization.id).filter(
+        (Organization.is_deleted == False) &
+        (Organization.is_platform_org == False) &
+        (
+            (func.lower(func.trim(Subscription.plan_name)) == plan.name.strip().lower()) |
+            (func.lower(func.trim(Subscription.plan_name)) == plan.code.strip().lower())
+        ) &
+        (Subscription.subscription_status.in_(['Active', 'Trial', 'Grace Period']))
+    ).count()
+    subscribers = max(org_subscribers, active_subs)
+    if subscribers > 0:
+        err_msg = f"Cannot delete plan '{plan.name}' because it has {subscribers} active subscriber(s). Please reassign or cancel those subscriptions first."
+        return jsonify({'status': 'error', 'error': err_msg, 'message': err_msg}), 400
 
-#     db.session.delete(plan)
-#     db.session.commit()
-#     _log(user, 'DELETE_PLAN', 'SaaSPlan', plan_id, {'name': plan.name}, None)
-#     return jsonify({'status': 'success', 'message': 'Plan deleted successfully'})
-# [END DEAD CODE: delete_plan]
+    plan_name = plan.name
+    plan_code = plan.code
+
+    db.session.delete(plan)
+    db.session.commit()
+    _log(user, 'DELETE_PLAN', 'SaaSPlan', plan_id, {'name': plan_name, 'code': plan_code}, None)
+    try:
+        from app.presentation.routes.audit_routes import log_audit_event
+        log_audit_event(
+            org_id=user.org_id if user else None,
+            user_id=user.id if user else None,
+            action="DELETE_PLAN",
+            target_table="saas_plans",
+            target_id=plan_id,
+            details={"name": plan_name, "code": plan_code}
+        )
+    except Exception:
+        pass
+    return jsonify({'status': 'success', 'message': 'Plan deleted successfully'})
 
 
 
