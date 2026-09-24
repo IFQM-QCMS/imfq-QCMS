@@ -1125,28 +1125,93 @@
                 const toInput = document.getElementById('customDateTo');
                 if (toInput) toInput.value = fyInfo.fyToDate;
 
-                if (window.lucide) lucide.createIcons({ container: menuEl });
+                if (window.lucide && typeof lucide.createIcons === 'function') {
+                    try { lucide.createIcons(); } catch (_) {}
+                }
+            },
+
+            renderKpiCard(label, val, icon, color = 'blue') {
+                if (window.OctaQube && typeof window.OctaQube.kpiCard === 'function') {
+                    try {
+                        return window.OctaQube.kpiCard(label, val, icon, color);
+                    } catch (e) {
+                        console.warn('[Analytics] OctaQube.kpiCard call failed, using inline card fallback:', e);
+                    }
+                }
+                const hexMap = {
+                    blue: '#2563eb', green: '#10b981', red: '#ef4444',
+                    orange: '#f59e0b', purple: '#8b5cf6', cyan: '#06b6d4', gray: '#64748b'
+                };
+                const hexColor = hexMap[color] || '#2563eb';
+                return `
+                    <div class="glass-card fade-in h-100" style="border-radius: 12px; min-width: 0;">
+                        <div class="ds-card-body p-3 kpi-card-body" style="position: relative; z-index: 1;">
+                            <div class="kpi-icon-row mb-2" style="display:flex; align-items:center; justify-content:space-between;">
+                                <div class="kpi-icon-box" style="width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: rgba(37,99,235, 0.12); color: ${hexColor}; border: 1px solid rgba(37,99,235, 0.2)">
+                                    <i data-lucide="${icon || 'hash'}" style="width:16px; height:16px;"></i>
+                                </div>
+                            </div>
+                            <div class="kpi-label mb-1" style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary, #64748b);">
+                                ${label}
+                            </div>
+                            <div class="kpi-value fw-bold" style="font-size: 1.4rem; letter-spacing: -0.02em; color: var(--ds-text-main, #0f172a);">
+                                ${val !== null && val !== undefined ? val : 0}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            showKpiLoadingPlaceholders() {
+                const kpiIds = [
+                    'kpi-total', 'kpi-completed', 'kpi-inprogress', 'kpi-stopped', 'kpi-delayed',
+                    'kpi-completion-rate', 'kpi-employees', 'kpi-qc-workforce', 'kpi-savings', 'kpi-delivery-time'
+                ];
+                kpiIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && !el.innerHTML.trim()) {
+                        el.innerHTML = `
+                            <div class="glass-card fade-in h-100" style="border-radius: 12px; min-width: 0; min-height: 98px;">
+                                <div class="ds-card-body p-3 kpi-card-body d-flex flex-column justify-content-between h-100">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="spinner-border spinner-border-sm text-primary opacity-50" role="status" style="width: 14px; height: 14px;"></div>
+                                    </div>
+                                    <div class="placeholder-glow">
+                                        <div class="placeholder col-8 bg-secondary opacity-25 rounded mb-2" style="height: 10px;"></div>
+                                        <div class="placeholder col-5 bg-primary opacity-25 rounded" style="height: 22px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
             },
 
             async init() {
-                if (window.OctaQube) OctaQube.init();
+                try {
+                    if (window.OctaQube && typeof OctaQube.init === 'function') OctaQube.init();
 
-                // Setup dynamic Financial Year based on system/calendar date
-                const fyInfo = this.getFinancialYearInfo();
-                this.currentFilter = {
-                    days: 0,
-                    fromDate: fyInfo.fyFromDate,
-                    toDate: fyInfo.fyToDate,
-                    label: fyInfo.fyLabel,
-                    subLabel: fyInfo.fySubLabel
-                };
+                    // Setup dynamic Financial Year based on system/calendar date
+                    const fyInfo = this.getFinancialYearInfo();
+                    this.currentFilter = {
+                        days: 0,
+                        fromDate: fyInfo.fyFromDate,
+                        toDate: fyInfo.fyToDate,
+                        label: fyInfo.fyLabel,
+                        subLabel: fyInfo.fySubLabel
+                    };
 
-                this.renderFinancialYearDropdown();
+                    this.renderFinancialYearDropdown();
+                    this.showKpiLoadingPlaceholders();
+                } catch (e) {
+                    console.error('[Analytics] Error setting up initial filters:', e);
+                }
 
-                // Load initial dashboard data for the dynamically active current Financial Year
-                await this.loadDashboardData(0, this.currentFilter.fromDate, this.currentFilter.toDate);
-                await this.loadProjectsList();
-                this.loadProjectRoster(1);
+                // Initial loading placeholder in project roster table
+                const rosterBody = document.getElementById('projectRosterTableBody');
+                if (rosterBody && !rosterBody.innerHTML.trim()) {
+                    rosterBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div> Loading project performance data...</td></tr>';
+                }
 
                 // Auto focus search input when project dropdown opens
                 const dropdownWrapper = document.getElementById('projectDropdownWrapper');
@@ -1159,13 +1224,25 @@
 
                 const urlParams = new URLSearchParams(window.location.search);
                 const projectIdParam = urlParams.get('project') || urlParams.get('id');
+
+                // Concurrent and fault-isolated initialization of data fetches
+                await Promise.allSettled([
+                    this.loadDashboardData(0, this.currentFilter?.fromDate, this.currentFilter?.toDate),
+                    this.loadProjectsList(),
+                    this.loadProjectRoster(1)
+                ]);
+
                 if (projectIdParam) {
                     this.setScope('individual');
                     this.selectProjectFromDropdown(projectIdParam);
                 }
 
-                if (window.lucide) lucide.createIcons();
-                if (window.i18n) window.i18n.translatePage();
+                if (window.lucide && typeof lucide.createIcons === 'function') {
+                    try { lucide.createIcons(); } catch (_) {}
+                }
+                if (window.i18n && typeof window.i18n.translatePage === 'function') {
+                    try { window.i18n.translatePage(); } catch (_) {}
+                }
             },
 
             async loadDashboardData(days = 0, fromDate = null, toDate = null) {
@@ -1183,7 +1260,11 @@
                     this.renderDashboard(this.currentDashboardData);
                 } catch (err) {
                     console.error('[Analytics] Error loading dashboard:', err);
-                    this.renderDashboard({});
+                    try {
+                        this.renderDashboard({});
+                    } catch (renderErr) {
+                        console.error('[Analytics] Error during fallback renderDashboard:', renderErr);
+                    }
                 }
             },
 
@@ -1195,86 +1276,105 @@
             },
 
             renderOverallKPIs(summary) {
-                summary = summary || {};
-                const total = summary.total_projects || 0;
-                const closed = summary.closed_projects || 0;
-                const inProg = summary.in_progress_projects || 0;
-                const stopped = summary.stopped_projects !== undefined ? summary.stopped_projects : (summary.rejected_projects || 0);
-                const delayed = summary.delayed_projects || 0;
-                const compRate = summary.success_rate || (total > 0 ? Math.round((closed / total) * 100) : 0);
-                const totalEmp = summary.total_employees !== undefined ? summary.total_employees : (summary.active_employees || 0);
-                const qcEmp = summary.qc_employees !== undefined ? summary.qc_employees : (summary.qc_project_employees || 0);
-                const qcRate = summary.qc_participation_rate !== undefined ? summary.qc_participation_rate : (totalEmp > 0 ? Math.round((qcEmp / totalEmp) * 100) : 0);
-                const totalSav = summary.total_savings || 0;
-                const avgVel = (summary && summary.avg_velocity !== undefined && summary.avg_velocity !== null) ? summary.avg_velocity : 0;
+                try {
+                    summary = summary || {};
+                    const total = summary.total_projects || 0;
+                    const closed = summary.closed_projects || 0;
+                    const inProg = summary.in_progress_projects || 0;
+                    const stopped = summary.stopped_projects !== undefined ? summary.stopped_projects : (summary.rejected_projects || 0);
+                    const delayed = summary.delayed_projects || 0;
+                    const compRate = summary.success_rate || (total > 0 ? Math.round((closed / total) * 100) : 0);
+                    const totalEmp = summary.total_employees !== undefined ? summary.total_employees : (summary.active_employees || 0);
+                    const qcEmp = summary.qc_employees !== undefined ? summary.qc_employees : (summary.qc_project_employees || 0);
+                    const qcRate = summary.qc_participation_rate !== undefined ? summary.qc_participation_rate : (totalEmp > 0 ? Math.round((qcEmp / totalEmp) * 100) : 0);
+                    const totalSav = summary.total_savings || 0;
+                    const avgVel = (summary && summary.avg_velocity !== undefined && summary.avg_velocity !== null) ? summary.avg_velocity : 0;
 
-                const setKpi = (id, label, val, icon, color) => {
-                    const el = document.getElementById(id);
-                    if (el) el.innerHTML = OctaQube.kpiCard(label, val, icon, color);
-                };
+                    const setKpi = (id, label, val, icon, color) => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            try {
+                                el.innerHTML = this.renderKpiCard(label, val, icon, color);
+                            } catch (kpiErr) {
+                                console.error(`[Analytics] Failed to set KPI for ${id}:`, kpiErr);
+                            }
+                        }
+                    };
 
-                setKpi('kpi-total', 'Total Projects', total, 'briefcase', 'blue');
-                setKpi('kpi-completed', 'Completed Projects', closed, 'check-circle', 'green');
-                setKpi('kpi-inprogress', 'Active Projects', inProg, 'clock', 'purple');
-                setKpi('kpi-stopped', 'Stopped Projects', stopped, 'x-circle', 'red');
-                setKpi('kpi-delayed', 'Delayed Projects', delayed, 'alert-triangle', 'orange');
-                setKpi('kpi-completion-rate', 'Completion Rate', `${compRate}%`, 'pie-chart', 'cyan');
+                    setKpi('kpi-total', 'Total Projects', total, 'briefcase', 'blue');
+                    setKpi('kpi-completed', 'Completed Projects', closed, 'check-circle', 'green');
+                    setKpi('kpi-inprogress', 'Active Projects', inProg, 'clock', 'purple');
+                    setKpi('kpi-stopped', 'Stopped Projects', stopped, 'x-circle', 'red');
+                    setKpi('kpi-delayed', 'Delayed Projects', delayed, 'alert-triangle', 'orange');
+                    setKpi('kpi-completion-rate', 'Completion Rate', `${compRate}%`, 'pie-chart', 'cyan');
 
-                // Total Employees Card
-                const empEl = document.getElementById('kpi-employees');
-                if (empEl) {
-                    empEl.innerHTML = `
-                    <div class="glass-card fade-in h-100" style="border-radius: 12px; min-width: 0;" title="Total registered employees in organization: ${totalEmp}">
-                        <div class="ds-card-body p-3 kpi-card-body" style="position: relative; z-index: 1;">
-                            <div class="kpi-icon-row mb-2" style="display:flex; align-items:center; justify-content:space-between;">
-                                <div class="kpi-icon-box" style="width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: rgba(37,99,235, 0.12); color: #2563eb; border: 1px solid rgba(37,99,235, 0.2)">
-                                    <i data-lucide="users" style="width:16px; height:16px;"></i>
+                    // Total Employees Card
+                    const empEl = document.getElementById('kpi-employees');
+                    if (empEl) {
+                        empEl.innerHTML = `
+                        <div class="glass-card fade-in h-100" style="border-radius: 12px; min-width: 0;" title="Total registered employees in organization: ${totalEmp}">
+                            <div class="ds-card-body p-3 kpi-card-body" style="position: relative; z-index: 1;">
+                                <div class="kpi-icon-row mb-2" style="display:flex; align-items:center; justify-content:space-between;">
+                                    <div class="kpi-icon-box" style="width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: rgba(37,99,235, 0.12); color: #2563eb; border: 1px solid rgba(37,99,235, 0.2)">
+                                        <i data-lucide="users" style="width:16px; height:16px;"></i>
+                                    </div>
+                                    <div class="badge text-xxs" style="font-size: 10px; font-weight: 600; color: #10b981; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px;">
+                                        <i data-lucide="user-check" style="width:10px;height:10px;"></i> ${qcEmp} in QC
+                                    </div>
                                 </div>
-                                <div class="badge text-xxs" style="font-size: 10px; font-weight: 600; color: #10b981; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px;">
-                                    <i data-lucide="user-check" style="width:10px;height:10px;"></i> ${qcEmp} in QC
+                                <div class="kpi-label mb-1" style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary, #64748b);">
+                                    Total Employees
+                                </div>
+                                <div class="kpi-value fw-bold" style="font-size: 1.4rem; letter-spacing: -0.02em; color: var(--ds-text-main, #0f172a);">
+                                    ${totalEmp}
                                 </div>
                             </div>
-                            <div class="kpi-label mb-1" style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary);">
-                                Total Employees
+                        </div>`;
+                    }
+
+                    // Dedicated QC Project Workforce Card
+                    const qcWorkforceEl = document.getElementById('kpi-qc-workforce');
+                    if (qcWorkforceEl) {
+                        qcWorkforceEl.innerHTML = `
+                        <div class="glass-card fade-in h-100" style="border-radius: 12px; min-width: 0;" title="Employees actively assigned to QC project teams (${qcEmp} of ${totalEmp})">
+                            <div class="ds-card-body p-3 kpi-card-body" style="position: relative; z-index: 1;">
+                                <div class="kpi-icon-row mb-2" style="display:flex; align-items:center; justify-content:space-between;">
+                                    <div class="kpi-icon-box" style="width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: rgba(139,92,246, 0.12); color: #8b5cf6; border: 1px solid rgba(139,92,246, 0.2)">
+                                        <i data-lucide="award" style="width:16px; height:16px;"></i>
+                                    </div>
+                                    <div class="badge text-xxs" style="font-size: 10px; font-weight: 600; color: #8b5cf6; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25); padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px;">
+                                        <i data-lucide="activity" style="width:10px;height:10px;"></i> ${qcRate}% Assigned
+                                    </div>
+                                </div>
+                                <div class="kpi-label mb-1" style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary, #64748b);">
+                                    QC Workforce
+                                </div>
+                                <div class="kpi-value fw-bold" style="font-size: 1.4rem; letter-spacing: -0.02em; color: var(--ds-text-main, #0f172a);">
+                                    ${qcEmp} <span style="font-size: 0.85rem; font-weight: 500; color: var(--ds-text-muted, #94a3b8);">/ ${totalEmp}</span>
+                                </div>
                             </div>
-                            <div class="kpi-value fw-bold" style="font-size: 1.4rem; letter-spacing: -0.02em; color: var(--ds-text-main);">
-                                ${totalEmp}
-                            </div>
-                        </div>
-                    </div>`;
+                        </div>`;
+                    }
+
+                    const formattedSav = (window.OctaQube && typeof OctaQube.formatINR === 'function') 
+                        ? OctaQube.formatINR(totalSav) 
+                        : ('₹' + Number(totalSav || 0).toLocaleString('en-IN'));
+                    setKpi('kpi-savings', 'Total Cost Savings', formattedSav, 'indian-rupee', 'green');
+                    setKpi('kpi-delivery-time', 'Avg Delivery Time', `${avgVel} Days`, 'zap', 'purple');
+
+                    if (window.lucide && typeof lucide.createIcons === 'function') {
+                        try { lucide.createIcons(); } catch (_) {}
+                    }
+                } catch (e) {
+                    console.error('[Analytics] Error rendering overall KPIs:', e);
                 }
-
-                // Dedicated QC Project Workforce Card
-                const qcWorkforceEl = document.getElementById('kpi-qc-workforce');
-                if (qcWorkforceEl) {
-                    qcWorkforceEl.innerHTML = `
-                    <div class="glass-card fade-in h-100" style="border-radius: 12px; min-width: 0;" title="Employees actively assigned to QC project teams (${qcEmp} of ${totalEmp})">
-                        <div class="ds-card-body p-3 kpi-card-body" style="position: relative; z-index: 1;">
-                            <div class="kpi-icon-row mb-2" style="display:flex; align-items:center; justify-content:space-between;">
-                                <div class="kpi-icon-box" style="width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: rgba(139,92,246, 0.12); color: #8b5cf6; border: 1px solid rgba(139,92,246, 0.2)">
-                                    <i data-lucide="award" style="width:16px; height:16px;"></i>
-                                </div>
-                                <div class="badge text-xxs" style="font-size: 10px; font-weight: 600; color: #8b5cf6; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25); padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px;">
-                                    <i data-lucide="activity" style="width:10px;height:10px;"></i> ${qcRate}% Assigned
-                                </div>
-                            </div>
-                            <div class="kpi-label mb-1" style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary);">
-                                QC Workforce
-                            </div>
-                            <div class="kpi-value fw-bold" style="font-size: 1.4rem; letter-spacing: -0.02em; color: var(--ds-text-main);">
-                                ${qcEmp} <span style="font-size: 0.85rem; font-weight: 500; color: var(--ds-text-muted);">/ ${totalEmp}</span>
-                            </div>
-                        </div>
-                    </div>`;
-                }
-
-                setKpi('kpi-savings', 'Total Cost Savings', (window.OctaQube && OctaQube.formatINR ? OctaQube.formatINR(totalSav) : ('₹' + totalSav)), 'indian-rupee', 'green');
-                setKpi('kpi-delivery-time', 'Avg Delivery Time', `${avgVel} Days`, 'zap', 'purple');
-
-                if (window.lucide) lucide.createIcons();
             },
 
             async loadProjectRoster(page = 1) {
+                const body = document.getElementById('projectRosterTableBody');
+                if (body && (!body.innerHTML.trim() || body.innerHTML.includes('Failed to load'))) {
+                    body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div> Loading project performance data...</td></tr>';
+                }
                 try {
                     this.rosterPage = page;
                     const search = (document.getElementById('rosterSearchInput')?.value || '').trim();
@@ -1300,8 +1400,12 @@
                     this.renderRosterPagination();
                 } catch (e) {
                     console.error('[Analytics] Failed to load roster:', e);
-                    const body = document.getElementById('projectRosterTableBody');
-                    if (body) body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger">Failed to load project performance data.</td></tr>';
+                    if (body) {
+                        body.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger"><i data-lucide="alert-circle" class="me-1"></i> Failed to load project performance data. <button class="btn btn-xs btn-outline-primary ms-2" onclick="Analytics.loadProjectRoster(' + page + ')">Retry</button></td></tr>';
+                    }
+                    if (window.lucide && typeof lucide.createIcons === 'function') {
+                        try { lucide.createIcons(); } catch (_) {}
+                    }
                 }
             },
 
@@ -1589,7 +1693,7 @@
                 // 6 KPIs
                 const setIndKpi = (id, label, val, icon, color) => {
                     const el = document.getElementById(id);
-                    if (el) el.innerHTML = OctaQube.kpiCard(label, val, icon, color);
+                    if (el) el.innerHTML = this.renderKpiCard(label, val, icon, color);
                 };
 
                 setIndKpi('indKpiDaysLeft', 'Days Remaining', `${kpis.days_remaining || 0} Days`, 'calendar', 'orange');
@@ -1745,14 +1849,11 @@ const uid = proj.project_uid || ('PRJ-' + proj.id);
                 const dataEntryCount = allLogs.filter(l => l.event_type === 'data_entry').length;
                 const govCount = allLogs.filter(l => l.event_type === 'governance').length;
 
-                const btnAll = document.querySelector('#auditLogFilterGroup button[onclick*="'all'"]');
-                const btnMem = document.querySelector('#auditLogFilterGroup button[onclick*="'member_lifecycle'"]');
-                const btnData = document.querySelector('#auditLogFilterGroup button[onclick*="'data_entry'"]');
-                const btnGov = document.querySelector('#auditLogFilterGroup button[onclick*="'governance'"]');
-                if (btnAll) btnAll.innerHTML = `All Events <span class="badge bg-secondary-subtle text-secondary ms-1">${allCount}</span>`;
-                if (btnMem) btnMem.innerHTML = `Member Lifecycle <span class="badge bg-primary-subtle text-primary ms-1">${memberCount}</span>`;
-                if (btnData) btnData.innerHTML = `Data Entries <span class="badge bg-info-subtle text-info ms-1">${dataEntryCount}</span>`;
-                if (btnGov) btnGov.innerHTML = `Approvals <span class="badge bg-success-subtle text-success ms-1">${govCount}</span>`;
+                const filterBtns = document.querySelectorAll('#auditLogFilterGroup button');
+                if (filterBtns[0]) filterBtns[0].innerHTML = `All Events <span class="badge bg-secondary-subtle text-secondary ms-1">${allCount}</span>`;
+                if (filterBtns[1]) filterBtns[1].innerHTML = `Member Lifecycle <span class="badge bg-primary-subtle text-primary ms-1">${memberCount}</span>`;
+                if (filterBtns[2]) filterBtns[2].innerHTML = `Data Entries <span class="badge bg-info-subtle text-info ms-1">${dataEntryCount}</span>`;
+                if (filterBtns[3]) filterBtns[3].innerHTML = `Approvals <span class="badge bg-success-subtle text-success ms-1">${govCount}</span>`;
 
                 let logs = allLogs;
                 if (filterType !== 'all') {
