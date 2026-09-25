@@ -615,7 +615,7 @@ const Stage6 = {
         let fileName = cleanVal(d.file_name || d.filename || '');
 
         if (!fileUrl && link) {
-            if (link.startsWith('/uploads/') || link.startsWith('uploads/') || link.startsWith('ev_') || link.startsWith('http://') || link.startsWith('https://') || link.startsWith('blob:') || link.startsWith('data:') || /\.(pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|webp|svg|txt|csv)($|\?)/i.test(link)) {
+            if (link.startsWith('/uploads/') || link.startsWith('uploads/') || link.startsWith('ev_') || link.startsWith('http://') || link.startsWith('https://') || link.startsWith('blob:') || link.startsWith('data:')) {
                 fileUrl = link.startsWith('uploads/') ? '/' + link : link;
             }
         }
@@ -750,16 +750,22 @@ const Stage6 = {
         const linkVal = (linkInput?.value || '').trim();
         const docName = (nameInput?.value || fileNameInput?.value || 'Evidence Attachment').trim();
 
-        // 1. If targetUrl not set, check if linkVal is an actual URL or file path
-        if (!targetUrl && linkVal) {
-            if (linkVal.startsWith('/uploads/') || linkVal.startsWith('uploads/') || linkVal.startsWith('http://') || linkVal.startsWith('https://') || linkVal.startsWith('blob:') || linkVal.startsWith('data:') || /\.(pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|webp|svg|txt|csv)($|\?)/i.test(linkVal)) {
-                targetUrl = linkVal.startsWith('uploads/') ? '/' + linkVal : linkVal;
-                if (fileUrlInput) fileUrlInput.value = targetUrl;
-            }
+        // 1. Only consider valid URLs/storage paths as explicit URLs
+        const isExplicitUrl = (u) => {
+            if (!u || typeof u !== 'string') return false;
+            const s = u.trim();
+            return s.startsWith('/uploads/') || s.startsWith('uploads/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('blob:') || s.startsWith('data:');
+        };
+
+        if (!isExplicitUrl(targetUrl) && isExplicitUrl(linkVal)) {
+            targetUrl = linkVal.startsWith('uploads/') ? '/' + linkVal : linkVal;
+            if (fileUrlInput) fileUrlInput.value = targetUrl;
         }
 
-        // 2. If still no targetUrl, attempt server lookup by docName or linkVal
-        if (!targetUrl && (docName || linkVal)) {
+        // 2. If targetUrl is not an explicit URL, it's either empty or a plain filename (e.g. pc04_midshift_voltage_log.jpg).
+        // Query server storage to see if an uploaded evidence file exists for it!
+        if (!isExplicitUrl(targetUrl) && (docName || targetUrl || linkVal)) {
+            const queryName = targetUrl || docName || linkVal;
             const origHtml = btnView ? btnView.innerHTML : '';
             if (btnView) {
                 btnView.disabled = true;
@@ -767,15 +773,18 @@ const Stage6 = {
             }
             try {
                 const pId = (this.projectData && this.projectData.id) || window.currentProjectId || new URLSearchParams(window.location.search).get('id') || '';
-                const queryParam = encodeURIComponent(docName || linkVal);
+                const queryParam = encodeURIComponent(queryName);
                 const res = await api.get(`/projects/evidence/lookup?doc_name=${queryParam}&project_id=${pId}`);
                 if (res && res.found && res.url) {
                     targetUrl = res.url;
                     if (fileUrlInput) fileUrlInput.value = targetUrl;
                     if (fileNameInput && !fileNameInput.value) fileNameInput.value = res.filename || docName;
+                } else {
+                    targetUrl = ''; // Not found in storage!
                 }
             } catch (err) {
                 console.warn('[Stage6] Evidence lookup error:', err);
+                targetUrl = '';
             } finally {
                 if (btnView) {
                     btnView.disabled = false;
@@ -785,12 +794,13 @@ const Stage6 = {
             }
         }
 
-        // 3. If targetUrl found, preview or open
-        if (targetUrl) {
-            this.previewAttachment(targetUrl, docName);
+        // 3. If a valid, verified file URL is found:
+        if (isExplicitUrl(targetUrl)) {
+            this.previewAttachment(targetUrl, docName || fileNameInput?.value || 'Evidence Attachment');
         } else {
-            // No file uploaded or found - NEVER open landing page!
-            const msg = `No uploaded file attachment found for "${docName}". Please click the "Upload" button to attach a photo or document.`;
+            // File is not uploaded to server yet!
+            const missingName = docName || linkVal || 'this document';
+            const msg = `The file "${missingName}" has not been uploaded to the server yet. Please click the "Upload" button to attach the file from your computer.`;
             if (window.OctaQube && OctaQube.toast) {
                 OctaQube.toast(msg, 'warning');
             } else {
@@ -870,7 +880,7 @@ const Stage6 = {
         if (isImage) {
             bodyEl.innerHTML = `
                 <div class="d-flex align-items-center justify-content-center p-2 rounded" style="background:#0b1120; min-height: 400px; max-height: 75vh; overflow: auto;">
-                    <img src="${fullUrl}" alt="${safeTitle}" class="img-fluid rounded" style="max-height: 72vh; max-width: 100%; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'text-center text-white py-5\\'><i data-lucide=\\'image-off\\' style=\\'width:48px;height:48px;opacity:0.6;\\'></i><p class=\\'mt-2 text-sm\\'>Image could not be loaded directly.</p><a href=\\'${fullUrl}\\' target=\\'_blank\\' class=\\'btn btn-light btn-sm mt-1\\'>Open in Tab</a></div>'; if(window.lucide) lucide.createIcons();">
+                    <img src="${fullUrl}" alt="${safeTitle}" class="img-fluid rounded" style="max-height: 72vh; max-width: 100%; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'text-center text-white py-5 px-3\\'><i data-lucide=\\'file-question\\' style=\\'width:48px;height:48px;opacity:0.8;color:#f59e0b;\\'></i><h6 class=\\'mt-3 fw-bold text-white\\'>Attachment File Not Found on Server</h6><p class=\\'text-xs mt-2 mb-3\\' style=\\'color:#94a3b8; max-width:400px; margin:0 auto;\\'>This document or photo has not been uploaded to the server yet. Please click the <strong>Upload</strong> button in the table to attach it.</p><button type=\\'button\\' class=\\'btn btn-outline-light btn-sm mt-1\\' data-bs-dismiss=\\'modal\\'><i data-lucide=\\'arrow-left\\' style=\\'width:13px;height:13px;margin-right:4px;\\'></i> Close &amp; Upload</button></div>'; if(window.lucide) lucide.createIcons();">
                 </div>`;
         } else if (isPdf) {
             bodyEl.innerHTML = `
