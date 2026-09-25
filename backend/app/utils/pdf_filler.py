@@ -484,18 +484,31 @@ def is_image_file(url_or_path):
     img_exts = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.tiff')
     return any(u.endswith(ext) for ext in img_exts)
 
-def resolve_image_to_data_uri(url_or_path):
-    if not url_or_path or not isinstance(url_or_path, str):
+def resolve_image_to_data_uri(url_or_path, fallback_names=None):
+    """
+    Resolves a relative/absolute path, URL, filename, or document name to a Base64 data:image URI.
+    Supports smart disk lookup, timestamp prefix stripping (ev_*_), and token-based matching.
+    """
+    import re
+    if not url_or_path and not fallback_names:
         return None
-    url_or_path = url_or_path.strip()
-    if url_or_path.startswith('data:image/'):
-        return url_or_path
         
-    clean_path = url_or_path.replace('\\', '/')
+    # If already a valid data URI
+    if url_or_path and isinstance(url_or_path, str) and url_or_path.strip().startswith('data:image/'):
+        return url_or_path.strip()
+
+    def clean_name_token(val):
+        if not val or not isinstance(val, str):
+            return ""
+        s = val.strip().lower()
+        if s in ('', '#', 'null', 'undefined', 'none', 'n/a', 'evidence repository', 'sharepoint', 'google drive', 'onedrive'):
+            return ""
+        return val.strip()
+
+    clean_path = str(url_or_path or '').replace('\\', '/').strip()
     clean_url = clean_path.split('?')[0].strip()
-    filename = urllib.parse.unquote(os.path.basename(clean_url))
-    if not filename:
-        return url_or_path
+    raw_filename = urllib.parse.unquote(os.path.basename(clean_url)) if clean_url else ""
+    filename = raw_filename if clean_name_token(raw_filename) else ""
 
     rel_path = clean_url
     if rel_path.startswith('/'):
@@ -503,32 +516,37 @@ def resolve_image_to_data_uri(url_or_path):
     if rel_path.startswith('uploads/'):
         rel_path = rel_path[len('uploads/'):]
 
-    candidate_paths = [
-        clean_url,
-        os.path.join(os.getcwd(), clean_url.lstrip('/')),
-        os.path.join(os.getcwd(), 'uploads', rel_path),
-        os.path.join(os.getcwd(), 'backend', 'uploads', rel_path),
-        os.path.join(os.getcwd(), 'uploads', filename),
-        os.path.join(os.getcwd(), 'backend', 'uploads', filename),
-        os.path.join(os.getcwd(), 'backend', 'uploads', 'project_evidence', filename),
-        os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', rel_path),
-        os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'project_evidence', filename),
-        os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', filename),
-        os.path.join(os.path.dirname(__file__), '..', '..', '..', 'backend', 'uploads', rel_path),
-        os.path.join(os.path.dirname(__file__), '..', '..', '..', 'backend', 'uploads', filename),
-        os.path.join(r'd:\ifqm134\imfq\backend\uploads', rel_path.replace('/', os.sep)),
-        os.path.join(r'd:\ifqm134\imfq\backend\uploads', filename),
-        os.path.join(r'd:\ifqm134\imfq\backend\uploads\project_evidence', filename),
-    ]
+    candidate_paths = []
+    if clean_url and clean_name_token(clean_url):
+        candidate_paths.extend([
+            clean_url,
+            os.path.join(os.getcwd(), clean_url.lstrip('/')),
+            os.path.join(os.getcwd(), 'uploads', rel_path),
+            os.path.join(os.getcwd(), 'backend', 'uploads', rel_path),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', rel_path),
+            os.path.join(r'd:\ifqm134\imfq\backend\uploads', rel_path.replace('/', os.sep)),
+        ])
+    if filename:
+        candidate_paths.extend([
+            os.path.join(os.getcwd(), 'uploads', filename),
+            os.path.join(os.getcwd(), 'backend', 'uploads', filename),
+            os.path.join(os.getcwd(), 'backend', 'uploads', 'project_evidence', filename),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', filename),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'project_evidence', filename),
+            os.path.join(r'd:\ifqm134\imfq\backend\uploads', filename),
+            os.path.join(r'd:\ifqm134\imfq\backend\uploads\project_evidence', filename),
+        ])
     
     try:
         from flask import current_app
         if current_app:
             up_folder = current_app.config.get('UPLOAD_FOLDER')
             if up_folder:
-                candidate_paths.insert(0, os.path.join(up_folder, rel_path.replace('/', os.sep)))
-                candidate_paths.insert(1, os.path.join(up_folder, filename))
-                candidate_paths.insert(2, os.path.join(up_folder, 'project_evidence', filename))
+                if rel_path:
+                    candidate_paths.insert(0, os.path.join(up_folder, rel_path.replace('/', os.sep)))
+                if filename:
+                    candidate_paths.insert(1, os.path.join(up_folder, filename))
+                    candidate_paths.insert(2, os.path.join(up_folder, 'project_evidence', filename))
     except Exception:
         pass
         
@@ -537,24 +555,100 @@ def resolve_image_to_data_uri(url_or_path):
         if cp and os.path.isfile(cp):
             resolved_file = cp
             break
-            
-    if not resolved_file:
+
+    # Build search terms from url_or_path and fallback_names
+    terms = []
+    if filename:
+        terms.append(filename)
+    if fallback_names:
+        if isinstance(fallback_names, (list, tuple)):
+            terms.extend([clean_name_token(t) for t in fallback_names if clean_name_token(t)])
+        elif isinstance(fallback_names, str) and clean_name_token(fallback_names):
+            terms.append(clean_name_token(fallback_names))
+
+    # Smart Search in uploads directories
+    if not resolved_file and terms:
         search_dirs = [
+            os.path.join(os.getcwd(), 'uploads', 'project_evidence'),
+            os.path.join(os.getcwd(), 'backend', 'uploads', 'project_evidence'),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'project_evidence'),
+            os.path.join(os.path.dirname(__file__), 'uploads', 'project_evidence'),
+            r'd:\ifqm134\imfq\backend\uploads\project_evidence',
             os.path.join(os.getcwd(), 'uploads'),
             os.path.join(os.getcwd(), 'backend', 'uploads'),
             os.path.join(os.path.dirname(__file__), '..', '..', 'uploads'),
-            r'd:\ifqm134\imfq\backend\uploads'
+            os.path.join(os.path.dirname(__file__), 'uploads'),
+            r'd:\ifqm134\imfq\backend\uploads',
         ]
+        try:
+            from flask import current_app
+            if current_app:
+                uf = current_app.config.get('UPLOAD_FOLDER')
+                if uf:
+                    search_dirs.insert(0, os.path.join(uf, 'project_evidence'))
+                    search_dirs.insert(1, uf)
+        except Exception:
+            pass
+
+        img_exts = ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg')
+        best_file = None
+        best_score = 0
+
+        # Pre-process search terms
+        processed_terms = []
+        for term in terms:
+            c_term = os.path.splitext(os.path.basename(term.split('?')[0]))[0].lower()
+            c_term = re.sub(r'^(ev_\d+_\d+_|sop_\d+_)', '', c_term)
+            if c_term:
+                toks = [t for t in re.split(r'[-_\s.]+', c_term) if len(t) >= 2]
+                processed_terms.append((term.lower(), c_term, toks))
+
+        seen_dirs = set()
         for sdir in search_dirs:
-            if sdir and os.path.isdir(sdir):
-                for root, _, files in os.walk(sdir):
-                    if filename in files:
-                        resolved_file = os.path.join(root, filename)
+            norm_dir = os.path.normpath(sdir) if sdir else ''
+            if not norm_dir or not os.path.isdir(norm_dir) or norm_dir in seen_dirs:
+                continue
+            seen_dirs.add(norm_dir)
+
+            for root, _, files in os.walk(norm_dir):
+                for f in files:
+                    lower_f = f.lower()
+                    if not any(lower_f.endswith(ext) for ext in img_exts):
+                        continue
+                    f_stem = os.path.splitext(lower_f)[0]
+                    f_unprefixed = re.sub(r'^(ev_\d+_\d+_|sop_\d+_)', '', f_stem)
+
+                    for raw_t, c_term, toks in processed_terms:
+                        score = 0
+                        if lower_f == raw_t or f_unprefixed == c_term:
+                            score = 100
+                        elif lower_f.endswith('_' + c_term + os.path.splitext(lower_f)[1]):
+                            score = 95
+                        elif c_term in f_unprefixed:
+                            score = 90
+                        elif f_unprefixed in c_term and len(f_unprefixed) >= 4:
+                            score = 85
+                        elif toks:
+                            matches = [t for t in toks if t in lower_f]
+                            if len(matches) >= 2 or (len(toks) == 1 and len(matches) == 1):
+                                score = int((len(matches) / len(toks)) * 80)
+
+                        if score > best_score:
+                            best_score = score
+                            best_file = os.path.join(root, f)
+                            if best_score == 100:
+                                break
+                    if best_score == 100:
                         break
-            if resolved_file:
+                if best_score == 100:
+                    break
+            if best_score == 100:
                 break
 
-    if resolved_file:
+        if best_score >= 50 and best_file:
+            resolved_file = best_file
+
+    if resolved_file and os.path.isfile(resolved_file):
         try:
             mime_type, _ = mimetypes.guess_type(resolved_file)
             if not mime_type:
@@ -579,98 +673,170 @@ def resolve_image_to_data_uri(url_or_path):
             
     return url_or_path
 
-def extract_evidence_photos(d2, d6):
+def extract_evidence_photos(d2, d6, d7=None, project_id=None):
     photos = []
+    seen_keys = set()
     
     def clean_txt(val):
         if val is None:
             return ""
         s = str(val).strip()
-        if s.lower() in ('undefined', 'null', 'none', ''):
+        if s.lower() in ('undefined', 'null', 'none', '', '#', 'n/a'):
             return ""
         return s
 
-    # 1. Stage 2 (Section 2.7 Current State Evidence)
+    def is_valid_link(link_str):
+        if not link_str or not isinstance(link_str, str):
+            return False
+        s = link_str.strip().lower()
+        if s in ('', '#', 'null', 'undefined', 'none', 'n/a', 'evidence repository', 'sharepoint', 'google drive', 'onedrive'):
+            return False
+        return True
+
+    def process_evidence_item(item, stage_key, stage_label, tag, default_name, badge_bg, badge_color, badge_border):
+        url = ""
+        file_url = ""
+        raw_url = ""
+        raw_link = ""
+        name = ""
+        file_name = ""
+        uploaded_by = ""
+
+        if isinstance(item, dict):
+            file_url = clean_txt(item.get('file_url'))
+            raw_url = clean_txt(item.get('url') or item.get('path') or item.get('file_path'))
+            raw_link = clean_txt(item.get('link'))
+            name = clean_txt(item.get('document_name') or item.get('name') or item.get('title'))
+            file_name = clean_txt(item.get('file_name') or item.get('filename'))
+            uploaded_by = clean_txt(item.get('uploaded_by') or item.get('owner') or item.get('verified_by'))
+
+            # Prioritize explicit file_url and url before link!
+            if file_url:
+                url = file_url
+            elif raw_url:
+                url = raw_url
+            elif raw_link and is_valid_link(raw_link):
+                url = raw_link
+            elif file_name:
+                url = file_name
+            elif name:
+                url = name
+        elif isinstance(item, str):
+            clean_item = clean_txt(item)
+            if is_valid_link(clean_item):
+                url = clean_item
+                name = os.path.basename(clean_item)
+
+        if not url and not name and not file_name:
+            return
+
+        fallback_terms = []
+        for t in [file_name, name, raw_link if isinstance(item, dict) else '']:
+            if t and is_valid_link(t) and t not in fallback_terms:
+                fallback_terms.append(t)
+
+        resolved_src = resolve_image_to_data_uri(url, fallback_names=fallback_terms)
+        
+        is_img = False
+        if resolved_src and isinstance(resolved_src, str):
+            if resolved_src.startswith('data:image/'):
+                is_img = True
+            elif is_image_file(resolved_src):
+                is_img = True
+            elif is_image_file(url) or is_image_file(file_name) or is_image_file(name):
+                is_img = True
+
+        if is_img:
+            # Dedup key
+            dedup_key = resolved_src if resolved_src.startswith('data:image/') else (url or name or file_name)
+            if dedup_key in seen_keys:
+                return
+            seen_keys.add(dedup_key)
+
+            clean_name = name or file_name
+            if not clean_name and url:
+                clean_name = os.path.basename(url.split('?')[0])
+            if clean_name.startswith('ev_') and '_' in clean_name[3:]:
+                parts = clean_name.split('_', 3)
+                if len(parts) >= 4:
+                    clean_name = parts[3]
+            caption = clean_name or default_name
+            if uploaded_by:
+                caption += f" (by {uploaded_by})"
+
+            photos.append({
+                'stage': stage_key,
+                'stage_label': stage_label,
+                'badge_bg': badge_bg,
+                'badge_color': badge_color,
+                'badge_border': badge_border,
+                'url': resolved_src or url,
+                'name': caption,
+                'tag': tag
+            })
+
+    # 1. Stage 2 (Current State / Before Evidence)
     cs = d2.get('current_state') if isinstance(d2, dict) else {}
     if not isinstance(cs, dict):
         cs = {}
-    
-    s2_media = cs.get('media_files') or d2.get('media_files') or d2.get('evidence_files') or []
+    s2_media = cs.get('media_files') or d2.get('media_files') or d2.get('evidence_files') or d2.get('evidence') or []
     if isinstance(s2_media, list):
         for item in s2_media:
-            url = ""
-            name = ""
-            if isinstance(item, dict):
-                url = item.get('url') or item.get('link') or item.get('path') or ''
-                name = item.get('name') or item.get('filename') or item.get('document_name') or ''
-            elif isinstance(item, str):
-                url = item
-                name = os.path.basename(item)
-            
-            clean_name = clean_txt(name)
-            if not clean_name and url:
-                clean_name = os.path.basename(url.split('?')[0])
-                if clean_name.startswith('ev_') and '_' in clean_name[3:]:
-                    parts = clean_name.split('_', 3)
-                    if len(parts) >= 4:
-                        clean_name = parts[3]
-            
-            if url and is_image_file(url):
-                photos.append({
-                    'stage': 'Stage 2.7',
-                    'stage_label': 'Stage 2.7: Before Evidence',
-                    'badge_bg': '#dbeafe',
-                    'badge_color': '#1e40af',
-                    'badge_border': '#bfdbfe',
-                    'url': url,
-                    'name': clean_name or 'Current State Photo',
-                    'tag': 'Before'
-                })
-                
-    # 2. Stage 6 (Section 6.6 Implementation Evidence)
+            process_evidence_item(
+                item, 'Stage 2.7', 'Stage 2.7: Before Evidence', 'Before', 'Current State Photo',
+                '#dbeafe', '#1e40af', '#bfdbfe'
+            )
+
+    # 2. Stage 6 (Implementation / After Evidence)
     s6_evidence = d6.get('implementation_evidence') or d6.get('evidence') or d6.get('evidence_files') or []
     if isinstance(s6_evidence, list):
         for item in s6_evidence:
-            url = ""
-            name = ""
-            uploaded_by = ""
-            if isinstance(item, dict):
-                url = item.get('link') or item.get('url') or item.get('path') or ''
-                name = item.get('document_name') or item.get('name') or item.get('filename') or ''
-                uploaded_by = item.get('uploaded_by') or ''
-            elif isinstance(item, str):
-                url = item
-                name = os.path.basename(item)
-                
-            clean_name = clean_txt(name)
-            if not clean_name and url:
-                clean_name = os.path.basename(url.split('?')[0])
-                if clean_name.startswith('ev_') and '_' in clean_name[3:]:
-                    parts = clean_name.split('_', 3)
-                    if len(parts) >= 4:
-                        clean_name = parts[3]
+            process_evidence_item(
+                item, 'Stage 6.6', 'Stage 6.6: Implementation Proof', 'After', 'Implementation Proof',
+                '#dcfce7', '#15803d', '#bbf7d0'
+            )
+            
+    # 2b. Stage 6 Countermeasures
+    for cm in (d6.get('countermeasures') or []):
+        if isinstance(cm, dict):
+            cm_url = cm.get('evidence_url') or cm.get('photo') or cm.get('photo_url') or cm.get('attachment')
+            if cm_url:
+                process_evidence_item(
+                    {'file_url': cm_url, 'name': cm.get('countermeasure') or cm.get('action') or 'Countermeasure Evidence', 'uploaded_by': cm.get('owner')},
+                    'Stage 6.4', 'Stage 6.4: Action Evidence', 'After', 'Countermeasure Action',
+                    '#dcfce7', '#15803d', '#bbf7d0'
+                )
 
-            clean_upb = clean_txt(uploaded_by)
+    # 3. Stage 7 Verification Evidence (if d7 provided)
+    if isinstance(d7, dict):
+        s7_evidence = d7.get('verification_evidence') or d7.get('evidence') or d7.get('evidence_files') or d7.get('photos') or []
+        if isinstance(s7_evidence, list):
+            for item in s7_evidence:
+                process_evidence_item(
+                    item, 'Stage 7.3', 'Stage 7.3: Verification Evidence', 'After', 'Verification Proof',
+                    '#ede9fe', '#6d28d9', '#ddd6fe'
+                )
 
-            if url and is_image_file(url):
-                caption = clean_name or 'Implementation Proof'
-                if clean_upb:
-                    caption += f" (by {clean_upb})"
-                photos.append({
-                    'stage': 'Stage 6.6',
-                    'stage_label': 'Stage 6.6: Implementation Proof',
-                    'badge_bg': '#dcfce7',
-                    'badge_color': '#15803d',
-                    'badge_border': '#bbf7d0',
-                    'url': url,
-                    'name': caption,
-                    'tag': 'After'
-                })
-                
+    # 4. Project database fallback scan if project_id is provided and no After photos found
+    if project_id and not any(p['tag'] == 'After' for p in photos):
+        try:
+            wf6 = ProjectWorkflow.query.filter_by(project_id=project_id, stage_id=6).first()
+            if not wf6:
+                wf6 = ProjectWorkflow.query.filter_by(project_id=project_id, stage_id='6').first()
+            if wf6 and isinstance(wf6.data, dict):
+                extra_ev = wf6.data.get('implementation_evidence') or []
+                for it in extra_ev:
+                    process_evidence_item(
+                        it, 'Stage 6.6', 'Stage 6.6: Implementation Proof', 'After', 'Implementation Proof',
+                        '#dcfce7', '#15803d', '#bbf7d0'
+                    )
+        except Exception:
+            pass
+
     return photos
 
-def generate_evidence_collage_html(project_id, d2, d6):
-    photos = extract_evidence_photos(d2, d6)
+def generate_evidence_collage_html(project_id, d2, d6, d7=None):
+    photos = extract_evidence_photos(d2, d6, d7, project_id)
     
     if not photos:
         return '''
@@ -1391,7 +1557,7 @@ def build_qc_story_html(project_id):
 
     control_chart_svg_html = generate_control_chart_comparison_svg(d4, d7)
     histogram_svg_html = generate_histogram_comparison_svg(d2, d4, d7)
-    evidence_collage_html = generate_evidence_collage_html(project_id, d2, d6)
+    evidence_collage_html = generate_evidence_collage_html(project_id, d2, d6, d7)
 
     # Section 9 Sign-Off Table data extraction
     saved_signoff = d8.get('signoff_table') if isinstance(d8.get('signoff_table'), list) else []
