@@ -1,6 +1,54 @@
+import os
 import pytest
 from app.utils.pdf_filler import extract_evidence_photos, generate_evidence_collage_html
 from pdf_template_helper import extract_evidence_photos as helper_extract, generate_evidence_collage_html as helper_collage
+
+# 1x1 valid PNG bytes to serve as mock image
+MOCK_PNG = (
+    b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06'
+    b'\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x03\x00\x08\xfc'
+    b'\x02\xfe\xa7\x9a\xa0\xa0\x00\x00\x00\x00IEND\xaeB`\x82'
+)
+
+TEST_FILENAMES = [
+    'ev_20260828_054804_pc04_before_defect_trend.jpg',
+    'ev_20260828_054804_pc04_electrode_wear.jpg',
+    'ev_20260903_062525_pr05_bushings_replaced.jpg',
+]
+
+@pytest.fixture(autouse=True)
+def ensure_test_evidence_files_exist():
+    """
+    Ensure mock image files exist across all candidate upload paths during tests,
+    then clean up any files that were created specifically by this fixture.
+    """
+    target_dirs = [
+        os.path.join(os.getcwd(), 'uploads', 'project_evidence'),
+        os.path.join(os.getcwd(), 'backend', 'uploads', 'project_evidence'),
+        os.path.join(os.path.dirname(__file__), '..', 'uploads', 'project_evidence'),
+    ]
+    created = []
+    for d in target_dirs:
+        try:
+            os.makedirs(d, exist_ok=True)
+            for fn in TEST_FILENAMES:
+                fp = os.path.join(d, fn)
+                if not os.path.exists(fp):
+                    with open(fp, 'wb') as f:
+                        f.write(MOCK_PNG)
+                    created.append(fp)
+        except Exception:
+            pass
+
+    yield
+
+    for fp in created:
+        try:
+            if os.path.exists(fp):
+                os.remove(fp)
+        except Exception:
+            pass
+
 
 def test_extract_evidence_photos_before_and_after():
     d2 = {

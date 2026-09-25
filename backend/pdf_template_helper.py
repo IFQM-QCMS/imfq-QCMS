@@ -63,7 +63,7 @@ def resolve_image_to_data_uri(url_or_path, fallback_names=None):
             os.path.join(os.getcwd(), 'uploads', rel_path),
             os.path.join(os.getcwd(), 'backend', 'uploads', rel_path),
             os.path.join(os.path.dirname(__file__), 'uploads', rel_path),
-            os.path.join(r'd:\ifqm134\imfq\backend\uploads', rel_path.replace('/', os.sep)),
+            os.path.join(os.path.dirname(__file__), '..', 'uploads', rel_path),
         ])
     if filename:
         candidate_paths.extend([
@@ -72,8 +72,8 @@ def resolve_image_to_data_uri(url_or_path, fallback_names=None):
             os.path.join(os.getcwd(), 'backend', 'uploads', 'project_evidence', filename),
             os.path.join(os.path.dirname(__file__), 'uploads', filename),
             os.path.join(os.path.dirname(__file__), 'uploads', 'project_evidence', filename),
-            os.path.join(r'd:\ifqm134\imfq\backend\uploads', filename),
-            os.path.join(r'd:\ifqm134\imfq\backend\uploads\project_evidence', filename),
+            os.path.join(os.path.dirname(__file__), '..', 'uploads', filename),
+            os.path.join(os.path.dirname(__file__), '..', 'uploads', 'project_evidence', filename),
         ])
     
     try:
@@ -111,11 +111,11 @@ def resolve_image_to_data_uri(url_or_path, fallback_names=None):
             os.path.join(os.getcwd(), 'uploads', 'project_evidence'),
             os.path.join(os.getcwd(), 'backend', 'uploads', 'project_evidence'),
             os.path.join(os.path.dirname(__file__), 'uploads', 'project_evidence'),
-            r'd:\ifqm134\imfq\backend\uploads\project_evidence',
+            os.path.join(os.path.dirname(__file__), '..', 'uploads', 'project_evidence'),
             os.path.join(os.getcwd(), 'uploads'),
             os.path.join(os.getcwd(), 'backend', 'uploads'),
             os.path.join(os.path.dirname(__file__), 'uploads'),
-            r'd:\ifqm134\imfq\backend\uploads',
+            os.path.join(os.path.dirname(__file__), '..', 'uploads'),
         ]
         try:
             from flask import current_app
@@ -284,8 +284,9 @@ def extract_evidence_photos(d2, d6, d7=None, project_id=None):
                 is_img = True
 
         if is_img:
-            # Dedup key
-            dedup_key = resolved_src if resolved_src.startswith('data:image/') else (url or name or file_name)
+            # Dedup key by stage and document identity/content
+            doc_ident = url or file_name or name or ''
+            dedup_key = f"{stage_key}:{doc_ident}" if doc_ident else resolved_src
             if dedup_key in seen_keys:
                 return
             seen_keys.add(dedup_key)
