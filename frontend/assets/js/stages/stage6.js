@@ -457,7 +457,7 @@ const Stage6 = {
             change_management: this.collectRows('s6_changeContainer', ['.r-desc', '.r-own', '.r-sop', '.r-dt'], ['change_description', 'owner', 'sop_updated', 'date']),
             risk_resistance: this.collectRows('s6_riskContainer', ['.r-rsk', '.r-str', '.r-stat'], ['anticipated_risk', 'strategy_executed', 'status']),
             side_effect_analysis: this.collectRows('s6_sideEffectContainer', ['.r-desc', '.r-impact', '.r-mit', '.r-mod'], ['description', 'impact_level', 'mitigation', 'plan_modification_required']),
-            implementation_evidence: this.collectRows('s6_evidenceContainer', ['.r-nam', '.r-lnk', '.r-upb'], ['document_name', 'link', 'uploaded_by']),
+            implementation_evidence: this.collectRows('s6_evidenceContainer', ['.r-nam', '.r-lnk', '.r-upb', '.r-file-url', '.r-file-name'], ['document_name', 'link', 'uploaded_by', 'file_url', 'file_name']),
             communication_training: {
                 communication_log: this.collectRows('s6_commContainer', ['.r-stk', '.r-msg', '.r-dt', '.r-chn'], ['stakeholder', 'message', 'date', 'channel']),
                 training_awareness: this.collectTrainingRows()
@@ -608,23 +608,41 @@ const Stage6 = {
 
     addEvidenceRow(d = {}) {
         const cleanVal = (v) => (!v || String(v).trim().toLowerCase() === 'undefined' || String(v).trim().toLowerCase() === 'null') ? '' : String(v).trim();
-        const docName = cleanVal(d.document_name);
+        const docName = cleanVal(d.document_name || d.name);
         const link = cleanVal(d.link);
         const upBy = cleanVal(d.uploaded_by);
+        let fileUrl = cleanVal(d.file_url || d.url || d.document_url || '');
+        let fileName = cleanVal(d.file_name || d.filename || '');
+
+        if (!fileUrl && link) {
+            if (link.startsWith('/uploads/') || link.startsWith('uploads/') || link.startsWith('ev_') || link.startsWith('http://') || link.startsWith('https://') || link.startsWith('blob:') || link.startsWith('data:') || /\.(pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|webp|svg|txt|csv)($|\?)/i.test(link)) {
+                fileUrl = link.startsWith('uploads/') ? '/' + link : link;
+            }
+        }
+
+        const safeDocName = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(docName) : docName;
+        const safeLink = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(link) : link;
+        const safeUpBy = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(upBy) : upBy;
+        const safeFileUrl = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(fileUrl) : fileUrl;
+        const safeFileName = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(fileName || docName) : (fileName || docName);
+
+        const hasAttachmentOrLink = !!(fileUrl || (link && link !== '#') || docName);
 
         const rowEl = this.addRowTemplate('s6_evidenceContainer', d, `
-            <div class="col-3"><input type="text" class="ds-input r-nam" placeholder="e.g. Calibration Report #CR-2025" value="${docName}" required></div>
-            <div class="col-3"><input type="text" class="ds-input r-lnk" placeholder="e.g. /uploads/... or URL" value="${link}"></div>
-            <div class="col-2"><input type="text" class="ds-input r-upb" placeholder="e.g. Rajesh Kumar" value="${upBy}" required></div>
+            <div class="col-3"><input type="text" class="ds-input r-nam" placeholder="e.g. Calibration Report #CR-2025" value="${safeDocName}" required></div>
+            <div class="col-3"><input type="text" class="ds-input r-lnk" placeholder="e.g. /uploads/... or URL" value="${safeLink}"></div>
+            <div class="col-2"><input type="text" class="ds-input r-upb" placeholder="e.g. Rajesh Kumar" value="${safeUpBy}" required></div>
             <div class="col-3 d-flex align-items-center gap-1">
                 <button type="button" class="btn btn-outline-primary text-xs flex-grow-1 d-flex align-items-center justify-content-center gap-1 btn-upload-ev py-1 px-2" style="height:36px; border-style:dashed; border-width:1.5px; border-radius:8px; font-weight:600; white-space:nowrap; font-size:0.75rem;" title="Upload PDF, PPT, Photo, Document (Max 2MB)">
                     <i data-lucide="upload-cloud" style="width:14px;height:14px;"></i>
                     <span>Upload</span>
                 </button>
-                <a href="${link || '#'}" target="_blank" class="btn btn-primary text-xs d-flex align-items-center justify-content-center gap-1 btn-view-ev ${link ? '' : 'd-none'} py-1 px-2" style="height:36px; border-radius:8px; text-decoration:none; font-weight:600; white-space:nowrap; font-size:0.75rem;" title="View Uploaded Document">
+                <button type="button" class="btn btn-primary text-xs d-flex align-items-center justify-content-center gap-1 btn-view btn-view-ev ${hasAttachmentOrLink ? '' : 'd-none'} py-1 px-2" style="height:36px; border-radius:8px; font-weight:600; white-space:nowrap; font-size:0.75rem;" title="View Uploaded Document / Attachment">
                     <i data-lucide="external-link" style="width:13px;height:13px;"></i> View
-                </a>
+                </button>
                 <input type="file" class="d-none r-file-input" accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.doc,.docx,.txt">
+                <input type="hidden" class="r-file-url" value="${safeFileUrl}">
+                <input type="hidden" class="r-file-name" value="${safeFileName}">
             </div>`);
 
         if (!rowEl) return;
@@ -634,6 +652,8 @@ const Stage6 = {
         const linkInput = rowEl.querySelector('.r-lnk');
         const nameInput = rowEl.querySelector('.r-nam');
         const upbInput = rowEl.querySelector('.r-upb');
+        const fileUrlInput = rowEl.querySelector('.r-file-url');
+        const fileNameInput = rowEl.querySelector('.r-file-name');
         const btnView = rowEl.querySelector('.btn-view-ev');
 
         if (btnUpload && fileInput) {
@@ -642,7 +662,7 @@ const Stage6 = {
                 const file = e.target.files[0];
                 if (!file) return;
 
-                // File size limit: Under 2MB (2 * 1024 * 1024 bytes)
+                // File size limit: Under 2MB
                 if (file.size > 2 * 1024 * 1024) {
                     const errorMsg = `File "${file.name}" exceeds the 2MB size limit (${(file.size / (1024*1024)).toFixed(2)}MB). Please upload a document or photo under 2MB.`;
                     if (window.OctaQube && OctaQube.toast) {
@@ -659,11 +679,15 @@ const Stage6 = {
                     btnUpload.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:12px;height:12px;"></span> Uploading...';
 
                     const res = await api.uploadFile('/projects/upload-evidence', file);
-                    const fileUrl = res.url || res.file_url;
+                    const uploadedUrl = res.url || res.file_url;
 
-                    if (fileUrl) {
-                        if (linkInput) linkInput.value = fileUrl;
+                    if (uploadedUrl) {
+                        if (fileUrlInput) fileUrlInput.value = uploadedUrl;
+                        if (fileNameInput) fileNameInput.value = file.name;
                         if (nameInput && !nameInput.value.trim()) nameInput.value = file.name;
+                        if (linkInput && (!linkInput.value.trim() || linkInput.value.includes('/uploads/'))) {
+                            linkInput.value = uploadedUrl;
+                        }
                         if (upbInput && !upbInput.value.trim()) {
                             try {
                                 const currUser = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
@@ -673,7 +697,6 @@ const Stage6 = {
                             } catch (_) {}
                         }
                         if (btnView) {
-                            btnView.href = fileUrl;
                             btnView.classList.remove('d-none');
                         }
                         if (window.OctaQube && OctaQube.toast) {
@@ -695,20 +718,194 @@ const Stage6 = {
             });
         }
 
-        if (linkInput && btnView) {
-            linkInput.addEventListener('input', (e) => {
-                const val = e.target.value.trim();
-                const safe = (window.OctaQube && OctaQube.sanitizeUrl) ? OctaQube.sanitizeUrl(val) : (val.startsWith('/') || /^https?:\/\//i.test(val) ? val : '');
-                if (safe) {
-                    btnView.href = safe;
-                    btnView.classList.remove('d-none');
-                } else {
-                    btnView.classList.add('d-none');
-                }
+        if (btnView) {
+            btnView.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                StageModules[6].handleViewAttachment(rowEl);
             });
         }
 
+        const updateViewVisibility = () => {
+            if (!btnView) return;
+            const hasSomething = !!(fileUrlInput?.value || linkInput?.value || nameInput?.value);
+            btnView.classList.toggle('d-none', !hasSomething);
+        };
+
+        if (linkInput) linkInput.addEventListener('input', updateViewVisibility);
+        if (nameInput) nameInput.addEventListener('input', updateViewVisibility);
+
         if (window.lucide) lucide.createIcons();
+    },
+
+    async handleViewAttachment(rowEl) {
+        if (!rowEl) return;
+        const fileUrlInput = rowEl.querySelector('.r-file-url');
+        const fileNameInput = rowEl.querySelector('.r-file-name');
+        const linkInput = rowEl.querySelector('.r-lnk');
+        const nameInput = rowEl.querySelector('.r-nam');
+        const btnView = rowEl.querySelector('.btn-view-ev');
+
+        let targetUrl = (fileUrlInput?.value || '').trim();
+        const linkVal = (linkInput?.value || '').trim();
+        const docName = (nameInput?.value || fileNameInput?.value || 'Evidence Attachment').trim();
+
+        // 1. If targetUrl not set, check if linkVal is an actual URL or file path
+        if (!targetUrl && linkVal) {
+            if (linkVal.startsWith('/uploads/') || linkVal.startsWith('uploads/') || linkVal.startsWith('http://') || linkVal.startsWith('https://') || linkVal.startsWith('blob:') || linkVal.startsWith('data:') || /\.(pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|webp|svg|txt|csv)($|\?)/i.test(linkVal)) {
+                targetUrl = linkVal.startsWith('uploads/') ? '/' + linkVal : linkVal;
+                if (fileUrlInput) fileUrlInput.value = targetUrl;
+            }
+        }
+
+        // 2. If still no targetUrl, attempt server lookup by docName or linkVal
+        if (!targetUrl && (docName || linkVal)) {
+            const origHtml = btnView ? btnView.innerHTML : '';
+            if (btnView) {
+                btnView.disabled = true;
+                btnView.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:12px;height:12px;"></span> Searching...';
+            }
+            try {
+                const pId = (this.projectData && this.projectData.id) || window.currentProjectId || new URLSearchParams(window.location.search).get('id') || '';
+                const queryParam = encodeURIComponent(docName || linkVal);
+                const res = await api.get(`/projects/evidence/lookup?doc_name=${queryParam}&project_id=${pId}`);
+                if (res && res.found && res.url) {
+                    targetUrl = res.url;
+                    if (fileUrlInput) fileUrlInput.value = targetUrl;
+                    if (fileNameInput && !fileNameInput.value) fileNameInput.value = res.filename || docName;
+                }
+            } catch (err) {
+                console.warn('[Stage6] Evidence lookup error:', err);
+            } finally {
+                if (btnView) {
+                    btnView.disabled = false;
+                    btnView.innerHTML = origHtml;
+                    if (window.lucide) lucide.createIcons();
+                }
+            }
+        }
+
+        // 3. If targetUrl found, preview or open
+        if (targetUrl) {
+            this.previewAttachment(targetUrl, docName);
+        } else {
+            // No file uploaded or found - NEVER open landing page!
+            const msg = `No uploaded file attachment found for "${docName}". Please click the "Upload" button to attach a photo or document.`;
+            if (window.OctaQube && OctaQube.toast) {
+                OctaQube.toast(msg, 'warning');
+            } else {
+                alert(msg);
+            }
+        }
+    },
+
+    previewAttachment(url, title = 'Document Attachment') {
+        if (!url) return;
+        const cleanUrl = url.trim();
+        const safeTitle = (window.OctaQube && OctaQube.escapeHtml) ? OctaQube.escapeHtml(title) : title;
+        const fullUrl = (window.api && api.getFileUrl) ? api.getFileUrl(cleanUrl) : cleanUrl;
+
+        // Detect file type
+        const lower = cleanUrl.toLowerCase().split('?')[0];
+        const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(lower) || cleanUrl.startsWith('data:image');
+        const isPdf = /\.pdf$/i.test(lower);
+        const isVideo = /\.(mp4|webm|mov|avi|mkv)$/i.test(lower);
+
+        let modalEl = document.getElementById('evidencePreviewModal');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'evidencePreviewModal';
+            modalEl.className = 'modal fade';
+            modalEl.tabIndex = -1;
+            modalEl.setAttribute('aria-hidden', 'true');
+            modalEl.innerHTML = `
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 900px;">
+                    <div class="modal-content glass-card ds-card border-0" style="border: 1px solid var(--ds-border-color) !important; background: var(--ds-bg-card, #ffffff);">
+                        <div class="modal-header border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                                <i data-lucide="paperclip" class="text-primary flex-shrink-0" style="width:18px;height:18px;"></i>
+                                <h6 class="modal-title fw-bold text-main text-truncate mb-0" id="ev_modal_title" style="font-size: 15px;">Attachment Preview</h6>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-0.5 ms-1" id="ev_modal_badge" style="font-size: 10px;">DOC</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm d-flex align-items-center gap-1" id="ev_modal_tab_btn" style="border-radius:6px; font-size:12px; font-weight:600; padding: 4px 10px;">
+                                    <i data-lucide="external-link" style="width:13px;height:13px;"></i> Open in New Tab
+                                </button>
+                                <a href="#" download class="btn btn-primary btn-sm d-flex align-items-center gap-1" id="ev_modal_dl_btn" style="border-radius:6px; font-size:12px; font-weight:600; padding: 4px 10px;">
+                                    <i data-lucide="download" style="width:13px;height:13px;"></i> Download
+                                </a>
+                                <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                        </div>
+                        <div class="modal-body p-3" id="ev_modal_body" style="min-height: 250px; background: rgba(0,0,0,0.02);">
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modalEl);
+        }
+
+        const titleEl = modalEl.querySelector('#ev_modal_title');
+        const badgeEl = modalEl.querySelector('#ev_modal_badge');
+        const tabBtn = modalEl.querySelector('#ev_modal_tab_btn');
+        const dlBtn = modalEl.querySelector('#ev_modal_dl_btn');
+        const bodyEl = modalEl.querySelector('#ev_modal_body');
+
+        if (titleEl) titleEl.textContent = title;
+        if (tabBtn) {
+            tabBtn.onclick = () => {
+                const win = window.open(fullUrl, '_blank', 'noopener,noreferrer');
+                if (win) win.focus();
+            };
+        }
+        if (dlBtn) {
+            dlBtn.href = fullUrl;
+            dlBtn.download = title || 'evidence_attachment';
+        }
+
+        let ext = 'FILE';
+        const match = lower.match(/\.([a-z0-9]+)$/);
+        if (match) ext = match[1].toUpperCase();
+        if (badgeEl) badgeEl.textContent = ext;
+
+        if (isImage) {
+            bodyEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center p-2 rounded" style="background:#0b1120; min-height: 400px; max-height: 75vh; overflow: auto;">
+                    <img src="${fullUrl}" alt="${safeTitle}" class="img-fluid rounded" style="max-height: 72vh; max-width: 100%; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'text-center text-white py-5\\'><i data-lucide=\\'image-off\\' style=\\'width:48px;height:48px;opacity:0.6;\\'></i><p class=\\'mt-2 text-sm\\'>Image could not be loaded directly.</p><a href=\\'${fullUrl}\\' target=\\'_blank\\' class=\\'btn btn-light btn-sm mt-1\\'>Open in Tab</a></div>'; if(window.lucide) lucide.createIcons();">
+                </div>`;
+        } else if (isPdf) {
+            bodyEl.innerHTML = `
+                <div style="height: 75vh; width: 100%; border-radius: 8px; overflow: hidden; background: #525659;">
+                    <iframe src="${fullUrl}#toolbar=1&navpanes=0" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>`;
+        } else if (isVideo) {
+            bodyEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center p-2 rounded bg-dark" style="min-height: 400px; max-height: 75vh;">
+                    <video src="${fullUrl}" controls autoplay class="rounded w-100" style="max-height: 70vh;"></video>
+                </div>`;
+        } else {
+            bodyEl.innerHTML = `
+                <div class="text-center py-5 my-3">
+                    <div class="d-inline-flex p-3 rounded-circle mb-3" style="background: rgba(var(--ds-primary-rgb), 0.1);">
+                        <i data-lucide="file-text" style="width: 48px; height: 48px; color: var(--ds-primary);"></i>
+                    </div>
+                    <h5 class="fw-bold text-main mb-1">${safeTitle}</h5>
+                    <p class="text-xs text-muted mb-4" style="max-width: 400px; margin: 0 auto;">
+                        This document is available for direct viewing and download (${ext} format).
+                    </p>
+                    <div class="d-flex align-items-center justify-content-center gap-2">
+                        <button type="button" class="btn btn-outline-primary" onclick="window.open('${fullUrl}', '_blank', 'noopener,noreferrer')">
+                            <i data-lucide="external-link" style="width:14px;height:14px;margin-right:6px;"></i> Open in Browser
+                        </button>
+                        <a href="${fullUrl}" download="${safeTitle}" class="btn btn-primary">
+                            <i data-lucide="download" style="width:14px;height:14px;margin-right:6px;"></i> Download File
+                        </a>
+                    </div>
+                </div>`;
+        }
+
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
     },
 
     addCommRow(d = {}) {
@@ -720,8 +917,8 @@ const Stage6 = {
     },
 
     addTrainingRow(d = {}) {
-        const fileUrl = d.document_url || d.link || '';
-        const fileName = d.document_name || '';
+        const fileUrl = d.document_url || d.link || d.file_url || '';
+        const fileName = d.document_name || d.name || '';
 
         const rowEl = this.addRowTemplate('s6_trainingContainer', d, `
             <div class="col-3"><input type="text" class="ds-input r-tgt" placeholder="e.g. Line A operators (Shifts A & B)" value="${d.target_group || ''}" required></div>
@@ -733,9 +930,9 @@ const Stage6 = {
                     <i data-lucide="upload-cloud" style="width:13px;height:13px;"></i>
                     <span>Upload</span>
                 </button>
-                <a href="${fileUrl || '#'}" target="_blank" class="btn btn-primary text-xs d-flex align-items-center justify-content-center gap-1 btn-view-tr ${fileUrl ? '' : 'd-none'} py-1 px-2" style="height:34px; border-radius:6px; text-decoration:none; font-weight:600; white-space:nowrap; font-size:0.72rem;" title="${fileName || 'View Document'}">
+                <button type="button" class="btn btn-primary text-xs d-flex align-items-center justify-content-center gap-1 btn-view btn-view-tr ${fileUrl ? '' : 'd-none'} py-1 px-2" style="height:34px; border-radius:6px; font-weight:600; white-space:nowrap; font-size:0.72rem;" title="${fileName || 'View Document'}">
                     <i data-lucide="external-link" style="width:12px;height:12px;"></i> View
-                </a>
+                </button>
                 <input type="file" class="d-none r-doc-file" accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.doc,.docx,.txt">
                 <input type="hidden" class="r-doc-name" value="${fileName}">
                 <input type="hidden" class="r-doc-url" value="${fileUrl}">
@@ -779,8 +976,6 @@ const Stage6 = {
                         if (urlInput) urlInput.value = uploadedUrl;
                         if (nameInput) nameInput.value = file.name;
                         if (btnView) {
-                            const safeUpUrl = (window.OctaQube && OctaQube.sanitizeUrl) ? OctaQube.sanitizeUrl(uploadedUrl) : uploadedUrl;
-                            if (safeUpUrl) btnView.href = safeUpUrl;
                             btnView.title = file.name;
                             btnView.classList.remove('d-none');
                         }
@@ -792,8 +987,26 @@ const Stage6 = {
                     if (window.OctaQube && OctaQube.toast) OctaQube.toast('Upload failed: ' + (err.message || err), 'error');
                 } finally {
                     btnUpload.disabled = false;
-                    btnUpload.innerHTML = '<i data-lucide="upload-cloud" style="width:14px;height:14px;"></i> <span>Upload (Max 2MB)</span>';
+                    btnUpload.innerHTML = '<i data-lucide="upload-cloud" style="width:14px;height:14px;"></i> <span>Upload</span>';
                     if (window.lucide) lucide.createIcons();
+                }
+            });
+        }
+
+        if (btnView) {
+            btnView.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const tUrl = (urlInput?.value || '').trim();
+                const tName = (nameInput?.value || 'Training Document').trim();
+                if (tUrl) {
+                    StageModules[6].previewAttachment(tUrl, tName);
+                } else {
+                    if (window.OctaQube && OctaQube.toast) {
+                        OctaQube.toast('No training document uploaded yet. Please click Upload.', 'warning');
+                    } else {
+                        alert('No training document uploaded yet.');
+                    }
                 }
             });
         }

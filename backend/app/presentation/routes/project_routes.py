@@ -1751,7 +1751,7 @@ def _extract_project_documents_from_db(project):
         elif stg == 6:
             for ev in (d.get('implementation_evidence') or []):
                 if isinstance(ev, dict):
-                    add_doc(6, ev.get('document_name') or ev.get('name') or 'Implementation Evidence', ev.get('link') or ev.get('url'), 'Implementation Evidence')
+                    add_doc(6, ev.get('document_name') or ev.get('name') or 'Implementation Evidence', ev.get('file_url') or ev.get('link') or ev.get('url'), 'Implementation Evidence')
             for cm in (d.get('countermeasures') or []):
                 if isinstance(cm, dict):
                     if cm.get('evidence_url'):
@@ -2896,6 +2896,108 @@ def upload_project_evidence():
             "status": "error",
             "msg": "Failed to save uploaded evidence. Please try again."
         }), 500
+
+
+@project_bp.route('/evidence/lookup', methods=['GET'])
+@jwt_required(optional=True)
+def lookup_evidence_file():
+    """
+    Search for an uploaded evidence or project document by name or reference.
+    Enforces tenant boundaries and returns relative /uploads/... URLs.
+    """
+    import os
+    import re
+    from werkzeug.utils import secure_filename
+    from app.infrastructure.database.models.models import Project
+
+    query = (request.args.get('doc_name') or request.args.get('query') or request.args.get('name') or request.args.get('link') or '').strip()
+    project_id = request.args.get('project_id')
+
+    if not query or query.lower() in ('#', 'null', 'undefined', 'n/a', 'none', 'evidence repository', 'sharepoint'):
+        return jsonify({"status": "success", "found": False, "message": "No valid search query provided."}), 200
+
+    # 1. Search database project workflow documents if project_id provided
+    if project_id and str(project_id).isdigit():
+        try:
+            proj = Project.query.get(int(project_id))
+            if proj:
+                docs = _extract_project_documents_from_db(proj)
+                clean_q = query.lower()
+                for doc in docs:
+                    d_title = (doc.get('title') or '').lower()
+                    d_url = doc.get('url') or ''
+                    if d_url and (clean_q in d_title or d_title in clean_q or clean_q in d_url.lower()):
+                        # Check if d_url is an actual file URL, not generic text
+                        if d_url.startswith('/uploads/') or d_url.startswith('http') or any(d_url.lower().endswith(ext) for ext in ('.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt', '.txt', '.csv')):
+                            return jsonify({
+                                "status": "success",
+                                "found": True,
+                                "url": d_url,
+                                "filename": doc.get('title') or os.path.basename(d_url),
+                                "source": "project_db"
+                            }), 200
+        except Exception as e:
+            pass
+
+    # 2. Search local storage in project_evidence, sop, and uploads folders
+    safe_q = secure_filename(query).lower()
+    stem = os.path.splitext(safe_q)[0] if '.' in safe_q else safe_q
+    tokens = [t for t in re.split(r'[-_\s.]+', stem) if len(t) >= 3]
+
+    upload_dirs = [
+        ('project_evidence', os.path.join(current_app.root_path, '..', 'uploads', 'project_evidence')),
+        ('project_evidence', os.path.join(current_app.root_path, '..', '..', 'uploads', 'project_evidence')),
+        ('sop', os.path.join(current_app.root_path, '..', 'uploads', 'sop')),
+        ('sop', os.path.join(current_app.root_path, '..', '..', 'uploads', 'sop')),
+        ('', os.path.join(current_app.root_path, '..', 'uploads')),
+        ('', os.path.join(current_app.root_path, '..', '..', 'uploads'))
+    ]
+
+    best_match = None
+    best_score = 0
+    best_filename = None
+
+    for subfolder, u_dir in upload_dirs:
+        norm_dir = os.path.abspath(u_dir)
+        if not os.path.isdir(norm_dir):
+            continue
+        try:
+            for fname in os.listdir(norm_dir):
+                fpath = os.path.join(norm_dir, fname)
+                if not os.path.isfile(fpath):
+                    continue
+                lower_fname = fname.lower()
+
+                score = 0
+                if safe_q and safe_q in lower_fname:
+                    score = 100
+                elif stem and stem in lower_fname:
+                    score = 90
+                elif tokens:
+                    matched = [t for t in tokens if t in lower_fname]
+                    if len(matched) >= 2 or (len(tokens) == 1 and len(matched) == 1):
+                        score = int((len(matched) / len(tokens)) * 80)
+
+                if score > best_score:
+                    best_score = score
+                    best_filename = fname
+                    if subfolder:
+                        best_match = f"/uploads/{subfolder}/{fname}"
+                    else:
+                        best_match = f"/uploads/{fname}"
+        except Exception:
+            continue
+
+    if best_match and best_score >= 40:
+        return jsonify({
+            "status": "success",
+            "found": True,
+            "url": best_match,
+            "filename": best_filename,
+            "match_score": best_score
+        }), 200
+
+    return jsonify({"status": "success", "found": False, "message": "No matching evidence file found."}), 200
 
 
 @project_bp.route('/<int:project_id>/close', methods=['POST'])

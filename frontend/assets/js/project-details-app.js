@@ -3522,11 +3522,30 @@ const ProjectApp = {
     },
 
     openDocument(docUrl) {
-        if (!docUrl) return;
-        let finalUrl = docUrl;
+        if (!docUrl || typeof docUrl !== 'string') return;
+        const raw = docUrl.trim();
+        if (!raw || ['#', 'none', 'n/a', 'evidence repository', 'sharepoint', 'null', 'undefined'].includes(raw.toLowerCase())) {
+            if (window.OctaQube && OctaQube.toast) {
+                OctaQube.toast('No uploaded attachment URL found for this item.', 'warning');
+            }
+            return;
+        }
+
+        // Validate if it is a URL or has file extension or valid path
+        const hasExt = /\.(pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|webp|svg|txt|csv)($|\?)/i.test(raw);
+        const isPath = raw.startsWith('/') || raw.startsWith('uploads/') || raw.startsWith('ev_') || raw.startsWith('sop_') || raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:');
+
+        if (!hasExt && !isPath) {
+            if (window.OctaQube && OctaQube.toast) {
+                OctaQube.toast('No direct file attachment linked to this reference.', 'warning');
+            }
+            return;
+        }
+
+        let finalUrl = raw;
         if (finalUrl.startsWith('/uploads/') || finalUrl.startsWith('uploads/')) {
             finalUrl = window.location.origin + (finalUrl.startsWith('/') ? finalUrl : '/' + finalUrl);
-        } else if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+        } else if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:')) {
             if (finalUrl.startsWith('ev_')) {
                 finalUrl = window.location.origin + '/uploads/project_evidence/' + finalUrl;
             } else if (finalUrl.startsWith('sop_')) {
@@ -3543,6 +3562,14 @@ const ProjectApp = {
         }
         const win = window.open(finalUrl, '_blank', 'noopener,noreferrer');
         if (win) win.focus();
+    },
+
+    previewAttachment(url, title) {
+        if (window.StageModules && window.StageModules[6] && typeof window.StageModules[6].previewAttachment === 'function') {
+            window.StageModules[6].previewAttachment(url, title);
+        } else {
+            this.openDocument(url);
+        }
     },
 
     openDeviationPage(type) {
@@ -3634,7 +3661,7 @@ const ProjectApp = {
                 if (Array.isArray(implEv)) {
                     implEv.forEach(ev => {
                         if (typeof ev === 'object' && ev) {
-                            addDoc(6, ev.document_name || ev.name || 'Implementation Evidence', ev.link || ev.url, 'Implementation Evidence');
+                            addDoc(6, ev.document_name || ev.name || 'Implementation Evidence', ev.file_url || ev.link || ev.url, 'Implementation Evidence');
                         }
                     });
                 }
